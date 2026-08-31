@@ -442,3 +442,27 @@ Finalmente se utilizaron las credenciales creadas y los datos de direccion de la
 **evidencias**
 
 ![conexion-mssql](./evidencias/conexion-mssqls.png)
+
+## Resultado final
+
+Se consiguio la ejecucion simultanea de 4 contendores cada uno con un modelo de base de datos distinto usando docker dentro de una maquina virtual de Ubuntu en WSL.
+
+```bash
+docker ps
+```
+**evidencia:**
+
+![docker-ps](./evidencias/docker-ps.png)
+
+Y se consiguio la conexion remota de las bases de datos con DBeaver.
+
+![dveaber](./evidencias/dbeaver-conexiones.png)
+
+## Firma
+
+**Alex Valdelamar Bustamante**  
+Estudiante de Ingeniería de Sistemas  
+Facultad de Ingeniería  
+Universidad de La Guajira  
+Rol: estudiante 
+Fecha del informe de trazabilidad: 30 de agosto de 2026
