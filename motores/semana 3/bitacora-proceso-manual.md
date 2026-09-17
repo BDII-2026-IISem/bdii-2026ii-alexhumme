@@ -477,6 +477,330 @@ Una vez creadas todas las tablas y establecidas las relaciones correspondientes,
 ![alt text](./evidencias/scripts-mysql/image-11.png)
 ![alt text](./evidencias/scripts-mysql/image-12.png)
 
+# Base de datos en MySQL - Gestor Workbench
+
+Para esta etapa se realizó nuevamente la creación de la base de datos MovilCare, utilizando el gestor gráfico **MySQL Workbench**. 
+
+A diferencia de la implementación anterior, en esta ocasión las tablas fueron construidas mediante la interfaz de creación de tablas proporcionada por MySQL Workbench, configurando manualmente los campos, tipos de datos, restricciones, claves primarias, valores predeterminados y relaciones correspondientes.
+
+La estructura utilizada corresponde al modelo previamente definido para MovilCare.
+
+## Conexion con el motor alojado en la maquina virtual
+Lo primero que se hizo fue usar las credenciales que establecimos anteriormente y los datos de la mquina virtual de Ubunti para establacer conexion con el motor de mysql en ejcucion desde el gestor de workbench.
+**Evidencias**
+![editar conexion mysql](image-2.png)
+![conexion mysql](image-1.png)
+
+Lo Siguiente fue la creacion del schema o asignacion de nombre a la nueva base de datos usando la interfaz de usuario de workbench.
+
+**Evidencia**
+![crear schema mysql](image-3.png)
+
+---
+
+## 1. Creación de la tabla `products`
+
+Se inicia la creación de la tabla `products` mediante la opción **Create Table** de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | BIGINT | PK, NN, AI |
+| `sku` | VARCHAR(100) | NN, UNIQUE |
+| `name` | VARCHAR(150) | NN |
+| `description` | TEXT | |
+| `price` | DECIMAL(15,2) | NN |
+| `status` | ENUM('active', 'inactive') | NN, Default: active |
+| `created_at` | DATETIME | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y se habilita la opción **Auto Increment (AI)**. El campo `sku` se configura como único para evitar registros con identificadores de producto repetidos.
+
+El campo `status` permite controlar el estado del producto mediante los valores `active` e `inactive`.
+
+### Evidencia
+
+![Creación de la tabla products en MySQL Workbench](./evidencias/gestor-mysql/image-4.png)
+
+---
+
+## 2. Creación de la tabla `serialized_units`
+
+Se crea la tabla `serialized_units` mediante la interfaz gráfica de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | BIGINT | PK, NN, AI |
+| `name` | VARCHAR(150) | NN |
+| `description` | TEXT | |
+| `status` | ENUM('active', 'inactive') | NN, Default: active |
+| `created_at` | DATETIME | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se configura como clave primaria y con incremento automático. El campo `status` se establece mediante un tipo `ENUM`, restringiendo sus valores a `active` e `inactive`.
+
+### Evidencia
+
+![Creación de la tabla serialized_units en MySQL Workbench](./evidencias/gestor-mysql/image-5.png)
+
+---
+
+## 3. Creación de la tabla `customers`
+
+Se crea la tabla `customers` utilizando la interfaz gráfica de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | BIGINT | PK, NN, AI |
+| `document_type` | VARCHAR(30) | NN |
+| `document_number` | VARCHAR(50) | NN, UNIQUE |
+| `name` | VARCHAR(150) | NN |
+| `phone` | VARCHAR(30) | |
+| `email` | VARCHAR(150) | |
+| `status` | ENUM('active', 'inactive') | NN, Default: active |
+| `created_at` | DATETIME | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con incremento automático. El campo `document_number` se configura como único para evitar la duplicación de documentos de identificación.
+
+### Evidencia
+
+![Creación de la tabla customers en MySQL Workbench](./evidencias/gestor-mysql/image-6.png)
+
+---
+
+## 4. Creación de la tabla `sales`
+
+Se crea la tabla `sales` mediante la interfaz de creación de tablas de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | BIGINT | PK, NN, AI |
+| `customer_id` | BIGINT | NN, FK |
+| `date` | DATETIME | NN, Default: CURRENT_TIMESTAMP |
+| `subtotal` | DECIMAL(15,2) | NN |
+| `taxes` | DECIMAL(15,2) | NN, Default: 0 |
+| `total` | DECIMAL(15,2) | NN |
+| `status` | ENUM('active', 'inactive') | NN, Default: active |
+| `created_at` | DATETIME | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `customer_id` se configura como clave foránea relacionada con el campo `id` de la tabla `customers`.
+
+### Relación
+
+```text
+sales.customer_id → customers.id
+````
+
+### Evidencia
+
+![Creación de la tabla sales en MySQL Workbench](./evidencias/gestor-mysql/image-7.png)
+
+---
+
+## 5. Creación de la tabla `sale_details`
+
+Se crea la tabla `sale_details` utilizando la interfaz gráfica de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo          | Tipo de dato               | Restricciones                  |
+| -------------- | -------------------------- | ------------------------------ |
+| `id`           | BIGINT                     | PK, NN, AI                     |
+| `sale_id`      | BIGINT                     | NN, FK                         |
+| `product_id`   | BIGINT                     | NN, FK                         |
+| `quantity`     | DECIMAL(15,3)              | NN                             |
+| `unit_price`   | DECIMAL(15,2)              | NN                             |
+| `total`        | DECIMAL(15,2)              | NN                             |
+| `observations` | TEXT                       |                                |
+| `status`       | ENUM('active', 'inactive') | NN, Default: active            |
+| `created_at`   | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at`   | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+
+Se establecen dos relaciones mediante claves foráneas:
+
+```text
+sale_details.sale_id → sales.id
+sale_details.product_id → products.id
+```
+
+Estas relaciones permiten asociar cada detalle con la venta y el producto correspondiente.
+
+### Evidencia
+
+![Creación de la tabla sale\_details en MySQL Workbench](./evidencias/gestor-mysql/image-8.png)
+
+---
+
+## 6. Creación de la tabla `warranties`
+
+Se crea la tabla `warranties` mediante la interfaz gráfica de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato               | Restricciones                  |
+| ------------- | -------------------------- | ------------------------------ |
+| `id`          | BIGINT                     | PK, NN, AI                     |
+| `name`        | VARCHAR(150)               | NN                             |
+| `description` | TEXT                       |                                |
+| `status`      | ENUM('active', 'inactive') | NN, Default: active            |
+| `created_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y con incremento automático.
+
+### Evidencia
+
+![Creación de la tabla warranties en MySQL Workbench](./evidencias/gestor-mysql/image-9.png)
+
+---
+
+## 7. Creación de la tabla `service_orders`
+
+Se crea la tabla `service_orders` mediante la interfaz de creación de tablas de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato               | Restricciones                  |
+| ------------- | -------------------------- | ------------------------------ |
+| `id`          | BIGINT                     | PK, NN, AI                     |
+| `customer_id` | BIGINT                     | NN, FK                         |
+| `resource_id` | BIGINT                     |                                |
+| `number`      | VARCHAR(50)                | NN, UNIQUE                     |
+| `opened_at`   | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+| `closed_at`   | DATETIME                   |                                |
+| `total`       | DECIMAL(15,2)              | NN, Default: 0                 |
+| `status`      | ENUM('active', 'inactive') | NN, Default: active            |
+| `created_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `customer_id` se establece como clave foránea relacionada con `customers.id`.
+
+El campo `resource_id` se mantiene como identificador sin clave foránea debido a que el modelo actual no contempla una tabla `resources`.
+
+### Relación
+
+```text
+service_orders.customer_id → customers.id
+```
+
+### Evidencia
+
+![Creación de la tabla service\_orders en MySQL Workbench](./evidencias/gestor-mysql/image-10.png)
+
+---
+
+## 8. Creación de la tabla `diagnostics`
+
+Se crea la tabla `diagnostics` utilizando la interfaz gráfica de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato               | Restricciones                  |
+| ------------- | -------------------------- | ------------------------------ |
+| `id`          | BIGINT                     | PK, NN, AI                     |
+| `name`        | VARCHAR(150)               | NN                             |
+| `description` | TEXT                       |                                |
+| `status`      | ENUM('active', 'inactive') | NN, Default: active            |
+| `created_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con incremento automático.
+
+### Evidencia
+
+![Creación de la tabla diagnostics en MySQL Workbench](./evidencias/gestor-mysql/image-11.png)
+---
+
+## 9. Creación de la tabla `spare_parts`
+
+Se crea la tabla `spare_parts` mediante la interfaz gráfica de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato               | Restricciones                  |
+| ------------- | -------------------------- | ------------------------------ |
+| `id`          | BIGINT                     | PK, NN, AI                     |
+| `name`        | VARCHAR(150)               | NN                             |
+| `description` | TEXT                       |                                |
+| `status`      | ENUM('active', 'inactive') | NN, Default: active            |
+| `created_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y con incremento automático.
+
+### Evidencia
+
+![Creación de la tabla spare\_parts en MySQL Workbench](./evidencias/gestor-mysql/image-12.png)
+---
+
+## 10. Creación de la tabla `spare_part_consumptions`
+
+Se crea la tabla `spare_part_consumptions` mediante la interfaz gráfica de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato               | Restricciones                  |
+| ------------- | -------------------------- | ------------------------------ |
+| `id`          | BIGINT                     | PK, NN, AI                     |
+| `name`        | VARCHAR(150)               | NN                             |
+| `description` | TEXT                       |                                |
+| `status`      | ENUM('active', 'inactive') | NN, Default: active            |
+| `created_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se configura como clave primaria con incremento automático.
+
+### Evidencia
+
+![Creación de la tabla spare\_part\_consumptions en MySQL Workbench](./evidencias/gestor-mysql/image-13.png)
+
+---
+
+## 11. Creación de la tabla `payments`
+
+Finalmente, se crea la tabla `payments` mediante la interfaz gráfica de MySQL Workbench.
+
+La tabla contiene los siguientes campos:
+
+| Campo            | Tipo de dato               | Restricciones                  |
+| ---------------- | -------------------------- | ------------------------------ |
+| `id`             | BIGINT                     | PK, NN, AI                     |
+| `reference_type` | VARCHAR(50)                | NN                             |
+| `reference_id`   | BIGINT                     | NN                             |
+| `method`         | VARCHAR(50)                | NN                             |
+| `amount`         | DECIMAL(15,2)              | NN                             |
+| `date`           | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+| `status`         | ENUM('active', 'inactive') | NN, Default: active            |
+| `created_at`     | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+| `updated_at`     | DATETIME                   | NN, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se configura como clave primaria con incremento automático.
+
+El campo `reference_id` se mantiene sin una clave foránea debido a que `reference_type` permite determinar dinámicamente el tipo de registro al que hace referencia.
+
+### Evidencia
+
+![Creación de la tabla payments en MySQL Workbench](./evidencias/gestor-mysql/image-14.png)
+
+# Diagrama de la base de datos
+
+Una vez finalizada la creación de las tablas mediante la interfaz gráfica de MySQL Workbench, se procede a generar y visualizar el diagrama entidad-relación de la base de datos.
+
+El diagrama permite comprobar visualmente la estructura de las tablas y las relaciones establecidas entre ellas.
+
+### Evidencia
+
+![Diagrama de la base de datos MovilCare en MySQL Workbench](./evidencias/gestor-mysql/image-15.png)
+
 # Base de datos en PostgreSQL - Terminal DBeaver
 
 Para la implementación de la base de datos MovilCare en PostgreSQL se utilizó DBeaver como herramienta de administración. Se mantuvo la misma estructura lógica implementada previamente en MySQL, adaptando únicamente los tipos de datos y elementos de sintaxis correspondientes al motor PostgreSQL.
@@ -511,7 +835,7 @@ CREATE TABLE products (
 
 ### Evidencia
 
-![Crear productos en terminal PostgreSQL](image-1.png)
+![Crear productos en terminal PostgreSQL](./evidencias/scripts-postgres/image-1.png)
 
 ---
 
@@ -541,7 +865,7 @@ CREATE TABLE serialized_units (
 
 ### Evidencia
 
-![Crear unidades serializadas en terminal PostgreSQL](image-2.png)
+![Crear unidades serializadas en terminal PostgreSQL](./evidencias/scripts-postgres/image-2.png)
 
 ---
 
@@ -577,7 +901,7 @@ CREATE TABLE customers (
 
 ### Evidencia
 
-![Crear clientes en terminal PostgreSQL](image-3.png)
+![Crear clientes en terminal PostgreSQL](./evidencias/scripts-postgres/image-3.png)
 
 ---
 
@@ -617,7 +941,7 @@ CREATE TABLE sales (
 
 ### Evidencia
 
-![Crear ventas en terminal PostgreSQL](image-4.png)
+![Crear ventas en terminal PostgreSQL](./evidencias/scripts-postgres/image-4.png)
 
 ---
 
@@ -661,7 +985,7 @@ CREATE TABLE sale_details (
 
 ### Evidencia
 
-![Crear detalles de venta en terminal PostgreSQL](image-5.png)
+![Crear detalles de venta en terminal PostgreSQL](./evidencias/scripts-postgres/image-5.png)
 
 ---
 
@@ -691,7 +1015,7 @@ CREATE TABLE warranties (
 
 ### Evidencia
 
-![Crear garantías en terminal PostgreSQL](image-6.png)
+![Crear garantías en terminal PostgreSQL](./evidencias/scripts-postgres/image-6.png)
 ---
 
 ## 7. Creación de la tabla ServiceOrders
@@ -732,7 +1056,7 @@ CREATE TABLE service_orders (
 
 ### Evidencia
 
-![Crear órdenes de servicio en terminal PostgreSQL](image-7.png)
+![Crear órdenes de servicio en terminal PostgreSQL](./evidencias/scripts-postgres/image-7.png)
 
 > **Nota:** `resource_id` se conserva debido a que forma parte del modelo original. Sin embargo, no se establece la restricción `FOREIGN KEY` porque la tabla `resources` no se encuentra definida actualmente en el modelo.
 
@@ -764,7 +1088,7 @@ CREATE TABLE diagnostics (
 
 ### Evidencia
 
-![Crear diagnósticos en terminal PostgreSQL](image-8.png)
+![Crear diagnósticos en terminal PostgreSQL](./evidencias/scripts-postgres/image-8.png)
 
 ---
 
@@ -794,7 +1118,7 @@ CREATE TABLE spare_parts (
 
 ### Evidencia
 
-![Crear repuestos en terminal PostgreSQL](image-9.png)
+![Crear repuestos en terminal PostgreSQL](./evidencias/scripts-postgres/image-9.png)
 
 ---
 
@@ -824,7 +1148,7 @@ CREATE TABLE spare_part_consumptions (
 
 ### Evidencia
 
-![Crear consumos de repuestos en terminal PostgreSQL](image-10.png)
+![Crear consumos de repuestos en terminal PostgreSQL](./evidencias/scripts-postgres/image-10.png)
 
 ---
 
@@ -860,7 +1184,7 @@ CREATE TABLE payments (
 
 ### Evidencia
 
-![Crear pagos en terminal PostgreSQL](image-11.png)
+![Crear pagos en terminal PostgreSQL](./evidencias/scripts-postgres/image-11.png)
 
 ---
 
@@ -870,7 +1194,7 @@ Una vez creadas todas las tablas y establecidas las relaciones correspondientes,
 
 ### Evidencia
 
-![Diagrama de la base de datos MovilCare en PostgreSQL](image-13.png)
+![Diagrama de la base de datos MovilCare en PostgreSQL](./evidencias/scripts-postgres/image-13.png)
 
 ![alt text](./evidencias/scripts-postgres/image-12.png)
 ---
@@ -889,6 +1213,342 @@ Durante la implementación de MovilCare en PostgreSQL se realizaron las siguient
 | `ON UPDATE CURRENT_TIMESTAMP` | No existe de forma nativa |
 
 > **Nota:** PostgreSQL no dispone de `ON UPDATE CURRENT_TIMESTAMP` como MySQL. Por esta razón, `updated_at` se inicializa con `CURRENT_TIMESTAMP`, pero para actualizar automáticamente este campo cuando se modifique un registro será necesario implementar posteriormente un **trigger**.
+
+
+# Base de datos en Postgresql - gestor pgAmin
+
+Para esta etapa se realizó nuevamente la creación de la base de datos MovilCare utilizando el gestor gráfico **pgAdmin**, herramienta de administración para PostgreSQL.
+
+A diferencia de la implementación anterior realizada mediante scripts SQL en DBeaver, en esta ocasión las tablas fueron construidas utilizando las opciones disponibles en la interfaz gráfica de pgAdmin, configurando manualmente los campos, tipos de datos, valores predeterminados, claves primarias, restricciones y relaciones correspondientes.
+
+La estructura utilizada mantiene el mismo modelo lógico definido para MovilCare.
+
+**Evidencia**
+![Conexion con pgAdmin](./evidencias/gestor-pgadmin/image-1.png)
+
+## 1. Creación de la tabla `products`
+
+Se inicia la creación de la tabla `products` mediante la opción **Create → Table** disponible en pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | BIGINT | PK, NOT NULL, Identity |
+| `sku` | VARCHAR(100) | NOT NULL, UNIQUE |
+| `name` | VARCHAR(150) | NOT NULL |
+| `description` | TEXT | |
+| `price` | NUMERIC(15,2) | NOT NULL |
+| `status` | VARCHAR(10) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y se configura como columna Identity para generar automáticamente los identificadores.
+
+El campo `sku` se configura como único para evitar la duplicación de identificadores de producto.
+
+Para el campo `status` se establece una restricción `CHECK` que permite únicamente los valores `active` e `inactive`.
+
+### Evidencia
+
+![Creación de la tabla products en pgAdmin](./evidencias/gestor-pgadmin/image-2.png)
+
+---
+
+## 2. Creación de la tabla `serialized_units`
+
+Se crea la tabla `serialized_units` mediante la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | BIGINT | PK, NOT NULL, Identity |
+| `name` | VARCHAR(150) | NOT NULL |
+| `description` | TEXT | |
+| `status` | VARCHAR(10) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se configura como clave primaria con generación automática de valores.
+
+El campo `status` se restringe a los valores `active` e `inactive`.
+
+### Evidencia
+
+![Creación de la tabla serialized_units en pgAdmin](./evidencias/gestor-pgadmin/image-3.png)
+
+---
+
+## 3. Creación de la tabla `customers`
+
+Se crea la tabla `customers` mediante la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | BIGINT | PK, NOT NULL, Identity |
+| `document_type` | VARCHAR(30) | NOT NULL |
+| `document_number` | VARCHAR(50) | NOT NULL, UNIQUE |
+| `name` | VARCHAR(150) | NOT NULL |
+| `phone` | VARCHAR(30) | |
+| `email` | VARCHAR(150) | |
+| `status` | VARCHAR(10) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+El campo `document_number` se configura como único para evitar que un mismo documento de identificación sea registrado más de una vez.
+
+### Evidencias
+
+![Creación de la tabla customers en pgAdmin](./evidencias/gestor-pgadmin/image-4.png)
+![alt text](image-5.png)
+
+---
+
+## 4. Creación de la tabla `sales`
+
+Se crea la tabla `sales` mediante la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | BIGINT | PK, NOT NULL, Identity |
+| `customer_id` | BIGINT | NOT NULL, FK |
+| `date` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `subtotal` | NUMERIC(15,2) | NOT NULL |
+| `taxes` | NUMERIC(15,2) | NOT NULL, Default: 0 |
+| `total` | NUMERIC(15,2) | NOT NULL |
+| `status` | VARCHAR(10) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+Se establece una clave foránea entre `customer_id` y el campo `id` de la tabla `customers`.
+
+### Relación
+
+```text
+sales.customer_id → customers.id
+```
+
+### Evidencia
+
+![Creación de la tabla sales en pgAdmin](./evidencias/gestor-pgadmin/image-7.png)
+
+![alt text](image-6.png)
+
+---
+
+## 5. Creación de la tabla `sale_details`
+
+Se crea la tabla `sale_details` utilizando la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo          | Tipo de dato  | Restricciones                        |
+| -------------- | ------------- | ------------------------------------ |
+| `id`           | BIGINT        | PK, NOT NULL, Identity               |
+| `sale_id`      | BIGINT        | NOT NULL, FK                         |
+| `product_id`   | BIGINT        | NOT NULL, FK                         |
+| `quantity`     | NUMERIC(15,3) | NOT NULL                             |
+| `unit_price`   | NUMERIC(15,2) | NOT NULL                             |
+| `total`        | NUMERIC(15,2) | NOT NULL                             |
+| `observations` | TEXT          |                                      |
+| `status`       | VARCHAR(10)   | NOT NULL, Default: active            |
+| `created_at`   | TIMESTAMP     | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at`   | TIMESTAMP     | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+Se establecen dos claves foráneas:
+
+```text
+sale_details.sale_id → sales.id
+sale_details.product_id → products.id
+```
+
+Estas relaciones permiten asociar cada detalle con la venta y el producto correspondiente.
+
+### Evidencia
+
+![Creación de la tabla sale\_details en pgAdmin](./evidencias/gestor-pgadmin/image-9.png)
+![alt text](image-8.png)
+
+---
+
+## 6. Creación de la tabla `warranties`
+
+Se crea la tabla `warranties` mediante la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato | Restricciones                        |
+| ------------- | ------------ | ------------------------------------ |
+| `id`          | BIGINT       | PK, NOT NULL, Identity               |
+| `name`        | VARCHAR(150) | NOT NULL                             |
+| `description` | TEXT         |                                      |
+| `status`      | VARCHAR(10)  | NOT NULL, Default: active            |
+| `created_at`  | TIMESTAMP    | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | TIMESTAMP    | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla warranties en pgAdmin](./evidencias/gestor-pgadmin/image-10.png)
+
+---
+
+## 7. Creación de la tabla `service_orders`
+
+Se crea la tabla `service_orders` mediante la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato  | Restricciones                        |
+| ------------- | ------------- | ------------------------------------ |
+| `id`          | BIGINT        | PK, NOT NULL, Identity               |
+| `customer_id` | BIGINT        | NOT NULL, FK                         |
+| `resource_id` | BIGINT        |                                      |
+| `number`      | VARCHAR(50)   | NOT NULL, UNIQUE                     |
+| `opened_at`   | TIMESTAMP     | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `closed_at`   | TIMESTAMP     |                                      |
+| `total`       | NUMERIC(15,2) | NOT NULL, Default: 0                 |
+| `status`      | VARCHAR(10)   | NOT NULL, Default: active            |
+| `created_at`  | TIMESTAMP     | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | TIMESTAMP     | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `customer_id` se establece como clave foránea relacionada con `customers.id`.
+
+El campo `resource_id` se mantiene sin clave foránea debido a que el modelo actual no contempla una tabla `resources`.
+
+### Relación
+
+```text
+service_orders.customer_id → customers.id
+```
+
+### Evidencia
+
+![Creación de la tabla service\_orders en pgAdmin](./evidencias/gestor-pgadmin/image-13.png)
+![alt text](image-14.png)
+
+---
+
+## 8. Creación de la tabla `diagnostics`
+
+Se crea la tabla `diagnostics` utilizando la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato | Restricciones                        |
+| ------------- | ------------ | ------------------------------------ |
+| `id`          | BIGINT       | PK, NOT NULL, Identity               |
+| `name`        | VARCHAR(150) | NOT NULL                             |
+| `description` | TEXT         |                                      |
+| `status`      | VARCHAR(10)  | NOT NULL, Default: active            |
+| `created_at`  | TIMESTAMP    | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | TIMESTAMP    | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se configura como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla diagnostics en pgAdmin](./evidencias/gestor-pgadmin/image-15.png)
+
+---
+
+## 9. Creación de la tabla `spare_parts`
+
+Se crea la tabla `spare_parts` mediante la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato | Restricciones                        |
+| ------------- | ------------ | ------------------------------------ |
+| `id`          | BIGINT       | PK, NOT NULL, Identity               |
+| `name`        | VARCHAR(150) | NOT NULL                             |
+| `description` | TEXT         |                                      |
+| `status`      | VARCHAR(10)  | NOT NULL, Default: active            |
+| `created_at`  | TIMESTAMP    | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | TIMESTAMP    | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla spare\_parts en pgAdmin](./evidencias/gestor-pgadmin/image-16.png)
+
+---
+
+## 10. Creación de la tabla `spare_part_consumptions`
+
+Se crea la tabla `spare_part_consumptions` mediante la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo         | Tipo de dato | Restricciones                        |
+| ------------- | ------------ | ------------------------------------ |
+| `id`          | BIGINT       | PK, NOT NULL, Identity               |
+| `name`        | VARCHAR(150) | NOT NULL                             |
+| `description` | TEXT         |                                      |
+| `status`      | VARCHAR(10)  | NOT NULL, Default: active            |
+| `created_at`  | TIMESTAMP    | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at`  | TIMESTAMP    | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se configura como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla spare\_part\_consumptions en pgAdmin](./evidencias/gestor-pgadmin/image-17.png)
+
+---
+
+## 11. Creación de la tabla `payments`
+
+Finalmente, se crea la tabla `payments` mediante la interfaz gráfica de pgAdmin.
+
+La tabla contiene los siguientes campos:
+
+| Campo            | Tipo de dato  | Restricciones                        |
+| ---------------- | ------------- | ------------------------------------ |
+| `id`             | BIGINT        | PK, NOT NULL, Identity               |
+| `reference_type` | VARCHAR(50)   | NOT NULL                             |
+| `reference_id`   | BIGINT        | NOT NULL                             |
+| `method`         | VARCHAR(50)   | NOT NULL                             |
+| `amount`         | NUMERIC(15,2) | NOT NULL                             |
+| `date`           | TIMESTAMP     | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `status`         | VARCHAR(10)   | NOT NULL, Default: active            |
+| `created_at`     | TIMESTAMP     | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at`     | TIMESTAMP     | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+El campo `reference_id` se mantiene sin clave foránea debido a que `reference_type` permite determinar el tipo de registro al que hace referencia.
+
+### Evidencia
+
+![Creación de la tabla payments en pgAdmin](./evidencias/gestor-pgadmin/image-18.png)
+
+# Diagrama de la base de datos
+
+Una vez finalizada la creación de todas las tablas mediante la interfaz gráfica de pgAdmin, se procede a verificar la estructura de la base de datos y las relaciones establecidas entre las entidades.
+
+El diagrama permite visualizar gráficamente las tablas y sus respectivas relaciones dentro del modelo de datos de MovilCare.
+
+### Evidencia
+
+![Diagrama de la base de datos MovilCare en pgAdmin](./evidencias/gestor-pgadmin/image-19.png)
+
+**Una precisión para la práctica:** en pgAdmin, el `CHECK` de `status` no se configura dentro del campo como tal; se agrega desde **Constraints → Check** de cada tabla. Para cada tabla debe quedar una restricción equivalente a:
+
+```sql
+CHECK (status IN ('active', 'inactive'))
+```
+
+Así la implementación gráfica conserva exactamente la regla `status = active/inactive` que ya establecimos para el modelo.
 
 # Base de datos en MSSQL Server - Terminal DBeaver
 
@@ -1299,18 +1959,18 @@ CREATE TABLE payments (
 
 ![Crear payments en MSSQL Server](./evidencias/scripts-mssql/image-9.png)
 
-# Diagrama de la base de datos
+## Diagrama de la base de datos
 
 Una vez creadas todas las tablas y establecidas las relaciones correspondientes, se procede a visualizar el diagrama de la base de datos en DBeaver.
 
-### Evidencia
+**Evidencia**
 
 ![Diagrama de la base de datos MovilCare en MSSQL Server](./evidencias/scripts-mssql/image-10.png)
 
 
 ---
 
-# Consideraciones de MSSQL Server
+## Consideraciones de MSSQL Server
 
 Durante la implementación de MovilCare en MSSQL Server se realizaron las siguientes adaptaciones respecto a los demás motores:
 
@@ -1347,6 +2007,392 @@ Todas las tablas cuentan con una columna `status` que permite controlar su estad
 - `inactive`
 
 De esta manera, se mantiene una estructura consistente del modelo de datos entre los diferentes motores de bases de datos.
+
+
+
+# Base de datos en MSSQL Server - gestor SQL Server Management Studio
+
+Para esta etapa se realizó la creación de la base de datos MovilCare utilizando **SQL Server Management Studio (SSMS)** como gestor de administración de SQL Server.
+
+A diferencia de la implementación realizada mediante scripts en DBeaver, en esta ocasión la base de datos y sus tablas fueron construidas mediante las herramientas gráficas proporcionadas por SQL Server Management Studio.
+
+Para la creación de las tablas se configuraron manualmente los campos, tipos de datos, claves primarias, valores predeterminados, restricciones y relaciones correspondientes.
+
+Se mantuvo la estructura lógica definida para MovilCare, realizando las adaptaciones de tipos de datos establecidas para esta implementación.
+
+**Evidencias**
+![conexion SQL server management studio](./evidencias/gestor-mssql/image-20.png)
+
+---
+
+# Creación de la base de datos
+
+Se inicia el proceso desde el explorador de objetos de SQL Server Management Studio, seleccionando la opción **New Database** sobre el apartado **Databases**.
+
+Se establece el nombre de la base de datos como:
+
+`movilcare`
+
+Una vez configurado el nombre, se confirma la creación mediante la opción correspondiente de SQL Server Management Studio.
+
+### Evidencia
+
+![Creación de la base de datos MovilCare en SQL Server Management Studio](./evidencias/gestor-mssql/image-21.png)
+
+
+---
+
+# Creación de tablas
+
+Una vez creada la base de datos `movilcare`, se procede a la creación de cada una de las tablas mediante la opción **Tables → New → Table** de SQL Server Management Studio.
+
+La configuración se realiza individualmente para cada tabla.
+
+## 1. Creación de la tabla `products`
+
+Se crea la tabla `products`, destinada a almacenar la información general de los productos comercializados por el sistema.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `sku` | CHAR(100) | NOT NULL, UNIQUE |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `price` | DECIMAL(15,2) | NOT NULL |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y se configura como columna **Identity**, permitiendo la generación automática de identificadores.
+
+El campo `sku` se establece como único para evitar la duplicación de identificadores de productos.
+
+Para el campo `status` se configura una restricción que permite únicamente los valores `active` e `inactive`.
+
+### Evidencia
+
+![Creación de la tabla products en SQL Server Management Studio](./evidencias/gestor-mssql/image-23.png)
+
+---
+
+## 2. Creación de la tabla `serialized_units`
+
+Se crea la tabla `serialized_units`, destinada a almacenar la información de las unidades que requieren identificación individual.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y como columna Identity.
+
+El campo `status` se configura para aceptar únicamente los valores `active` e `inactive`.
+
+### Evidencia
+
+![Creación de la tabla serialized_units en SQL Server Management Studio](./evidencias/gestor-mssql/image-24.png)
+
+---
+
+## 3. Creación de la tabla `customers`
+
+Se crea la tabla `customers`, destinada a almacenar la información de los clientes registrados en el sistema.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `document_type` | CHAR(30) | NOT NULL |
+| `document_number` | CHAR(50) | NOT NULL, UNIQUE |
+| `name` | CHAR(150) | NOT NULL |
+| `phone` | CHAR(30) | |
+| `email` | CHAR(150) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y como columna Identity.
+
+El campo `document_number` se configura como único para evitar que un mismo documento de identificación sea registrado más de una vez.
+
+### Evidencia
+
+![Creación de la tabla customers en SQL Server Management Studio](./evidencias/gestor-mssql/image-25.png)
+
+---
+
+## 4. Creación de la tabla `sales`
+
+Se crea la tabla `sales`, destinada a registrar las ventas realizadas y su relación con los clientes.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `customer_id` | INT | NOT NULL, FK |
+| `date` | DATE | NOT NULL |
+| `subtotal` | DECIMAL(15,2) | NOT NULL |
+| `taxes` | DECIMAL(15,2) | NOT NULL, Default: 0 |
+| `total` | DECIMAL(15,2) | NOT NULL |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `customer_id` se establece como clave foránea y se relaciona con el campo `id` de la tabla `customers`.
+
+### Relación
+
+```text
+sales.customer_id → customers.id
+```
+
+### Evidencia
+
+![Creación de la tabla sales en SQL Server Management Studio](./evidencias/gestor-mssql/image-27.png)
+![relacion customer sale Management Studio](./evidencias/gestor-mssql/image-26.png)
+
+---
+
+## 5. Creación de la tabla `sale_details`
+
+Se crea la tabla `sale_details`, destinada a almacenar el detalle de los productos incluidos en cada venta.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `sale_id` | INT | NOT NULL, FK |
+| `product_id` | INT | NOT NULL, FK |
+| `quantity` | DECIMAL(15,3) | NOT NULL |
+| `unit_price` | DECIMAL(15,2) | NOT NULL |
+| `total` | DECIMAL(15,2) | NOT NULL |
+| `observations` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+Se establecen dos claves foráneas para relacionar cada detalle con la venta y con el producto correspondiente.
+
+### Relaciones
+
+```text
+sale_details.sale_id → sales.id
+sale_details.product_id → products.id
+```
+
+### Evidencia
+![Creación de la tabla sale_details en SQL Server Management Studio](./evidencias/gestor-mssql/image-28.png)
+![relacion products sale_details sales en SQL Server Management Studio](./evidencias/gestor-mssql/image-29.png)
+
+---
+
+## 6. Creación de la tabla `warranties`
+
+Se crea la tabla `warranties`, destinada a almacenar la información relacionada con las garantías disponibles en el sistema.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y como columna Identity.
+
+### Evidencia
+
+![Creación de la tabla warranties en SQL Server Management Studio](./evidencias/gestor-mssql/image-30.png)
+
+---
+
+## 7. Creación de la tabla `service_orders`
+
+Se crea la tabla `service_orders`, destinada a registrar las órdenes de servicio y su relación con los clientes.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `customer_id` | INT | NOT NULL, FK |
+| `resource_id` | INT | |
+| `number` | CHAR(50) | NOT NULL, UNIQUE |
+| `opened_at` | DATE | NOT NULL |
+| `closed_at` | DATE | |
+| `total` | DECIMAL(15,2) | NOT NULL, Default: 0 |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `customer_id` se establece como clave foránea relacionada con el campo `id` de la tabla `customers`.
+
+El campo `resource_id` se mantiene sin clave foránea debido a que el modelo actual no contempla una tabla `resources`.
+
+### Relación
+
+```text
+service_orders.customer_id → customers.id
+```
+
+### Evidencia
+
+![Creación de la tabla service_orders en SQL Server Management Studio](./evidencias/gestor-mssql/image-32.png)
+![Relacion service orders y customers en SQL Server Management Studio](./evidencias/gestor-mssql/image-31.png)
+
+---
+
+## 8. Creación de la tabla `diagnostics`
+
+Se crea la tabla `diagnostics`, destinada a almacenar la información relacionada con los diagnósticos utilizados en los procesos de servicio técnico.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se configura como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla diagnostics en SQL Server Management Studio](./evidencias/gestor-mssql/image-33.png)
+
+---
+
+## 9. Creación de la tabla `spare_parts`
+
+Se crea la tabla `spare_parts`, destinada a almacenar la información de los repuestos utilizados en los procesos de mantenimiento y reparación.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla spare_parts en SQL Server Management Studio](./evidencias/gestor-mssql/image-34.png)
+
+---
+
+## 10. Creación de la tabla `spare_part_consumptions`
+
+Se crea la tabla `spare_part_consumptions`, destinada a almacenar información relacionada con el consumo de repuestos.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla spare_part_consumptions en SQL Server Management Studio](./evidencias/gestor-mssql/image-35.png)
+
+---
+
+## 11. Creación de la tabla `payments`
+
+Finalmente, se crea la tabla `payments`, destinada a registrar los pagos realizados dentro del sistema.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | INT | PK, NOT NULL, Identity |
+| `reference_type` | CHAR(50) | NOT NULL |
+| `reference_id` | INT | NOT NULL |
+| `method` | CHAR(50) | NOT NULL |
+| `amount` | DECIMAL(15,2) | NOT NULL |
+| `date` | DATE | NOT NULL |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+El campo `reference_id` se mantiene sin clave foránea debido a que `reference_type` permite determinar el tipo de registro al que hace referencia.
+
+### Evidencia
+
+![Creación de la tabla payments en SQL Server Management Studio](./evidencias/gestor-mssql/image-36.png)
+---
+
+# Diagrama de la base de datos
+
+Una vez finalizada la creación de las tablas mediante la interfaz gráfica de SQL Server Management Studio, se procede a verificar la estructura de la base de datos y las relaciones establecidas.
+
+El diagrama permite visualizar gráficamente las tablas que conforman MovilCare y las relaciones establecidas mediante claves foráneas.
+
+### Evidencia
+
+![Diagrama de la base de datos MovilCare en SQL Server Management Studio](./evidencias/gestor-mssql/image-37.png)
+
+---
+
+# Consideraciones de la implementación en SQL Server Management Studio
+
+Para esta implementación se utilizaron tipos de datos definidos específicamente para el ejercicio:
+
+| Elemento | Tipo utilizado |
+|---|---|
+| Identificadores | `INT` |
+| Textos | `CHAR(n)` |
+| Fechas | `DATE` |
+| Fecha de creación y actualización | `DATETIME` |
+| Números reales y valores monetarios | `DECIMAL` |
+| Estado | `CHAR(8)` + `CHECK` |
+| Identificadores automáticos | `IDENTITY` |
+
+El campo `status` se implementó mediante `CHAR(8)` debido a que SQL Server no cuenta con un tipo `ENUM` nativo. La restricción `CHECK` limita los valores permitidos a:
+
+```text
+active
+inactive
+```
+
+Todas las tablas cuentan con los campos `created_at` y `updated_at`, permitiendo registrar la fecha y hora asociadas a la creación y actualización de los registros.
+
+Las relaciones implementadas mediante claves foráneas son:
+
+- `sales.customer_id` → `customers.id`
+- `sale_details.sale_id` → `sales.id`
+- `sale_details.product_id` → `products.id`
+- `service_orders.customer_id` → `customers.id`
 
 # Base de datos en Oracle - Terminal DBeaver
 
@@ -1388,7 +2434,7 @@ CREATE TABLE products (
 
 ### Evidencia
 
-![Crear products en Oracle ](image-2.png)
+![Crear products en Oracle ](./evidencias/scripts-oracle/image-2.png)
 
 ## 2. Creación de la tabla Serialized Units
 
@@ -1411,7 +2457,7 @@ CREATE TABLE serialized_units (
 
 ### Evidencia
 
-![Crear serialized_units en Oracle ](image-3.png)
+![Crear serialized_units en Oracle ](./evidencias/scripts-oracle/image-3.png)
 
 
 ## 3. Creación de la tabla Customers
@@ -1438,7 +2484,7 @@ CREATE TABLE customers (
 
 ### Evidencia
 
-![Crear customers en Oracle ](image-4.png)
+![Crear customers en Oracle ](./evidencias/scripts-oracle/image-4.png)
 
 
 ## 4. Creación de la tabla Sales
@@ -1468,7 +2514,7 @@ CREATE TABLE sales (
 
 ### Evidencia
 
-![Crear sales en Oracle ](image-5.png)
+![Crear sales en Oracle ](./evidencias/scripts-oracle/image-5.png)
 
 
 ## 5. Creación de la tabla Sale Details
@@ -1505,7 +2551,7 @@ CREATE TABLE sale_details (
 
 ### Evidencia
 
-![Crear sale_details en Oracle ](image-6.png)
+![Crear sale_details en Oracle ](./evidencias/scripts-oracle/image-6.png)
 
 ## 6. Creación de la tabla Warranties
 
@@ -1528,7 +2574,7 @@ CREATE TABLE warranties (
 
 ### Evidencia
 
-![Crear warranties en Oracle ](image-7.png)
+![Crear warranties en Oracle ](./evidencias/scripts-oracle/image-7.png)
 
 
 ## 7. Creación de la tabla Service Orders
@@ -1561,7 +2607,7 @@ CREATE TABLE service_orders (
 
 ### Evidencia
 
-![Crear service_orders en Oracle ](image-8.png)
+![Crear service_orders en Oracle ](./evidencias/scripts-oracle/image-8.png)
 
 ## 8. Creación de la tabla Diagnostics
 
@@ -1584,7 +2630,7 @@ CREATE TABLE diagnostics (
 
 ### Evidencia
 
-![Crear diagnostics en Oracle ](image-9.png)
+![Crear diagnostics en Oracle ](./evidencias/scripts-oracle/image-9.png)
 
 
 ## 9. Creación de la tabla Spare Parts
@@ -1608,7 +2654,7 @@ CREATE TABLE spare_parts (
 
 ### Evidencia
 
-![Crear spare_parts en Oracle ](image-10.png)
+![Crear spare_parts en Oracle ](./evidencias/scripts-oracle/image-10.png)
 
 ## 10. Creación de la tabla Spare Part Consumptions
 
@@ -1631,7 +2677,7 @@ CREATE TABLE spare_part_consumptions (
 
 ### Evidencia
 
-![Crear spare_part_consumptions en Oracle ](image-11.png)
+![Crear spare_part_consumptions en Oracle ](./evidencias/scripts-oracle/image-11.png)
 
 
 ## 11. Creación de la tabla Payments
@@ -1658,7 +2704,7 @@ CREATE TABLE payments (
 
 ### Evidencia
 
-![Crear payments en Oracle ](image-12.png)
+![Crear payments en Oracle ](./evidencias/scripts-oracle/image-12.png)
 
 # Diagrama de la base de datos
 
@@ -1666,7 +2712,7 @@ Una vez creadas todas las tablas y establecidas las relaciones correspondientes,
 
 ### Evidencia
 
-![Diagrama de la base de datos MovilCare en Oracle ](image-13.png)
+![Diagrama de la base de datos MovilCare en Oracle ](./evidencias/scripts-oracle/image-13.png)
 
 
 ---
@@ -1705,3 +2751,382 @@ Las relaciones implementadas fueron:
 - `service_orders.customer_id` → `customers.id`
 
 De esta manera, se conserva una estructura de datos consistente entre los cuatro motores de bases de datos utilizados para la implementación de MovilCare: MySQL, PostgreSQL, MSSQL Server y Oracle.
+
+# Base de datos en Oracle - Terminal DBeaver
+
+Para esta etapa se realizó la creación de la estructura de la base de datos MovilCare utilizando **Oracle SQL Developer** como herramienta de administración de Oracle Database.
+
+La conexión se realizó sobre el servicio `XEPDB1`, previamente configurado en la instancia de Oracle XE.
+
+A diferencia de la implementación mediante scripts SQL, en esta ocasión las tablas fueron construidas utilizando las herramientas gráficas proporcionadas por Oracle SQL Developer, configurando manualmente los campos, tipos de datos, claves primarias, valores predeterminados, restricciones y relaciones correspondientes.
+
+La estructura lógica utilizada corresponde al modelo previamente definido para MovilCare.
+
+---
+
+# Conexión a la base de datos
+
+Para iniciar el proceso se establece una conexión desde Oracle SQL Developer hacia el servicio `XEPDB1`.
+
+Una vez realizada la conexión, se utiliza el esquema correspondiente para crear las tablas de la base de datos MovilCare.
+
+En Oracle, a diferencia de otros motores utilizados en el proyecto, no se utiliza una instrucción `USE` para seleccionar la base de datos. La conexión determina el esquema y el servicio sobre el cual se ejecutarán las operaciones.
+
+### Evidencia
+
+![Conexión a Oracle mediante SQL Developer](image-1.png)
+
+---
+
+# Creación de tablas
+
+Una vez establecida la conexión con Oracle, se procede a crear cada una de las tablas mediante la interfaz gráfica de Oracle SQL Developer.
+
+La creación se realiza individualmente para cada tabla, configurando los campos, restricciones y relaciones correspondientes.
+
+## 1. Creación de la tabla `products`
+
+Se crea la tabla `products`, destinada a almacenar la información general de los productos comercializados por el sistema.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `sku` | CHAR(100) | NOT NULL, UNIQUE |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `price` | NUMBER(15,2) | NOT NULL |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y se configura como columna Identity para generar automáticamente los identificadores.
+
+El campo `sku` se configura como único para evitar la duplicación de identificadores de productos.
+
+El campo `status` se configura mediante una restricción `CHECK`, permitiendo únicamente los valores `active` e `inactive`.
+
+### Evidencia
+
+![Creación de la tabla products en Oracle SQL Developer](image-2.png)
+
+---
+
+## 2. Creación de la tabla `serialized_units`
+
+Se crea la tabla `serialized_units`, destinada a almacenar la información de las unidades que requieren identificación individual.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y como columna Identity.
+
+El campo `status` se restringe a los valores `active` e `inactive`.
+
+### Evidencia
+
+![Creación de la tabla serialized_units en Oracle SQL Developer](image-3.png)
+
+---
+
+## 3. Creación de la tabla `customers`
+
+Se crea la tabla `customers`, destinada a almacenar la información de los clientes registrados en el sistema.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `document_type` | CHAR(30) | NOT NULL |
+| `document_number` | CHAR(50) | NOT NULL, UNIQUE |
+| `name` | CHAR(150) | NOT NULL |
+| `phone` | CHAR(30) | |
+| `email` | CHAR(150) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática mediante Identity.
+
+El campo `document_number` se configura como único para evitar que un mismo documento de identificación sea registrado más de una vez.
+
+### Evidencia
+
+![Creación de la tabla customers en Oracle SQL Developer](image-4.png)
+
+---
+
+## 4. Creación de la tabla `sales`
+
+Se crea la tabla `sales`, destinada a registrar las ventas realizadas y su relación con los clientes.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `customer_id` | NUMBER | NOT NULL, FK |
+| `date` | DATE | NOT NULL |
+| `subtotal` | NUMBER(15,2) | NOT NULL |
+| `taxes` | NUMBER(15,2) | NOT NULL, Default: 0 |
+| `total` | NUMBER(15,2) | NOT NULL |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `customer_id` se establece como clave foránea relacionada con el campo `id` de la tabla `customers`.
+
+### Relación
+
+```text
+sales.customer_id → customers.id
+```
+
+### Evidencia
+
+![Creación de la tabla sales en Oracle SQL Developer](image-5.png)
+
+---
+
+## 5. Creación de la tabla `sale_details`
+
+Se crea la tabla `sale_details`, destinada a almacenar el detalle de los productos incluidos en cada venta.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `sale_id` | NUMBER | NOT NULL, FK |
+| `product_id` | NUMBER | NOT NULL, FK |
+| `quantity` | NUMBER(15,3) | NOT NULL |
+| `unit_price` | NUMBER(15,2) | NOT NULL |
+| `total` | NUMBER(15,2) | NOT NULL |
+| `observations` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+Se establecen dos claves foráneas para relacionar cada detalle con la venta y con el producto correspondiente.
+
+### Relaciones
+
+```text
+sale_details.sale_id → sales.id
+sale_details.product_id → products.id
+```
+
+### Evidencia
+
+![Creación de la tabla sale_details en Oracle SQL Developer](image-6.png)
+
+---
+
+## 6. Creación de la tabla `warranties`
+
+Se crea la tabla `warranties`, destinada a almacenar la información relacionada con las garantías disponibles en el sistema.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria y como columna Identity.
+
+### Evidencia
+
+![Creación de la tabla warranties en Oracle SQL Developer](image-7.png)
+
+---
+
+## 7. Creación de la tabla `service_orders`
+
+Se crea la tabla `service_orders`, destinada a registrar las órdenes de servicio y su relación con los clientes.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `customer_id` | NUMBER | NOT NULL, FK |
+| `resource_id` | NUMBER | |
+| `number` | CHAR(50) | NOT NULL, UNIQUE |
+| `opened_at` | DATE | NOT NULL |
+| `closed_at` | DATE | |
+| `total` | NUMBER(15,2) | NOT NULL, Default: 0 |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `customer_id` se establece como clave foránea relacionada con el campo `id` de la tabla `customers`.
+
+El campo `resource_id` se mantiene sin clave foránea debido a que el modelo actual no contempla una tabla `resources`.
+
+### Relación
+
+```text
+service_orders.customer_id → customers.id
+```
+
+### Evidencia
+
+![Creación de la tabla service_orders en Oracle SQL Developer](image-8.png)
+
+---
+
+## 8. Creación de la tabla `diagnostics`
+
+Se crea la tabla `diagnostics`, destinada a almacenar la información relacionada con los diagnósticos utilizados en los procesos de servicio técnico.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se configura como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla diagnostics en Oracle SQL Developer](image-9.png)
+
+---
+
+## 9. Creación de la tabla `spare_parts`
+
+Se crea la tabla `spare_parts`, destinada a almacenar la información de los repuestos utilizados en los procesos de mantenimiento y reparación.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla spare_parts en Oracle SQL Developer](image-10.png)
+
+---
+
+## 10. Creación de la tabla `spare_part_consumptions`
+
+Se crea la tabla `spare_part_consumptions`, destinada a almacenar información relacionada con el consumo de repuestos.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `name` | CHAR(150) | NOT NULL |
+| `description` | CHAR(500) | |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+### Evidencia
+
+![Creación de la tabla spare_part_consumptions en Oracle SQL Developer](image-11.png)
+
+---
+
+## 11. Creación de la tabla `payments`
+
+Finalmente, se crea la tabla `payments`, destinada a registrar los pagos realizados dentro del sistema.
+
+La tabla contiene los siguientes campos:
+
+| Campo | Tipo de dato | Restricciones |
+|---|---|---|
+| `id` | NUMBER | PK, NOT NULL, Identity |
+| `reference_type` | CHAR(50) | NOT NULL |
+| `reference_id` | NUMBER | NOT NULL |
+| `method` | CHAR(50) | NOT NULL |
+| `amount` | NUMBER(15,2) | NOT NULL |
+| `date` | DATE | NOT NULL |
+| `status` | CHAR(8) | NOT NULL, Default: active |
+| `created_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+| `updated_at` | TIMESTAMP | NOT NULL, Default: CURRENT_TIMESTAMP |
+
+El campo `id` se establece como clave primaria con generación automática.
+
+El campo `reference_id` se mantiene sin clave foránea debido a que `reference_type` permite determinar el tipo de registro al que hace referencia.
+
+### Evidencia
+
+![Creación de la tabla payments en Oracle SQL Developer](image-12.png)
+---
+
+# Diagrama de la base de datos
+
+Una vez finalizada la creación de todas las tablas mediante la interfaz gráfica de Oracle SQL Developer, se procede a verificar la estructura de la base de datos y las relaciones establecidas.
+
+El diagrama permite visualizar gráficamente las tablas que conforman MovilCare y las relaciones establecidas mediante claves foráneas.
+
+### Evidencia
+
+![Diagrama de la base de datos MovilCare en Oracle SQL Developer](image-13.png)
+
+---
+
+# Consideraciones de la implementación en Oracle SQL Developer
+
+Para esta implementación se utilizaron los tipos de datos correspondientes a Oracle Database:
+
+| Elemento | Tipo utilizado |
+|---|---|
+| Identificadores | `NUMBER` |
+| Textos | `CHAR(n)` |
+| Fechas | `DATE` |
+| Fecha de creación y actualización | `TIMESTAMP` |
+| Números reales y valores monetarios | `NUMBER(15,2)` |
+| Cantidades con tres decimales | `NUMBER(15,3)` |
+| Estado | `CHAR(8)` + `CHECK` |
+| Identificadores automáticos | `IDENTITY` |
+
+El campo `status` se implementó mediante `CHAR(8)` acompañado de una restricción `CHECK`, debido a que Oracle no utiliza un tipo `ENUM` como MySQL.
+
+Los valores permitidos para el campo son:
+
+```text
+active
+inactive
+```
+
+Todas las tablas cuentan con los campos `created_at` y `updated_at`, destinados a registrar la fecha y hora de creación y actualización de los registros.
+
+Las relaciones implementadas mediante claves foráneas son:
+
+- `sales.customer_id` → `customers.id`
+- `sale_details.sale_id` → `sales.id`
+- `sale_details.product_id` → `products.id`
+- `service_orders.customer_id` → `customers.id`
