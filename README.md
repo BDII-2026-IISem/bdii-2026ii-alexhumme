@@ -6,8 +6,8 @@ Para ver los informes de elaborados sobre cada **issue** en formato Markdown pue
 ## [🔗 Creacion motores de bases de datos en WSL](./motores/instalacion-motores-bd.md) : 
 en esta actividad se hizo uso de Ubuntu alojado en WSL para la creacion de 4 contenedores de Docker cada uno con 1 motor de bases de datos diferente, adicionalmente se crearon usuarios remotos para cada base de datos y se conectaron de manera remota de dbeaver
 
-## [🔗 Creacion de base de datos MSQL ]():
-issue pendiente
+## [🔗 Creacion de base de datos en cada motor ](./motores/semana%203/bitacora-proceso-manual.md):
+En esta actividad se realizo la creacion de la base de datas siguiendo el esquema establecido, el proceso se repitio 8 veces en cada una cambiando de motor o de gestor de bases de datos
 
 ## []()
 
