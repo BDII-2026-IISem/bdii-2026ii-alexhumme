@@ -9,6 +9,7 @@ en esta actividad se hizo uso de Ubuntu alojado en WSL para la creacion de 4 con
 ## [🔗 Creacion de base de datos en cada motor ](./motores/semana%203/bitacora-proceso-manual.md):
 En esta actividad se realizo la creacion de la base de datas siguiendo el esquema establecido, el proceso se repitio 8 veces en cada una cambiando de motor o de gestor de bases de datos
 
-## []()
+## [🔗Realizacion de consultas avanzadas en cada motor ](./motores/semana%205/consultas.md):
+Para esta actividad se realizaron una serie de consultas implementando las diferentes herramientas, metodos, modificadores y estructuras que se pueden implementar en el lenguaje Sql para consultar la informacion de una base de datos
 
 ## []()
