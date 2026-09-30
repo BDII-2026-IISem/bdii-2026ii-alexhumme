@@ -2081,6 +2081,9 @@ CREATE TABLE sales_audit (
 );
 ```
 
+**Evidencia**
+![alt text](image-44.png)
+
 #### Función para auditoría
 
 ```sql
@@ -2147,6 +2150,10 @@ END;
 $$;
 ```
 
+**Evidencia**
+![alt text](image-45.png)
+![alt text](image-46.png)
+
 #### Creación del trigger
 
 ```sql
@@ -2157,13 +2164,16 @@ FOR EACH ROW
 EXECUTE FUNCTION fn_sales_audit();
 ```
 
+**Evidencia**
+![alt text](image-47.png)
+
 #### Creación mediante DBeaver
 
 El trigger se creó mediante la interfaz gráfica de DBeaver, asociado a la tabla `sales`.
 
 **Evidencia:**
 
-![Creación del trigger para sales](postgresql-sales-trigger.png)
+![alt text](image-48.png)
 
 #### Verificación
 
@@ -2174,6 +2184,8 @@ UPDATE sales
 SET total = total + 1000
 WHERE id = 1;
 ```
+**Evidencia**
+![alt text](image-49.png)
 
 Posteriormente se consultaron los registros generados:
 
@@ -2184,8 +2196,7 @@ ORDER BY changed_at DESC;
 ```
 
 **Evidencia:**
-
-![Auditoría de sales](postgresql-sales-audit.png)
+![alt text](image-50.png)
 
 # MS SQL SERVER
 
@@ -2731,6 +2742,9 @@ AND SUM(sd.quantity) >= 50
 ORDER BY total_quantity_sold ASC;
 ```
 
+**Evidencia**
+![alt text](image-51.png)
+
 ### Explicación
 
 La consulta relaciona las tablas `products` y `sale_details` mediante `JOIN` y `ON`.
@@ -2775,6 +2789,8 @@ BEGIN
 
 END;
 ```
+**Evidencia**
+![alt text](image-52.png)
 
 Los parámetros permiten definir el número mínimo de ventas y la cantidad mínima de unidades vendidas.
 
@@ -2801,7 +2817,7 @@ Posteriormente se ingresó el cuerpo del procedimiento y se ejecutó la opción 
 
 **Evidencia:**
 
-![Creación del procedimiento mediante DBeaver](mssql-procedure-create.png)
+![alt text](image-53.png)
 
 ### Llamada al procedimiento
 
@@ -2814,8 +2830,7 @@ EXEC sp_product_sales_report
 ```
 
 **Evidencia:**
-
-![Ejecución del procedimiento mediante DBeaver](mssql-procedure-call.png)
+![alt text](image-54.png)
 
 ---
 
@@ -2854,8 +2869,8 @@ Esta consulta representa:
 La consulta interna obtiene los identificadores de los clientes que aparecen en `sales`. La consulta externa devuelve los clientes cuyo identificador pertenece a ese conjunto.
 
 **Evidencia:**
+![alt text](image-55.png)
 
-![Intersección de conjuntos](mssql-set-intersection.png)
 
 ---
 
@@ -2881,7 +2896,7 @@ La subconsulta obtiene los clientes que tienen ventas activas y `NOT IN` permite
 
 **Evidencia:**
 
-![Diferencia de conjuntos](mssql-set-difference.png)
+![alt text](image-56.png)
 
 ---
 
@@ -2905,7 +2920,7 @@ WHERE s.total > (
 
 **Evidencia:**
 
-![Consulta mediante teoría de conjuntos](mssql-set-subquery.png)
+![alt text](image-57.png)
 
 ---
 
@@ -2943,6 +2958,9 @@ CREATE TABLE customers_audit (
         CHECK (action_type IN ('INSERT', 'UPDATE', 'DELETE'))
 );
 ```
+
+**Evidencia**
+![alt text](image-58.png)
 
 Los campos `before_data` y `after_data` almacenan la información anterior y posterior al cambio.
 
@@ -3054,6 +3072,9 @@ BEGIN
 END;
 ```
 
+**Evidencia**
+![alt text](image-59.png)
+
 ### Creación mediante DBeaver
 
 El trigger fue creado utilizando la interfaz gráfica de DBeaver.
@@ -3066,7 +3087,7 @@ Se configuró el trigger para ejecutarse después de las operaciones `INSERT`, `
 
 **Evidencia:**
 
-![Creación del trigger para customers](mssql-customers-trigger.png)
+![alt text](image-60.png)
 
 ### Verificación de la auditoría
 
@@ -3075,8 +3096,11 @@ Para comprobar el funcionamiento del trigger se realizó una modificación sobre
 ```sql
 UPDATE customers
 SET phone = '3009999999'
-WHERE id = 1;
+WHERE id = 7;
 ```
+
+**Evidencia**
+![alt text](image-61.png)
 
 Posteriormente se consultó la tabla de auditoría:
 
@@ -3087,8 +3111,7 @@ ORDER BY changed_at DESC;
 ```
 
 **Evidencia:**
-
-![Auditoría de customers](mssql-customers-audit.png)
+![alt text](image-62.png)
 
 ---
 
@@ -3112,6 +3135,9 @@ CREATE TABLE sales_audit (
         CHECK (action_type IN ('INSERT', 'UPDATE', 'DELETE'))
 );
 ```
+
+**Evidencia**
+![alt text](image-63.png)
 
 ### Trigger de auditoría
 
@@ -3217,13 +3243,16 @@ BEGIN
 END;
 ```
 
+**Evidencia**
+![alt text](image-64.png)
+
 ### Creación mediante DBeaver
 
 El trigger se creó mediante la interfaz gráfica de DBeaver, asociado a la tabla `sales`.
 
 **Evidencia:**
 
-![Creación del trigger para sales](mssql-sales-trigger.png)
+![alt text](image-65.png)
 
 ### Verificación de la auditoría
 
@@ -3232,8 +3261,10 @@ Se realizó una modificación sobre una venta:
 ```sql
 UPDATE sales
 SET total = total + 1000
-WHERE id = 1;
+WHERE id = 5;
 ```
+**Evidencia**
+![alt text](image-66.png)
 
 Posteriormente se consultaron los registros generados:
 
@@ -3244,8 +3275,7 @@ ORDER BY changed_at DESC;
 ```
 
 **Evidencia:**
-
-![Auditoría de sales](mssql-sales-audit.png)
+![alt text](image-67.png)
 
 # ORACLE XE
 
@@ -3808,6 +3838,9 @@ AND SUM(sd.quantity) >= 50
 ORDER BY total_quantity_sold ASC;
 ```
 
+**Evidencia**
+![alt text](image-68.png)
+
 ### Explicación
 
 La consulta relaciona las tablas `products` y `sale_details` mediante `JOIN` y `ON`.
@@ -3864,6 +3897,9 @@ END;
 /
 ```
 
+**Evidencia**
+![alt text](image-69.png)
+
 El procedimiento recibe los parámetros mediante `p_min_sales` y `p_min_quantity`, ejecuta la consulta y muestra los resultados mediante `DBMS_OUTPUT`.
 
 ### Creación mediante DBeaver
@@ -3889,7 +3925,7 @@ Posteriormente se ingresó el código PL/SQL correspondiente y se ejecutó la op
 
 **Evidencia:**
 
-![Creación del procedimiento mediante DBeaver](oracle-procedure-create.png)
+![alt text](image-70.png)
 
 ### Llamada al procedimiento
 
@@ -3901,7 +3937,7 @@ EXEC sp_product_sales_report(2, 50);
 
 **Evidencia:**
 
-![Ejecución del procedimiento mediante DBeaver](oracle-procedure-call.png)
+![alt text](image-71.png)
 
 ---
 
@@ -3939,7 +3975,7 @@ La subconsulta obtiene los identificadores de los clientes que aparecen en `sale
 
 **Evidencia:**
 
-![Intersección de conjuntos](oracle-set-intersection.png)
+![alt text](image-72.png)
 
 ---
 
@@ -3964,8 +4000,8 @@ Esta consulta representa:
 La subconsulta obtiene los clientes con ventas activas y `NOT IN` permite excluirlos del conjunto general de clientes.
 
 **Evidencia:**
+![alt text](image-73.png)
 
-![Diferencia de conjuntos](oracle-set-difference.png)
 
 ---
 
@@ -3989,7 +4025,7 @@ WHERE s.total > (
 
 **Evidencia:**
 
-![Consulta mediante teoría de conjuntos](oracle-set-subquery.png)
+![alt text](image-74.png)
 
 ---
 
@@ -4025,6 +4061,9 @@ CREATE TABLE customers_audit (
         CHECK (action_type IN ('INSERT', 'UPDATE', 'DELETE'))
 );
 ```
+
+**Evidencia**
+![alt text](image-75.png)
 
 Los campos `before_data` y `after_data` almacenan una representación textual de los datos anteriores y posteriores a la operación.
 
@@ -4113,6 +4152,8 @@ BEGIN
 END;
 /
 ```
+**Evidencia**
+![alt text](image-76.png)
 
 ### Creación mediante DBeaver
 
@@ -4126,7 +4167,7 @@ Se configuró el trigger para ejecutarse después de las operaciones `INSERT`, `
 
 **Evidencia:**
 
-![Creación del trigger para customers](oracle-customers-trigger.png)
+![alt text](image-77.png)
 
 ### Verificación de la auditoría
 
@@ -4137,6 +4178,8 @@ UPDATE customers
 SET phone = '3009999999'
 WHERE id = 1;
 ```
+**Evidencia**
+![alt text](image-78.png)
 
 Posteriormente se consultó la tabla de auditoría:
 
@@ -4148,7 +4191,7 @@ ORDER BY changed_at DESC;
 
 **Evidencia:**
 
-![Auditoría de customers](oracle-customers-audit.png)
+![alt text](image-79.png)
 
 ---
 
@@ -4173,6 +4216,9 @@ CREATE TABLE sales_audit (
 );
 ```
 
+**Evidencia**
+![alt text](image-80.png)
+
 ### Trigger de auditoría
 
 ```sql
@@ -4196,7 +4242,7 @@ BEGIN
             NULL,
             'id=' || :NEW.id
             || ', customer_id=' || :NEW.customer_id
-            || ', date=' || :NEW.date
+            || ', sale_date=' || :NEW.sale_date
             || ', subtotal=' || :NEW.subtotal
             || ', taxes=' || :NEW.taxes
             || ', total=' || :NEW.total
@@ -4216,14 +4262,14 @@ BEGIN
             'UPDATE',
             'id=' || :OLD.id
             || ', customer_id=' || :OLD.customer_id
-            || ', date=' || :OLD.date
+            || ', sale_date=' || :OLD.sale_date
             || ', subtotal=' || :OLD.subtotal
             || ', taxes=' || :OLD.taxes
             || ', total=' || :OLD.total
             || ', status=' || :OLD.status,
             'id=' || :NEW.id
             || ', customer_id=' || :NEW.customer_id
-            || ', date=' || :NEW.date
+            || ', sale_date=' || :NEW.sale_date
             || ', subtotal=' || :NEW.subtotal
             || ', taxes=' || :NEW.taxes
             || ', total=' || :NEW.total
@@ -4243,7 +4289,7 @@ BEGIN
             'DELETE',
             'id=' || :OLD.id
             || ', customer_id=' || :OLD.customer_id
-            || ', date=' || :OLD.date
+            || ', sale_date=' || :OLD.sale_date
             || ', subtotal=' || :OLD.subtotal
             || ', taxes=' || :OLD.taxes
             || ', total=' || :OLD.total
@@ -4257,13 +4303,15 @@ END;
 /
 ```
 
+**Evidencia**
+![alt text](image-81.png)
+
 ### Creación mediante DBeaver
 
 El trigger se creó mediante la interfaz gráfica de DBeaver, asociado a la tabla `sales`.
 
 **Evidencia:**
-
-![Creación del trigger para sales](oracle-sales-trigger.png)
+![alt text](image-82.png)
 
 ### Verificación de la auditoría
 
@@ -4275,6 +4323,8 @@ SET total = total + 1000
 WHERE id = 1;
 ```
 
+![alt text](image-83.png)
+
 Posteriormente se consultaron los registros generados:
 
 ```sql
@@ -4285,4 +4335,4 @@ ORDER BY changed_at DESC;
 
 **Evidencia:**
 
-![Auditoría de sales](oracle-sales-audit.png)
+![alt text](image-84.png)
