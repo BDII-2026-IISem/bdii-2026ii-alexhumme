@@ -622,7 +622,7 @@ AND SUM(sd.quantity) >= 50
 ORDER BY total_quantity_sold ASC;
 ```
 **Ejecucion**
-![alt text](image-2.png)
+![alt text](./evidencias/image-2.png)
 
 ### Explicación
 
@@ -688,7 +688,7 @@ En el formulario se estableció el nombre:
 `sp_product_sales_report`
 
 **Evidencia**
-![alt text](image-3.png)
+![alt text](./evidencias/image-3.png)
 
 Posteriormente se agregaron los parámetros:
 
@@ -701,7 +701,7 @@ Finalmente se ingresó la consulta dentro del cuerpo del procedimiento y se ejec
 
 **Evidencia:**
 
-![alt text](image-4.png)
+![alt text](./evidencias/image-4.png)
 
 ### Llamada al procedimiento
 
@@ -713,7 +713,7 @@ CALL sp_product_sales_report(2, 50);
 
 **Evidencia:**
 
-![alt text](image-5.png)
+![alt text](./evidencias/image-5.png)
 
 ---
 
@@ -751,7 +751,7 @@ La subconsulta obtiene los identificadores de los clientes que aparecen en `sale
 
 **Evidencia:**
 
-![alt text](image-6.png)
+![alt text](./evidencias/image-6.png)
 
 ---
 
@@ -777,7 +777,7 @@ La consulta principal representa el conjunto de clientes registrados, mientras q
 
 **Evidencia:**
 
-![alt text](image-7.png)
+![alt text](./evidencias/image-7.png)
 
 ---
 
@@ -803,7 +803,7 @@ Esta consulta combina una relación entre conjuntos mediante `JOIN` con una subc
 
 **Evidencia:**
 
-![alt text](image-8.png)
+![alt text](./evidencias/image-8.png)
 
 ---
 
@@ -840,7 +840,7 @@ CREATE TABLE customers_audit (
 ```
 
 **Evidencia**
-![alt text](image-9.png)
+![alt text](./evidencias/image-9.png)
 
 Los campos `before_data` y `after_data` permiten almacenar el estado anterior y posterior del registro utilizando información en formato JSON.
 
@@ -880,8 +880,8 @@ END $$
 DELIMITER ;
 ```
 **Evidencia**
-![alt text](image-13.png)
-![alt text](image-14.png)
+![alt text](./evidencias/image-13.png)
+![alt text](./evidencias/image-14.png)
 
 #### Trigger para UPDATE
 
@@ -927,8 +927,8 @@ END $$
 DELIMITER ;
 ```
 **Evidencia**
-![alt text](image-15.png)
-![alt text](image-16.png)
+![alt text](./evidencias/image-15.png)
+![alt text](./evidencias/image-16.png)
 
 #### Trigger para DELETE
 
@@ -967,8 +967,8 @@ DELIMITER ;
 ```
 
 **Evidencia**
-![alt text](image-17.png)
-![alt text](image-18.png)
+![alt text](./evidencias/image-17.png)
+![alt text](./evidencias/image-18.png)
 
 #### Creación mediante DBeaver
 
@@ -982,7 +982,7 @@ Se configuraron los triggers correspondientes a las operaciones `INSERT`, `UPDAT
 
 **Evidencia:**
 
-![alt text](image-19.png)
+![alt text](./evidencias/image-19.png)
 
 #### Verificación de la auditoría
 
@@ -995,7 +995,7 @@ WHERE id = 1;
 ```
 
 **Evidencias**
-![alt text](image-20.png)
+![alt text](./evidencias/image-20.png)
 
 Se consultó la tabla de auditoría:
 
@@ -1007,7 +1007,7 @@ ORDER BY changed_at DESC;
 
 **Evidencia:**
 
-![alt text](image-21.png)
+![alt text](./evidencias/image-21.png)
 
 ---
 
@@ -1030,7 +1030,7 @@ CREATE TABLE sales_audit (
 ```
 
 **Evidencia**
-![alt text](image-22.png)
+![alt text](./evidencias/image-22.png)
 
 #### Trigger para INSERT
 
@@ -1068,8 +1068,8 @@ END $$
 DELIMITER ;
 ```
 **Evidencias**
-![alt text](image-23.png)
-![alt text](image-24.png)
+![alt text](./evidencias/image-23.png)
+![alt text](./evidencias/image-24.png)
 
 #### Trigger para UPDATE
 
@@ -1116,8 +1116,8 @@ DELIMITER ;
 ```
 
 **Evidencias**
-![alt text](image-26.png)
-![alt text](image-27.png)
+![alt text](./evidencias/image-26.png)
+![alt text](./evidencias/image-27.png)
 
 #### Trigger para DELETE
 
@@ -1156,8 +1156,8 @@ DELIMITER ;
 ```
 
 **Evidencias**
-![alt text](image-28.png)
-![alt text](image-29.png)
+![alt text](./evidencias/image-28.png)
+![alt text](./evidencias/image-29.png)
 
 #### Creación mediante DBeaver
 
@@ -1165,7 +1165,7 @@ Los triggers fueron creados utilizando la interfaz gráfica de DBeaver, accedien
 
 **Evidencia:**
 
-![alt text](image-30.png)
+![alt text](./evidencias/image-30.png)
 
 #### Verificación de la auditoría
 
@@ -1177,7 +1177,7 @@ SET total = total + 1000
 WHERE id = 1;
 ```
 **Evidencias**
-![alt text](image-31.png)
+![alt text](./evidencias/image-31.png)
 
 Posteriormente se consultaron los registros generados en la tabla de auditoría:
 
@@ -1188,7 +1188,7 @@ ORDER BY changed_at DESC;
 ```
 
 **Evidencia:**
-![alt text](image-32.png)
+![alt text](./evidencias/image-32.png)
 
 
 # POSTGRESQL
@@ -1733,7 +1733,7 @@ ORDER BY total_quantity_sold ASC;
 ```
 
 **Evidencia**
-![alt text](image-33.png)
+![alt text](./evidencias/image-33.png)
 
 ### Explicación
 
@@ -1802,7 +1802,7 @@ Posteriormente se configuró el cuerpo del procedimiento y se ejecutó la opció
 
 **Evidencia:**
 
-![alt text](image-34.png)
+![alt text](./evidencias/image-34.png)
 
 ### Llamada al procedimiento
 
@@ -1824,7 +1824,7 @@ COMMIT;
 
 **Evidencia:**
 
-![alt text](image-35.png)
+![alt text](./evidencias/image-35.png)
 
 ---
 
@@ -1858,7 +1858,7 @@ Se obtienen los clientes que pertenecen al conjunto de clientes registrados y qu
 
 **Evidencia:**
 
-![alt text](image-36.png)
+![alt text](./evidencias/image-36.png)
 
 ---
 
@@ -1884,7 +1884,7 @@ La subconsulta obtiene los clientes con ventas activas y `NOT IN` permite exclui
 
 **Evidencia:**
 
-![alt text](image-37.png)
+![alt text](./evidencias/image-37.png)
 
 ---
 
@@ -1908,7 +1908,7 @@ WHERE s.total > (
 
 **Evidencia:**
 
-![alt text](image-38.png)
+![alt text](./evidencias/image-38.png)
 
 ---
 
@@ -1944,7 +1944,7 @@ CREATE TABLE customers_audit (
 ```
 
 **Evidencias**
-![alt text](image-39.png)
+![alt text](./evidencias/image-39.png)
 
 #### Función para auditoría
 
@@ -2015,7 +2015,7 @@ $$;
 ```
 
 **Evidencia**
-![alt text](image-40.png)
+![alt text](./evidencias/image-40.png)
 
 #### Creación del trigger
 
@@ -2033,7 +2033,7 @@ La función y el trigger fueron creados mediante la interfaz de DBeaver, utiliza
 
 **Evidencia:**
 
-![alt text](image-41.png)
+![alt text](./evidencias/image-41.png)
 
 #### Verificación
 
@@ -2046,7 +2046,7 @@ WHERE id = 1;
 ```
 
 **Evidencias**
-![alt text](image-42.png)
+![alt text](./evidencias/image-42.png)
 
 Posteriormente se consultó la tabla de auditoría:
 
@@ -2058,7 +2058,7 @@ ORDER BY changed_at DESC;
 
 **Evidencia:**
 
-![alt text](image-43.png)
+![alt text](./evidencias/image-43.png)
 
 ---
 
@@ -2082,7 +2082,7 @@ CREATE TABLE sales_audit (
 ```
 
 **Evidencia**
-![alt text](image-44.png)
+![alt text](./evidencias/image-44.png)
 
 #### Función para auditoría
 
@@ -2151,8 +2151,8 @@ $$;
 ```
 
 **Evidencia**
-![alt text](image-45.png)
-![alt text](image-46.png)
+![alt text](./evidencias/image-45.png)
+![alt text](./evidencias/image-46.png)
 
 #### Creación del trigger
 
@@ -2165,7 +2165,7 @@ EXECUTE FUNCTION fn_sales_audit();
 ```
 
 **Evidencia**
-![alt text](image-47.png)
+![alt text](./evidencias/image-47.png)
 
 #### Creación mediante DBeaver
 
@@ -2173,7 +2173,7 @@ El trigger se creó mediante la interfaz gráfica de DBeaver, asociado a la tabl
 
 **Evidencia:**
 
-![alt text](image-48.png)
+![alt text](./evidencias/image-48.png)
 
 #### Verificación
 
@@ -2185,7 +2185,7 @@ SET total = total + 1000
 WHERE id = 1;
 ```
 **Evidencia**
-![alt text](image-49.png)
+![alt text](./evidencias/image-49.png)
 
 Posteriormente se consultaron los registros generados:
 
@@ -2196,7 +2196,7 @@ ORDER BY changed_at DESC;
 ```
 
 **Evidencia:**
-![alt text](image-50.png)
+![alt text](./evidencias/image-50.png)
 
 # MS SQL SERVER
 
@@ -2743,7 +2743,7 @@ ORDER BY total_quantity_sold ASC;
 ```
 
 **Evidencia**
-![alt text](image-51.png)
+![alt text](./evidencias/image-51.png)
 
 ### Explicación
 
@@ -2790,7 +2790,7 @@ BEGIN
 END;
 ```
 **Evidencia**
-![alt text](image-52.png)
+![alt text](./evidencias/image-52.png)
 
 Los parámetros permiten definir el número mínimo de ventas y la cantidad mínima de unidades vendidas.
 
@@ -2817,7 +2817,7 @@ Posteriormente se ingresó el cuerpo del procedimiento y se ejecutó la opción 
 
 **Evidencia:**
 
-![alt text](image-53.png)
+![alt text](./evidencias/image-53.png)
 
 ### Llamada al procedimiento
 
@@ -2830,7 +2830,7 @@ EXEC sp_product_sales_report
 ```
 
 **Evidencia:**
-![alt text](image-54.png)
+![alt text](./evidencias/image-54.png)
 
 ---
 
@@ -2869,7 +2869,7 @@ Esta consulta representa:
 La consulta interna obtiene los identificadores de los clientes que aparecen en `sales`. La consulta externa devuelve los clientes cuyo identificador pertenece a ese conjunto.
 
 **Evidencia:**
-![alt text](image-55.png)
+![alt text](./evidencias/image-55.png)
 
 
 ---
@@ -2896,7 +2896,7 @@ La subconsulta obtiene los clientes que tienen ventas activas y `NOT IN` permite
 
 **Evidencia:**
 
-![alt text](image-56.png)
+![alt text](./evidencias/image-56.png)
 
 ---
 
@@ -2920,7 +2920,7 @@ WHERE s.total > (
 
 **Evidencia:**
 
-![alt text](image-57.png)
+![alt text](./evidencias/image-57.png)
 
 ---
 
@@ -2960,7 +2960,7 @@ CREATE TABLE customers_audit (
 ```
 
 **Evidencia**
-![alt text](image-58.png)
+![alt text](./evidencias/image-58.png)
 
 Los campos `before_data` y `after_data` almacenan la información anterior y posterior al cambio.
 
@@ -3073,7 +3073,7 @@ END;
 ```
 
 **Evidencia**
-![alt text](image-59.png)
+![alt text](./evidencias/image-59.png)
 
 ### Creación mediante DBeaver
 
@@ -3087,7 +3087,7 @@ Se configuró el trigger para ejecutarse después de las operaciones `INSERT`, `
 
 **Evidencia:**
 
-![alt text](image-60.png)
+![alt text](./evidencias/image-60.png)
 
 ### Verificación de la auditoría
 
@@ -3100,7 +3100,7 @@ WHERE id = 7;
 ```
 
 **Evidencia**
-![alt text](image-61.png)
+![alt text](./evidencias/image-61.png)
 
 Posteriormente se consultó la tabla de auditoría:
 
@@ -3111,7 +3111,7 @@ ORDER BY changed_at DESC;
 ```
 
 **Evidencia:**
-![alt text](image-62.png)
+![alt text](./evidencias/image-62.png)
 
 ---
 
@@ -3137,7 +3137,7 @@ CREATE TABLE sales_audit (
 ```
 
 **Evidencia**
-![alt text](image-63.png)
+![alt text](./evidencias/image-63.png)
 
 ### Trigger de auditoría
 
@@ -3244,7 +3244,7 @@ END;
 ```
 
 **Evidencia**
-![alt text](image-64.png)
+![alt text](./evidencias/image-64.png)
 
 ### Creación mediante DBeaver
 
@@ -3252,7 +3252,7 @@ El trigger se creó mediante la interfaz gráfica de DBeaver, asociado a la tabl
 
 **Evidencia:**
 
-![alt text](image-65.png)
+![alt text](./evidencias/image-65.png)
 
 ### Verificación de la auditoría
 
@@ -3264,7 +3264,7 @@ SET total = total + 1000
 WHERE id = 5;
 ```
 **Evidencia**
-![alt text](image-66.png)
+![alt text](./evidencias/image-66.png)
 
 Posteriormente se consultaron los registros generados:
 
@@ -3275,7 +3275,7 @@ ORDER BY changed_at DESC;
 ```
 
 **Evidencia:**
-![alt text](image-67.png)
+![alt text](./evidencias/image-67.png)
 
 # ORACLE XE
 
@@ -3839,7 +3839,7 @@ ORDER BY total_quantity_sold ASC;
 ```
 
 **Evidencia**
-![alt text](image-68.png)
+![alt text](./evidencias/image-68.png)
 
 ### Explicación
 
@@ -3898,7 +3898,7 @@ END;
 ```
 
 **Evidencia**
-![alt text](image-69.png)
+![alt text](./evidencias/image-69.png)
 
 El procedimiento recibe los parámetros mediante `p_min_sales` y `p_min_quantity`, ejecuta la consulta y muestra los resultados mediante `DBMS_OUTPUT`.
 
@@ -3925,7 +3925,7 @@ Posteriormente se ingresó el código PL/SQL correspondiente y se ejecutó la op
 
 **Evidencia:**
 
-![alt text](image-70.png)
+![alt text](./evidencias/image-70.png)
 
 ### Llamada al procedimiento
 
@@ -3937,7 +3937,7 @@ EXEC sp_product_sales_report(2, 50);
 
 **Evidencia:**
 
-![alt text](image-71.png)
+![alt text](./evidencias/image-71.png)
 
 ---
 
@@ -3975,7 +3975,7 @@ La subconsulta obtiene los identificadores de los clientes que aparecen en `sale
 
 **Evidencia:**
 
-![alt text](image-72.png)
+![alt text](./evidencias/image-72.png)
 
 ---
 
@@ -4000,7 +4000,7 @@ Esta consulta representa:
 La subconsulta obtiene los clientes con ventas activas y `NOT IN` permite excluirlos del conjunto general de clientes.
 
 **Evidencia:**
-![alt text](image-73.png)
+![alt text](./evidencias/image-73.png)
 
 
 ---
@@ -4025,7 +4025,7 @@ WHERE s.total > (
 
 **Evidencia:**
 
-![alt text](image-74.png)
+![alt text](./evidencias/image-74.png)
 
 ---
 
@@ -4063,7 +4063,7 @@ CREATE TABLE customers_audit (
 ```
 
 **Evidencia**
-![alt text](image-75.png)
+![alt text](./evidencias/image-75.png)
 
 Los campos `before_data` y `after_data` almacenan una representación textual de los datos anteriores y posteriores a la operación.
 
@@ -4153,7 +4153,7 @@ END;
 /
 ```
 **Evidencia**
-![alt text](image-76.png)
+![alt text](./evidencias/image-76.png)
 
 ### Creación mediante DBeaver
 
@@ -4167,7 +4167,7 @@ Se configuró el trigger para ejecutarse después de las operaciones `INSERT`, `
 
 **Evidencia:**
 
-![alt text](image-77.png)
+![alt text](./evidencias/image-77.png)
 
 ### Verificación de la auditoría
 
@@ -4179,7 +4179,7 @@ SET phone = '3009999999'
 WHERE id = 1;
 ```
 **Evidencia**
-![alt text](image-78.png)
+![alt text](./evidencias/image-78.png)
 
 Posteriormente se consultó la tabla de auditoría:
 
@@ -4191,7 +4191,7 @@ ORDER BY changed_at DESC;
 
 **Evidencia:**
 
-![alt text](image-79.png)
+![alt text](./evidencias/image-79.png)
 
 ---
 
@@ -4217,7 +4217,7 @@ CREATE TABLE sales_audit (
 ```
 
 **Evidencia**
-![alt text](image-80.png)
+![alt text](./evidencias/image-80.png)
 
 ### Trigger de auditoría
 
@@ -4304,14 +4304,14 @@ END;
 ```
 
 **Evidencia**
-![alt text](image-81.png)
+![alt text](./evidencias/image-81.png)
 
 ### Creación mediante DBeaver
 
 El trigger se creó mediante la interfaz gráfica de DBeaver, asociado a la tabla `sales`.
 
 **Evidencia:**
-![alt text](image-82.png)
+![alt text](./evidencias/image-82.png)
 
 ### Verificación de la auditoría
 
@@ -4323,7 +4323,7 @@ SET total = total + 1000
 WHERE id = 1;
 ```
 
-![alt text](image-83.png)
+![alt text](./evidencias/image-83.png)
 
 Posteriormente se consultaron los registros generados:
 
@@ -4335,4 +4335,4 @@ ORDER BY changed_at DESC;
 
 **Evidencia:**
 
-![alt text](image-84.png)
+![alt text](./evidencias/image-84.png)
