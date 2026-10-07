@@ -10,6 +10,6 @@ en esta actividad se hizo uso de Ubuntu alojado en WSL para la creacion de 4 con
 En esta actividad se realizo la creacion de la base de datas siguiendo el esquema establecido, el proceso se repitio 8 veces en cada una cambiando de motor o de gestor de bases de datos
 
 ## [🔗Realizacion de consultas avanzadas en cada motor ](./motores/semana%205/consultas_avanzadas_y_auditoria.md):
-Para esta actividad se realizaron una serie de consultas implementando las diferentes herramientas, metodos, modificadores y estructuras que se pueden implementar en el lenguaje Sql para consultar la informacion de una base de datos
+Para esta actividad se realizaron una serie de consultas implementando las diferentes herramientas, metodos, modificadores y estructuras que se pueden implementar en el lenguaje Sql para consultar la informacion de una base de datos. Se incluye tambien el tema de auditoria con triggers y procedimientos almacenados contextualizados a posibles casos reales dentro del proyecto.
 
 ## []()
