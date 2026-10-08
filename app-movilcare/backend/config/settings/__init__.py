@@ -30,6 +30,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "apps.security.apps.SecurityConfig",
+    "apps.customer.apps.CustomerConfig",
+    "apps.product.apps.ProductConfig",
+    "apps.sale.apps.SaleConfig",
 ]
 
 MIDDLEWARE = [
@@ -63,6 +67,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
 DATABASES = database_from_environ(os.environ)
+
+AUTH_USER_MODEL = "security.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

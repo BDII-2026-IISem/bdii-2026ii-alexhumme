@@ -342,3 +342,272 @@ def use_project_python():
 ![alt text](image-14.png)
 ![alt text](image-15.png)
 ![alt text](image-16.png)
+---
+![alt text](image-17.png)
+
+
+# Unidad ISS-02 - Apps client, product y sale
+
+En esta unidad se crean los paquetes de negocio con la CLI dentro del paquete apps.
+
+## Construccion
+### Scripts
+```bash
+mkdir -p apps/client apps/product apps/sale
+python manage.py startapp client apps/client
+python manage.py startapp product apps/product
+python manage.py startapp sale apps/sale
+```
+
+### Evidencias
+![alt text](image-18.png)
+![alt text](image-19.png)
+
+## Crear `apps/__init__.py`
+
+### Script
+```bash
+mkdir -p apps
+cat > apps/__init__.py <<'EOF'
+EOF
+```
+### Evidencia
+![alt text](image-20.png)
+![alt text](image-21.png)
+
+> **Correccion:** En la base de datos de `Movilcare` a los clientes se les referencia como `customers` y no `clients` por lo que se creo una aplicacion customers y se elimino client
+### Evidencia
+![alt text](image-22.png)
+![alt text](image-23.png)
+
+## Parche de name a las apps
+### Parche en customers
+```
+ARCHIVO: apps/customer/apps.py
+
+UBICAR:
+    name = "customer"
+
+REEMPLAZAR POR:
+    name = "apps.customer"
+    label = "customer"
+```
+### Evidencia
+![alt text](image-24.png)
+
+### Parche en product
+```
+ARCHIVO: apps/product/apps.py
+
+UBICAR:
+    name = "product"
+
+REEMPLAZAR POR:
+    name = "apps.product"
+    label = "product"
+```
+
+### Evidencia
+![alt text](image-25.png)
+
+### Parche en sale
+```
+ARCHIVO: apps/sale/apps.py
+
+UBICAR:
+    name = "sale"
+
+REEMPLAZAR POR:
+    name = "apps.sale"
+    label = "sale"
+```
+### Evidencia
+![alt text](image-26.png)
+
+
+## Agregacion de las apps a ``settings/__init__.py`
+### Instruccion
+```
+ARCHIVO: config/settings/__init__.py
+
+DEBAJO DE:
+    "django.contrib.staticfiles",
+
+AGREGAR:
+    "apps.customer.apps.CustomerConfig",
+    "apps.product.apps.ProductConfig",
+    "apps.sale.apps.SaleConfig",
+```
+### Evidencia
+![alt text](image-27.png)
+
+## Prueba de aceptacion
+### Script
+```bash
+python manage.py check
+```
+### Evidencia
+![alt text](image-28.png)
+
+# Unidad ISS-03 - Custom User antes de la primera migración
+## Crear carpeta apps/common y apps/secutiry
+### Evidencia
+![alt text](image-29.png)
+![alt text](image-30.png)
+
+### Parche en name de security
+![alt text](image-31.png)
+
+### contenido de secutiry/models.py
+```python
+from django.contrib.auth.models import AbstractUser, UserManager
+from django.db import models
+
+from apps.common.status import RecordStatus
+
+
+class StoreUserManager(UserManager):
+    def create_user(self, username, email=None, password=None, **extra_fields):
+        extra_fields.setdefault("status", RecordStatus.INACTIVE)
+        return super().create_user(username, email, password, **extra_fields)
+
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        extra_fields.setdefault("status", RecordStatus.ACTIVE)
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        return super().create_superuser(username, email, password, **extra_fields)
+
+
+class User(AbstractUser):
+    email = models.EmailField("correo electrónico", max_length=150, unique=True)
+    status = models.CharField(
+        max_length=8,
+        choices=RecordStatus.choices,
+        default=RecordStatus.INACTIVE,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = StoreUserManager()
+
+    class Meta:
+        db_table = "users"
+        verbose_name = "usuario"
+        verbose_name_plural = "usuarios"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(status__in=RecordStatus.values),
+                name="users_status_valid",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.strip().lower()
+        self.is_active = self.status == RecordStatus.ACTIVE
+        super().save(*args, **kwargs)
+```
+
+### Evidencia
+![alt text](image-32.png)
+
+## parche en `settings/__init__.py`
+### Indicacion
+```
+ARCHIVO: config/settings/__init__.py
+
+ENCIMA DE:
+    "apps.customer.apps.CustomerConfig",
+
+AGREGAR:
+    "apps.security.apps.SecurityConfig",
+
+DEBAJO DE:
+DATABASES = database_from_environ(os.environ)
+
+AGREGAR:
+
+AUTH_USER_MODEL = "security.User"
+```
+### Evidencia
+![alt text](image-33.png)
+
+## Test del motor
+### Contenido de prueba en security/tests.py
+```python
+from django.core.exceptions import ImproperlyConfigured
+from django.test import SimpleTestCase
+
+from config.database import database_from_environ
+
+
+class DatabaseSelectionTests(SimpleTestCase):
+    def _env(self, engine):
+        return {
+            "DB_ENGINE": engine,
+            "POSTGRES_DB": "storelab",
+            "POSTGRES_USER": "storelab",
+            "POSTGRES_PASSWORD": "storelab",
+            "POSTGRES_HOST": "127.0.0.1",
+            "POSTGRES_PORT": "5432",
+            "MYSQL_DB": "storelab",
+            "MYSQL_USER": "storelab",
+            "MYSQL_PASSWORD": "storelab",
+            "MYSQL_HOST": "127.0.0.1",
+            "MYSQL_PORT": "3306",
+            "MSSQL_DB": "storelab",
+            "MSSQL_USER": "storelab",
+            "MSSQL_PASSWORD": "storelab",
+            "MSSQL_HOST": "127.0.0.1",
+            "MSSQL_PORT": "1433",
+            "ORACLE_DB": "storelab",
+            "ORACLE_USER": "storelab",
+            "ORACLE_PASSWORD": "storelab",
+            "ORACLE_HOST": "127.0.0.1",
+            "ORACLE_PORT": "1521",
+            "ORACLE_SERVICE_NAME": "FREEPDB1",
+        }
+
+    def test_postgresql_engine(self):
+        config = database_from_environ(self._env("postgresql"))
+        self.assertEqual(config["default"]["ENGINE"], "django.db.backends.postgresql")
+
+    def test_mysql_engine(self):
+        config = database_from_environ(self._env("mysql"))
+        self.assertEqual(config["default"]["ENGINE"], "django.db.backends.mysql")
+        self.assertEqual(config["default"]["OPTIONS"]["charset"], "utf8mb4")
+
+    def test_mssql_engine(self):
+        config = database_from_environ(self._env("mssql"))
+        self.assertEqual(config["default"]["ENGINE"], "mssql")
+
+    def test_oracle_uses_service_name(self):
+        config = database_from_environ(self._env("oracle"))
+        self.assertIn("SERVICE_NAME=FREEPDB1", config["default"]["NAME"])
+        self.assertEqual(config["default"]["PORT"], "")
+
+    def test_invalid_engine(self):
+        with self.assertRaises(ImproperlyConfigured):
+            database_from_environ({"DB_ENGINE": "sqlite"})
+
+    def test_missing_variable(self):
+        env = self._env("postgresql")
+        env["POSTGRES_DB"] = ""
+        with self.assertRaises(ImproperlyConfigured):
+            database_from_environ(env)
+``` 
+
+### Evidencia
+![alt text](image-34.png)
+
+## Migracion
+### Scripts
+```bash
+python manage.py makemigrations security
+python manage.py migrate
+python manage.py test apps.security.tests.DatabaseSelectionTests
+```
+### Evidencia
+![alt text](image-35.png)
+![alt text](image-36.png)
+![alt text](image-37.png)
