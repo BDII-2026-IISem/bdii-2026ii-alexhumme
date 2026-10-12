@@ -611,3 +611,166 @@ python manage.py test apps.security.tests.DatabaseSelectionTests
 ![alt text](image-35.png)
 ![alt text](image-36.png)
 ![alt text](image-37.png)
+
+# Unidad ISS-04 Modelo Client
+## Creacion de apps models
+### contenido del fichero en common
+```python
+from django.db import models
+
+from apps.common.status import RecordStatus
+
+
+class TimeStampedModel(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class StoreLabModel(TimeStampedModel):
+    status = models.CharField(
+        max_length=8,
+        choices=RecordStatus.choices,
+        default=RecordStatus.INACTIVE,
+    )
+
+    class Meta:
+        abstract = True
+
+    @classmethod
+    def status_constraint(cls, name):
+        return models.CheckConstraint(
+            condition=models.Q(status__in=RecordStatus.values),
+            name=name,
+        )
+```
+### Evidencia
+![alt text](image-38.png)
+
+## creacion del fichero en Customer
+### Contenido del fichero models en customer
+
+Se adapto el modelo de customer para contener las columnas correctas de la tabla customer
+
+```python
+from django.core.validators import MinLengthValidator
+from django.db import models
+
+from apps.common.models import StoreLabModel
+
+
+class Customer(StoreLabModel):
+    document_type = models.CharField(max_length=30, null=False, blank=True)
+    document_number = models.CharField(max_length=11, null=False, blank=True)
+    name = models.CharField(max_length=150, validators=[MinLengthValidator(2)])
+    email = models.EmailField(max_length=150, null=True, blank=True, unique=True)
+    phone = models.CharField(max_length=30, null=True, blank=True)
+
+    class Meta:
+        db_table = "customers"
+        verbose_name = "cliente"
+        verbose_name_plural = "clientes"
+        ordering = ["name", "id"]
+        constraints = [StoreLabModel.status_constraint("customers_status_valid")]
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        if self.email:
+            self.email = self.email.strip().lower()
+        super().save(*args, **kwargs)
+
+```
+
+Posteriormente se hizo la migracion ya con el modelo guardado 
+
+### comando
+```bash
+python manage.py makemigrations customer
+python manage.py migrate
+```
+### Evidencia
+![alt text](image-39.png)
+![alt text](image-40.png)
+![alt text](image-41.png)
+![alt text](image-42.png)
+![alt text](image-43.png)
+
+# Unidad ISS-05 Product y Serialized Unit
+
+## Definir modelos de prodduct
+
+Le proyecto de movilcare, a diferencia de otros proyectos, no posee una tabla Product_types y en cambio contiene la tabla Product y Serialized Units; la relaicon de productos y serialized units es de 1:N, por lo que serialized units debe contener como clave foranea el id del producto al que referencia, a su vez el producto no tiene una columna de stock. Se ajusto la planilla propuesta de modelo en la guia academica para encajar con esta estructura y se realizo una segunda migracion de correccion.
+
+### Contenido de `apps/product/models.py`
+```python
+from decimal import Decimal
+
+from django.core.validators import MinLengthValidator, MinValueValidator
+from django.db import models
+
+from apps.common.models import StoreLabModel
+
+class Product(StoreLabModel):
+    sku = models.CharField(max_length=100, unique=True, validators=[MinLengthValidator(2)])
+    name = models.CharField(max_length=150, unique=True, validators=[MinLengthValidator(1)])
+    description = models.CharField(max_length=255, null=True, blank=True)
+    price = models.DecimalField(
+        max_digits=15,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+
+    class Meta:
+        db_table = "products"
+        verbose_name = "producto"
+        verbose_name_plural = "productos"
+        ordering = ["name", "id"]
+        constraints = [
+            StoreLabModel.status_constraint("products_status_valid"),
+            models.CheckConstraint(
+                condition=models.Q(price__gte=0),
+                name="product_price_non_neg",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class SerializedUnit(StoreLabModel):
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.RESTRICT,
+        related_name="serialized_units",
+        db_column="product_id",
+    )
+    name = models.CharField(max_length=150, unique=True, validators=[MinLengthValidator(2)])
+    description = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta: 
+        db_table = "serialized_units"
+        verbose_name = "Unidad serializada"
+        verbose_name_plural = "Unidades serializadas"
+        ordering = ["name", "id"]
+        constraints = [StoreLabModel.status_constraint("serialized_units_status_valid")]
+
+    def __str__(self):
+        return self.name
+```
+
+### Script de migracion
+```bash
+python manage.py makemigrations product
+python manage.py migrate
+```
+
+### Evidencia
+![alt text](image-45.png)
+![alt text](image-46.png)
+![alt text](image-47.png)
+
+# Unidad ISS-06 

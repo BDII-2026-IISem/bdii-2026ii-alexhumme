@@ -9,7 +9,7 @@ ALLOWED_ENGINES = ("postgresql", "mysql", "mssql", "oracle")
 
 
 def database_from_environ(env):
-    engine = str(env.get("DB_ENGINE", "postgresql")).strip().lower()
+    engine = str(env.get("DB_ENGINE", "mysql")).strip().lower()
     if engine not in ALLOWED_ENGINES:
         allowed = ", ".join(ALLOWED_ENGINES)
         raise ImproperlyConfigured(
