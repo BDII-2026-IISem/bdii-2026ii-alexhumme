@@ -18,8 +18,8 @@ class CustomerSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
         extra_kwargs = {
-            "document_type": {"min_length":2, "max_lenght":30},
-            "document_number": {"min_length":5, "max_lenght":11},
+            "document_type": {"min_length": 2, "max_length": 30},
+            "document_number": {"min_length": 5, "max_length": 11},
             "name": {"min_length": 2, "max_length": 150},
             "email": {"required": False, "allow_null": True, "allow_blank": True},
             "phone": {"required": False, "allow_null": True, "allow_blank": True},

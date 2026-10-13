@@ -9,7 +9,7 @@ from apps.common.status import RecordStatus
 
 class CustomerApiTests(APITestCase):
     def test_create_defaults_and_persists(self):
-        response = self.customer.post(
+        response = self.client.post(
             "/api/customers/",
             {"name": "María García", "email": "Maria@Example.com", "phone": "3001234567"},
             format="json",
@@ -24,14 +24,14 @@ class CustomerApiTests(APITestCase):
         self.assertEqual(stored.name, "María García")
 
     def test_invalid_name_and_duplicate_email(self):
-        invalid = self.customer.post("/api/customers/", {"name": "A"}, format="json")
+        invalid = self.client.post("/api/customers/", {"name": "A"}, format="json")
         self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
-        self.customer.post(
+        self.client.post(
             "/api/customers/",
             {"name": "Ana Ruiz", "email": "ana@example.com"},
             format="json",
         )
-        duplicate = self.customer.post(
+        duplicate = self.client.post(
             "/api/customers/",
             {"name": "Otra Ana", "email": "ana@example.com"},
             format="json",
@@ -39,26 +39,26 @@ class CustomerApiTests(APITestCase):
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_soft_delete_keeps_the_row(self):
-        created = self.customer.post("/api/customers/", {"name": "Pedro León"}, format="json")
-        deleted = self.customer.delete(f"/api/customers/{created.data['id']}/")
+        created = self.client.post("/api/customers/", {"name": "Pedro León"}, format="json")
+        deleted = self.client.delete(f"/api/customers/{created.data['id']}/")
         self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
         stored = Customer.objects.get(pk=created.data["id"])
         self.assertEqual(stored.status, RecordStatus.INACTIVE)
         self.assertEqual(Customer.objects.count(), 1)
 
     def test_list_retrieve_and_update(self):
-        created = self.customer.post(
+        created = self.client.post(
             "/api/customers/",
             {"name": "Luisa Mora", "phone": "111"},
             format="json",
         )
         pk = created.data["id"]
-        listed = self.customer.get("/api/customers/")
+        listed = self.client.get("/api/customers/")
         self.assertEqual(listed.status_code, status.HTTP_200_OK)
-        detail = self.customer.get(f"/api/customers/{pk}/")
+        detail = self.client.get(f"/api/customers/{pk}/")
         self.assertEqual(detail.status_code, status.HTTP_200_OK)
         self.assertEqual(detail.data["name"], "Luisa Mora")
-        updated = self.customer.patch(
+        updated = self.client.patch(
             f"/api/customers/{pk}/",
             {"phone": "222", "status": "active"},
             format="json",

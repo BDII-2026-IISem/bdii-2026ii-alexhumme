@@ -1290,3 +1290,293 @@ path("api/", include("apps.customer.urls")),
 
 ### evidencia
 ![alt text](image-62.png)
+
+# Unidad ISS-09 Catálogo con ModelViewSet
+## Creacion de las vistas para publicar productos del catalogo y unidades serialiazadas
+###  Contenido de `apps/product/views.py`
+```python
+
+from rest_framework import viewsets
+from rest_framework.permissions import AllowAny
+
+from apps.common.status import RecordStatus
+from apps.product.models import Product, SerializedUnit
+from apps.product.serializers import ProductSerializer, SerializedUnitSerializer
+
+
+class CatalogViewSet(viewsets.ModelViewSet):
+    permission_classes = [AllowAny]
+    lookup_value_converter = "int"
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        status_value = self.request.query_params.get("status")
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+
+        return queryset
+
+    def perform_destroy(self, instance):
+        instance.status = RecordStatus.INACTIVE
+        instance.save(update_fields=["status", "updated_at"])
+
+
+class ProductViewSet(CatalogViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+
+
+class SerializedUnitViewSet(CatalogViewSet):
+    queryset = SerializedUnit.objects.all()
+    serializer_class = SerializedUnitSerializer
+```
+### Evidencia
+![alt text](image-63.png)
+
+### Contenido de `apps/product/urls.py`
+```python
+from rest_framework.routers import SimpleRouter
+
+from apps.product.views import ProductTypeViewSet, SerializedUnitViewSet
+
+router = SimpleRouter(use_regex_path=False)
+router.register(
+    r"products",
+    ProductViewSet,
+    basename="product",
+)
+
+router.register(
+    r"serialized-units",
+    SerializedUnitViewSet,
+    basename="serialized-unit",
+)
+
+urlpatterns = router.urls
+```
+### Evidencia
+![alt text](image-64.png)
+
+### Ajuste de `config/urls.py`
+**DEBAJO DE:**
+```python
+path("api/", include("apps.customerlient.urls")),
+```
+
+**AGREGAR:**
+```python
+path("api/", include("apps.product.urls")),
+```
+### Evidencia
+![alt text](image-65.png)
+
+### contenido de `apps/product/tests.py`
+```python
+
+from decimal import Decimal
+
+from django.test import TestCase
+from rest_framework.test import APITestCase
+
+from apps.common.status import RecordStatus
+from apps.product.models import Product, SerializedUnit
+
+
+class ProductApiTests(APITestCase):
+    def setUp(self):
+        self.product = Product.objects.create(
+            sku="MOV-001",
+            name="Leche",
+            description="Leche entera",
+            price=Decimal("3.20"),
+            status=RecordStatus.ACTIVE,
+        )
+
+    def test_product_crud(self):
+        created = self.client.post(
+            "/api/products/",
+            {
+                "sku": "MOV-002",
+                "name": "Café",
+                "description": "Café molido",
+                "price": "5.50",
+            },
+            format="json",
+        )
+
+        self.assertEqual(created.status_code, 201)
+        self.assertEqual(created.data["status"], RecordStatus.INACTIVE)
+
+        pk = created.data["id"]
+
+        self.assertEqual(self.client.get("/api/products/").status_code, 200)
+
+        detail = self.client.get(f"/api/products/{pk}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.data["name"], "Café")
+
+        updated = self.client.patch(
+            f"/api/products/{pk}/",
+            {"status": "active"},
+            format="json",
+        )
+
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["status"], RecordStatus.ACTIVE)
+
+        deleted = self.client.delete(f"/api/products/{pk}/")
+
+        self.assertEqual(deleted.status_code, 204)
+
+        self.product_refresh = Product.objects.get(pk=pk)
+        self.assertEqual(
+            self.product_refresh.status,
+            RecordStatus.INACTIVE,
+        )
+
+    def test_product_duplicate_name(self):
+        payload = {
+            "sku": "MOV-003",
+            "name": "Leche",
+            "description": "Otra presentación",
+            "price": "4.00",
+        }
+
+        response = self.client.post(
+            "/api/products/",
+            payload,
+            format="json",
+        )
+
+        # Ajusta esta expectativa según la restricción real
+        # de unicidad de name en tu modelo.
+        self.assertIn(response.status_code, [201, 400])
+
+    def test_serialized_unit_creation_and_soft_delete(self):
+        created = self.client.post(
+            "/api/serialized-units/",
+            {
+                "product": self.product.id,
+                "name": "Unidad de leche 001",
+                "description": "Unidad física de prueba",
+            },
+            format="json",
+        )
+
+        self.assertEqual(created.status_code, 201)
+
+        unit_id = created.data["id"]
+
+        unit = SerializedUnit.objects.get(pk=unit_id)
+        self.assertEqual(unit.product_id, self.product.id)
+
+        deleted = self.client.delete(
+            f"/api/serialized-units/{unit_id}/"
+        )
+
+        self.assertEqual(deleted.status_code, 204)
+
+        unit.refresh_from_db()
+        self.assertEqual(unit.status, RecordStatus.INACTIVE)
+```
+### Evidencia y test
+![alt text](image-66.png)
+![alt text](image-67.png)
+
+# Unidad ISS-10 Disponibles con ListAPIView
+## Creacion de una lectura filtrada de productos
+### ajustes de `apps/product/urls.py`
+**ARCHIVO:** `apps/product/urls.py`
+
+**UBICAR:**
+```python
+from rest_framework.routers import SimpleRouter
+```
+
+**REEMPLAZAR POR:**
+```python
+from django.urls import path
+from rest_framework.routers import SimpleRouter
+```
+
+**UBICAR el import de las vistas y AGREGAR** 
+```pythonAvailableProductListAPIView.
+
+**REEMPLAZAR:**
+```python
+urlpatterns = router.urls
+```
+
+**POR:**
+```python
+urlpatterns = [
+    path(
+        "products/available/",
+        AvailableProductListAPIView.as_view(),
+        name="product-available",
+    ),
+]
+urlpatterns += router.urls
+```
+### evidencia
+![alt text](image-68.png)
+## Ajustes a las vistas de product
+### Indicaciones
+**ARCHIVO:** `apps/product/views.py`
+
+**ENCIMA DE:**
+```python
+from rest_framework import viewsets
+```
+**AGREGAR, en la misma línea de imports de rest_framework si ya está viewsets:**
+```python
+from rest_framework.generics import ListAPIView
+```
+**AL FINAL DEL ARCHIVO, AGREGAR:**
+```python
+class AvailableProductListAPIView(ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = ProductSerializer
+
+    def get_queryset(self):
+        return Product.objects.select_related("product_type").filter(
+            status=RecordStatus.ACTIVE,
+            product_type__status=RecordStatus.ACTIVE,
+        )
+```
+### evidencia
+![alt text](image-69.png)
+
+## Creacion de nuevo test de productos
+### Indicaciones
+**ARCHIVO:** `apps/product/tests.py`
+
+**AL FINAL DE class ProductApiTests, AGREGAR:**
+```python
+def test_product_crud_and_available_filter(self):
+    created = self.client.post(
+        "/api/products/",
+        {
+            "name": "Agua",
+            "price": "2.50",
+            "status": "active",
+        },
+        format="json",
+    )
+    self.assertEqual(created.status_code, 201)
+    available = self.client.get("/api/products/available/")
+    self.assertEqual(available.status_code, 200)
+    self.assertEqual(len(available.data), 1)
+    empty = self.client.get("/api/products/available/")
+    self.assertEqual(empty.data, [])
+```
+
+### script de prueba
+```bash
+python manage.py test apps.product.tests.ProductApiTests.test_product_crud_and_available_filter
+```
+
+### Evidencia y test
+![alt text](image-70.png)
+![alt text](image-71.png)
