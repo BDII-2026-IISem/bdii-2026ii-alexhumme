@@ -904,4 +904,389 @@ python manage.py migrate
 ![alt text](image-50.png)
 ![alt text](image-51.png)
 
-# Unidad ISS-07 
+# Unidad ISS-07 Serializers y JSON camelCase
+
+## Instalacion de paquetes de REST y JSON
+### comandos
+```bash
+python -m pip install "djangorestframework==3.17.2" "djangorestframework-camel-case==1.4.2" "django-cors-headers==4.9.0"
+python -m pip freeze > requirements.txt
+```
+
+### Evidencia
+![alt text](image-52.png)
+![alt text](image-53.png)
+
+## Ajustes a `config/settings/__init__.py`
+### Indicaciones
+**ARCHIVO:** `config/settings/__init__.py`
+
+**ENCIMA DE:**
+
+```python
+    "apps.security.apps.SecurityConfig",
+```
+**AGREGAR:**
+
+```python
+    "rest_framework",
+    "corsheaders",
+```
+
+**ENCIMA DE:**
+
+```python
+    "django.middleware.security.SecurityMiddleware",
+```
+    
+**AGREGAR:**
+
+```python
+    "corsheaders.middleware.CorsMiddleware",
+```
+
+**DEBAJO DE:**
+
+```python
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+```
+
+**AGREGAR:**
+
+```python
+CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "True").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
+    "DEFAULT_RENDERER_CLASSES": [
+        "djangorestframework_camel_case.render.CamelCaseJSONRenderer",
+        "djangorestframework_camel_case.render.CamelCaseBrowsableAPIRenderer",
+    ],
+    "DEFAULT_PARSER_CLASSES": [
+        "djangorestframework_camel_case.parser.CamelCaseJSONParser",
+        "djangorestframework_camel_case.parser.CamelCaseFormParser",
+        "djangorestframework_camel_case.parser.CamelCaseMultiPartParser",
+    ],
+    "DEFAULT_PAGINATION_CLASS": None,
+}
+```
+
+### Evidencia
+![alt text](image-54.png)
+
+## Creacion de los serializers
+### Contenido de `customer/serializers.py`
+```python
+from rest_framework import serializers
+
+from apps.customer.models import Customer
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = [
+            "id",
+            "document_type",
+            "document_number",
+            "name",
+            "phone",
+            "email",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "document_type": {"min_length":2, "max_lenght":30},
+            "document_number": {"min_length":5, "max_lenght":11},
+            "name": {"min_length": 2, "max_length": 150},
+            "email": {"required": False, "allow_null": True, "allow_blank": True},
+            "phone": {"required": False, "allow_null": True, "allow_blank": True},
+        }
+
+    def validate_email(self, value):
+        if value is None or str(value).strip() == "":
+            return None
+        return value.strip().lower()
+
+    def validate(self, attrs):
+        for field in ("address", "phone"):
+            if attrs.get(field) == "":
+                attrs[field] = None
+        return attrs
+```
+
+### Contenido de `product/serializers.py`
+```python
+from rest_framework import serializers
+
+from apps.product.models import Product, SerializedUnit
+
+
+class SerializedUnitSerializer(serializers.ModelSerializer):
+    product_id = serializers.PrimaryKeyRelatedField(
+        source="product",
+        queryset=Product.objects.all(),
+    )
+    product_name = serializers.CharField(source="product.name", read_only=True)
+
+    class Meta:
+        model = SerializedUnit
+        fields = [
+            "id", 
+            "product_id"
+            "product_name", 
+            "description", 
+            "status", 
+            "created_at", 
+            "updated_at"
+        ]
+        read_only_fields = ["id", "product_name", "created_at", "updated_at"]
+        extra_kwargs = {
+            "name": {"min_length": 2, "max_length": 150},
+            "description": {"required": False, "allow_null": True, "allow_blank": True},
+        }
+
+    def validate_description(self, value):
+        if value is None or str(value).strip() == "":
+            return None
+        return value
+
+
+class ProductSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "sku",
+            "name",
+            "description",
+            "price",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "name": {"min_length": 2, "max_length": 120},
+            "description": {"required": False, "allow_null": True, "allow_blank": True},
+        }
+
+    def validate_description(self, value):
+        if value is None or str(value).strip() == "":
+            return None
+        return value
+```
+### Contenido de `sale/serializers.py`
+```python
+from rest_framework import serializers
+
+from apps.sale.models import ProductSale, Sale
+
+
+class ProductSaleSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True)
+
+    class Meta:
+        model = ProductSale
+        fields = [
+            "id",
+            "product",
+            "product_name",
+            "quantity",
+            "unit_price",
+            "line_total",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+
+
+class SaleSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    lines = ProductSaleSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Sale
+        fields = [
+            "id",
+            "customer",
+            "customer_name",
+            "sale_date",
+            "subtotal",
+            "tax",
+            "discounts",
+            "total",
+            "status",
+            "lines",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = fields
+```
+### Evidencias 
+![alt text](image-55.png)
+![alt text](image-57.png)
+![alt text](image-58.png)
+
+# Unidad ISS-08 Customer con ModelViewSet
+
+## Creacion de la vista para customer
+### contenido de `apps/customer/views.py`
+```python
+from rest_framework import viewsets
+from rest_framework.permissions import AllowAny
+
+from apps.customer.models import Customer
+from apps.customer.serializers import CustomerSerializer
+from apps.common.status import RecordStatus
+
+
+class CustomerViewSet(viewsets.ModelViewSet):
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerializer
+    permission_classes = [AllowAny]
+    lookup_value_converter = "int"
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        status_value = self.request.query_params.get("status")
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+        return queryset
+
+    def perform_destroy(self, instance):
+        instance.status = RecordStatus.INACTIVE
+        instance.save(update_fields=["status", "updated_at"])
+```
+### Evidencia
+![alt text](image-59.png)
+
+## Creacion de los test para customer
+### contenido de `apps/customer/tests.py`
+```python
+import json
+
+from rest_framework import status
+from rest_framework.test import APITestCase
+
+from apps.customer.models import Customer
+from apps.common.status import RecordStatus
+
+
+class CustomerApiTests(APITestCase):
+    def test_create_defaults_and_persists(self):
+        response = self.customer.post(
+            "/api/customers/",
+            {"name": "María García", "email": "Maria@Example.com", "phone": "3001234567"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["status"], RecordStatus.INACTIVE)
+        self.assertEqual(response.data["email"], "maria@example.com")
+        wire = json.loads(response.content)
+        self.assertIn("createdAt", wire)
+        self.assertNotIn("created_at", wire)
+        stored = Customer.objects.get(pk=response.data["id"])
+        self.assertEqual(stored.name, "María García")
+
+    def test_invalid_name_and_duplicate_email(self):
+        invalid = self.customer.post("/api/customers/", {"name": "A"}, format="json")
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        self.customer.post(
+            "/api/customers/",
+            {"name": "Ana Ruiz", "email": "ana@example.com"},
+            format="json",
+        )
+        duplicate = self.customer.post(
+            "/api/customers/",
+            {"name": "Otra Ana", "email": "ana@example.com"},
+            format="json",
+        )
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_soft_delete_keeps_the_row(self):
+        created = self.customer.post("/api/customers/", {"name": "Pedro León"}, format="json")
+        deleted = self.customer.delete(f"/api/customers/{created.data['id']}/")
+        self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
+        stored = Customer.objects.get(pk=created.data["id"])
+        self.assertEqual(stored.status, RecordStatus.INACTIVE)
+        self.assertEqual(Customer.objects.count(), 1)
+
+    def test_list_retrieve_and_update(self):
+        created = self.customer.post(
+            "/api/customers/",
+            {"name": "Luisa Mora", "phone": "111"},
+            format="json",
+        )
+        pk = created.data["id"]
+        listed = self.customer.get("/api/customers/")
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        detail = self.customer.get(f"/api/customers/{pk}/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.data["name"], "Luisa Mora")
+        updated = self.customer.patch(
+            f"/api/customers/{pk}/",
+            {"phone": "222", "status": "active"},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.assertEqual(updated.data["status"], "active")
+```
+### evidencia
+![alt text](image-60.png)
+
+## Enrutamiento de customer
+### Contenido de `apps/customer/urls.py`
+```python
+from rest_framework.routers import SimpleRouter
+
+from apps.customer.views import CustomerViewSet
+
+router = SimpleRouter(use_regex_path=False)
+router.register("customers", CustomerViewSet, basename="customer")
+
+urlpatterns = router.urls
+```
+### evidencia
+![alt text](image-61.png)
+
+## Ajustes en la configuraicon de urls
+### Indicaciones
+**ARCHIVO:** `config/urls.py`
+
+**UBICAR:**
+
+```python
+from django.urls import path
+```
+
+**REEMPLAZAR POR:**
+
+```python
+from django.urls import include, path
+```
+
+**DEBAJO DE:**
+
+```python
+path("admin/", admin.site.urls),
+```
+
+**AGREGAR:**
+
+```python
+path("api/", include("apps.customer.urls")),
+```
+
+### evidencia
+![alt text](image-62.png)
