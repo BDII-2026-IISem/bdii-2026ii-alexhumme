@@ -1,46 +1,74 @@
-# Unidad ISS-00: Creacion del entorno virtual
+# Informe técnico — Backend Django (MovilCare)
+
+Este documento recoge el desarrollo por unidades del backend del proyecto MovilCare, desde la creación del entorno virtual hasta la exposición del catálogo mediante la API REST. Cada unidad describe el objetivo, las acciones realizadas, el código resultante y las evidencias asociadas.
+
+---
+
+# Unidad ISS-00 — Creación del entorno virtual
+
+En esta primera unidad se prepara el terreno de trabajo: se crea el entorno virtual aislado donde se instalarán las dependencias del proyecto, se instala el framework Django, se genera la plantilla inicial del proyecto y se protege el repositorio para que no se suban ficheros sensibles o generados.
+
 ## 1. Entorno
-Se creo el entorno virtual con python en el cual se guardan las librerias necesarias para el funcionamiento del proyecto .venv.
-### Scripts de creacion
+
+El primer paso es aislar las dependencias del proyecto del Python del sistema. Para ello se usa un entorno virtual (`.venv`), que es un directorio autónomo con su propio intérprete y su propio conjunto de paquetes. De esta forma, el proyecto no depende de qué versiones estén instaladas globalmente y se puede reproducir en otra máquina instalando exactamente los mismos paquetes.
+
+### Scripts de creación
+
 ```bash
 python3 -m venv .venv
 ```
-### Scripts de activacion
+
+### Scripts de activación
+
 ```bash
 source .venv/bin/activate
 ```
-### Evidencia
-![alt text](image.png)
 
-## 2. Instalacion del framework
-El feame work de python que se utilizara para la creacion ndel baskend en este proyecto es Django, que permite la creacion de plantillas para frontend que conectan con controladores y permiten la comunicacion con las base de datos, para ello utilizamos el sistema de gestion de paquetes de python `pip`.
+### Evidencia
+
+![Evidencia de creación y activación del entorno virtual](image.png)
+
+## 2. Instalación del framework
+
+El framework seleccionado para la construcción del backend es Django, un framework de Python que trae consigo un ORM, un sistema de plantillas, un panel de administración y un servidor de desarrollo. Para gestionar los paquetes de Python se utiliza `pip`, que es el gestor de paquetes que acompaña a la lengua.
 
 ### Scripts
+
 ```bash
 python -m pip install "Django==5.2.17"
 python -m pip freeze > requirements.txt
 ```
 
-### Evidencias
-![alt text](image-1.png)
-![alt text](image-2.png)
+El comando `freeze` vuelca la lista exacta de paquetes instalados con sus versiones en `requirements.txt`, de modo que en cualquier otra máquina se puedan reproducir con `pip install -r requirements.txt`.
 
-## 3. Creacion del proyecto
-por medio de django nos es posible la creacion de una plantilla inicial de proyecto a partir del framework con uns estructura de archivos concreta para trabajar con la libreria
+### Evidencias
+
+![Evidencia de instalación de Django](image-1.png)
+![Evidencia del contenido de requirements.txt](image-2.png)
+
+## 3. Creación del proyecto
+
+Con el framework instalado, Django permite generar una plantilla inicial de proyecto mediante `django-admin`. Esta plantilla deja una estructura de archivos concreta —un paquete de configuración, el fichero `manage.py` y varios ficheros de arranque— sobre la cual se construye el resto del trabajo.
 
 ### Script
+
 ```bash
 (.venv) django-admin startproject config .
 ```
 
+El punto final indica que el proyecto se genera en el directorio actual, y `config` es el nombre del paquete de configuración que contendrá `settings`, `urls`, `wsgi` y `asgi`.
+
 ### Evidencias
-![alt text](image-3.png)
-![alt text](image-4.png)
 
-## 4. Proteccion del repositorio
-Ya que se trabajara con repositorios de github, es importante conocer que ficheros como `.env`, `.venv` o `db.sqlite3` contienen informacion sensible o redundante que no debe ser subida al repositorio, para prevenir esto se agrega un archivo `.gitignore` a la raiz del proyecto donde se indique que ficheros no deben ser subidos.
+![Evidencia de la generación del proyecto](image-3.png)
+![Evidencia de la estructura de archivos generada](image-4.png)
 
-### Contenido del .gitignore
+## 4. Protección del repositorio
+
+Al trabajar con repositorios de GitHub hay ficheros que no deben subirse. De un lado, los que contienen información sensible como `.env`, que guarda credenciales y claves; de otro, los que son redundantes o reproducibles, como el propio `.venv` o `db.sqlite3`. Para evitar filtraciones y ruido en el historial se crea un `.gitignore` en la raíz del proyecto que indica qué ficheros y patrones quedan excluidos del control de versiones.
+
+### Contenido del `.gitignore`
+
 ```gitignore
 .venv/
 __pycache__/
@@ -56,29 +84,45 @@ media/
 htmlcov/
 .coverage
 ```
-### Evidencia
-![alt text](image-5.png)
 
-## 5. verificacion
-Scripts
+### Evidencia
+
+![Evidencia del archivo .gitignore](image-5.png)
+
+## 5. Verificación
+
+Por último se comprueba que todo queda coherentemente instalado: se verifica la versión de Django activa, se ejecuta el chequeo de integridad del proyecto y se revisa el árbol de archivos resultante.
+
+### Scripts
+
 ```bash
 python -m django --version
 ```
+
 ```bash
 python manage.py check
 ```
+
 ```bash
 tree
 ```
+
 ### Evidencia
-![alt text](image-6.png)
 
-# Unidad ISS-01 Settings y seleccion de motor
+![Evidencia de la verificación de versión, chequeo y árbol de archivos](image-6.png)
 
-## instalacion de paquetes
-Los paquetes contienen las herramientas necesarias para realizar las conexiones entre Django y las bases de datos, justo despues de instalarlas se listan dentro del archivo `requirements.txt`.
+---
+
+# Unidad ISS-01 — Settings y selección de motor
+
+En esta unidad se configura el corazón del proyecto: la selección dinámica del motor de base de datos y el paquete de configuración de Django. Se instalan los controladores de los cuatro motores soportados, se reorganiza la configuración en un paquete y se definen las variables de entorno que permiten cambiar de motor sin tocar código.
+
+## Instalación de paquetes
+
+Cada motor de base de datos necesita su propio controlador, y Django no los incluye de serie. En esta unidad se instalan las librerías que permiten conectar Django con PostgreSQL, MySQL, SQL Server y Oracle, además de `python-dotenv`, que se encarga de leer el fichero `.env`. Una vez instaladas, se vuelcan en el `requirements.txt`.
 
 ### Scripts
+
 ```bash
 source .venv/bin/activate
 which python
@@ -89,34 +133,47 @@ python -m pip install "mssql-django==2.0.0"
 python -m pip install "oracledb==26.0.1"
 python -m pip freeze > requirements.txt
 ```
+
+El comando `which python` se ejecuta antes de instalar para confirmar de forma explícita que los paquetes entran en el intérprete del entorno virtual y no en el del sistema.
+
+### Evidencias
+
+![Evidencia de la instalación de los controladores de base de datos](image-7.png)
+![Evidencia del requirements.txt actualizado](image-8.png)
+
+## Transformación de la estructura de archivos
+
+Por defecto Django genera un único fichero `settings.py`. Para un proyecto que debe soportar varios motores de base datos y una configuración sensible externa, ese fichero único resulta poco manejable. Por ello se elimina `settings.py` y se crea un paquete `settings/` con su `__init__.py`, de modo que la configuración se puede organizar en secciones.
+
+Adicionalmente se crean tres ficheros de apoyo: `.env.example`, que documenta la plantilla de variables de entorno sin valores reales; `.env`, que guarda los valores reales y queda fuera del repositorio; `database.py`, que implementa la lógica de selección del motor; y `project_python.py`, que garantiza la ejecución dentro del entorno virtual.
+
 ### Evidencia
-![alt text](image-7.png)
-![alt text](image-8.png)
 
-## Transformación de la Estructura de Archivos
-Se elimina el archivo generado automaticamente `settings.py` y se agrega la carpeta `settings/` con el archivo `__init__.py`
+![Evidencia de la reestructuración de la configuración](image-9.png)
 
-Adicionalmente se crea el `.env.example` con la plantilla de las variables de entorno, `.env` que guardara los valores reales de las variables, `database.py` que permitira la conexion dinamica de motores de bases de datos y `project_python.py`
+## Definición de las variables de entorno
 
-### Evidencia
-![alt text](image-9.png)
+La configuración sensible —credenciales, claves, orígenes de CORS— no debe ir incrustada en el código. Para ello se separan en dos ficheros: `.env.example` contiene los nombres de las variables como plantilla documental y sí se versiona, mientras que `.env` contiene los valores reales y queda excluido del repositorio mediante el `.gitignore` configurado en la unidad anterior.
 
+### Contenido del `.env.example`
 
-## definicion de las variables de entorno
-En `.env.example` se guardaron los nombres de las variables de entorno del proyecto, en `.env` se guardaron con sus valores reales.
-
-### Contenido del .env.example
 ```env
 # Laboratorio académico. En producción liste orígenes explícitos.
 CORS_ALLOW_ALL_ORIGINS=True
 ```
+
 ### Evidencia
-![alt text](image-10.png)
 
-## modulo de seleccion de base de datos
-Dentro de `config/database.py` se elabora el script de seleccion de base de datos.
+![Evidencia del contenido de las variables de entorno](image-10.png)
 
-### Codigo
+## Módulo de selección de base de datos
+
+El módulo `config/database.py` es el que traduce las variables de entorno en la configuración que Django espera en `DATABASES`. Recibe el diccionario de entorno, valida que el motor solicitado esté entre los soportados y delega en el constructor específico de cada motor. Si el motor no es válido, o si falta alguna variable requerida, lanza `ImproperlyConfigured` con un mensaje que indica exactamente qué corregir.
+
+Este diseño permite que un único alias, `default`, quede activo en cada ejecución, y que cambiar de motor se reduzca a modificar una línea del `.env` sin tocar el código.
+
+### Código
+
 ```python
 """Selección del motor de base de datos a partir del entorno.
 
@@ -210,11 +267,15 @@ def _oracle(env):
 ```
 
 ### Evidencias
-![alt text](image-11.png)
 
-## Paquete de configuracion
-Dentro del fichero `config/settings/__init__.py`
+![Evidencia del módulo de selección de base de datos](image-11.png)
+
+## Paquete de configuración
+
+El fichero `config/settings/__init__.py` reúne la configuración del proyecto. Su particularidad es que carga las variables de entorno con `python-dotenv` antes de leer `SECRET_KEY` y antes de construir `DATABASES`, de modo que ambas dependen de valores externos al código. Si `SECRET_KEY` no está definida, el proyecto no arranca: se levanta `ImproperlyConfigured` en lugar de continuar con una clave insegura.
+
 ### Contenido del fichero
+
 ```python
 import os
 from pathlib import Path
@@ -297,14 +358,17 @@ USE_TZ = True
 STATIC_URL = "static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 ```
+
 ### Evidencia
-![alt text](image-12.png)
 
-## Re-Ejecucion del interprete
+![Evidencia del paquete de configuración](image-12.png)
 
-En el fichero `config/project_python.py` se almacena un script de prevencion que evita que la ejecucion de `manage.py` fuera del entorno virtual `.venv` resulte en errores.
+## Reejecución del intérprete
 
-### contenido del fichero
+Un problema frecuente en desarrollo es ejecutar `manage.py` con el Python del sistema en lugar del del entorno virtual. Como los paquetes se instalan dentro de `.venv`, el intérprete del sistema no los ve y la ejecución falla con un `ModuleNotFoundError` que puede resultar confuso. Para prevenirlo, el fichero `config/project_python.py` detecta si el proceso corre con el intérprete correcto y, si no es así, vuelve a lanzar el mismo comando apuntando a `.venv/bin/python`.
+
+### Contenido del fichero
+
 ```python
 """Intérprete del proyecto.
 
@@ -334,24 +398,33 @@ def use_project_python():
 ```
 
 ### Evidencia
-![alt text](image-13.png)
 
-## Parches en puntos de entrada en el sistema
+![Evidencia del módulo de reejecución del intérprete](image-13.png)
+
+## Parches en los puntos de entrada del sistema
+
+Una vez creado `project_python.py` se invoca desde los puntos de entrada del proyecto —`manage.py` y los ficheros de arranque `wsgi.py` y `asgi.py`— para que todos ellos pasen por la misma salvaguarda.
 
 ### Evidencias
-![alt text](image-14.png)
-![alt text](image-15.png)
-![alt text](image-16.png)
+
+![Evidencia del parche en manage.py](image-14.png)
+![Evidencia del parche en wsgi.py](image-15.png)
+![Evidencia del parche en asgi.py](image-16.png)
 ---
-![alt text](image-17.png)
+![Evidencia de la comprobación tras los parches](image-17.png)
 
+---
 
-# Unidad ISS-02 - Apps client, product y sale
+# Unidad ISS-02 — Apps customer, product y sale
 
-En esta unidad se crean los paquetes de negocio con la CLI dentro del paquete apps.
+En esta unidad se crean los paquetes de negocio del proyecto. Django distingue entre el proyecto —la configuración y el arranque— y las aplicaciones, que son los módulos que encapsulan un dominio concreto con sus modelos, vistas y pruebas. Aquí se crean las tres aplicaciones de negocio dentro de la carpeta `apps`, se corrige su nombre para alinearlos con la base de datos de MovilCare y se dan de alta en la configuración.
 
-## Construccion
+## Construcción de las apps
+
+Se crea la carpeta `apps` y dentro de ella las aplicaciones `customer`, `product` y `sale` mediante `startapp`, que genera en cada una la estructura estándar: `models.py`, `views.py`, `admin.py`, `tests.py` y `apps.py`.
+
 ### Scripts
+
 ```bash
 mkdir -p apps/client apps/product apps/sale
 python manage.py startapp client apps/client
@@ -360,29 +433,45 @@ python manage.py startapp sale apps/sale
 ```
 
 ### Evidencias
-![alt text](image-18.png)
-![alt text](image-19.png)
 
-## Crear `apps/__init__.py`
+![Evidencia de la creación de las aplicaciones](image-18.png)
+![Evidencia de la estructura de carpetas resultante](image-19.png)
+
+## Creación de `apps/__init__.py`
+
+Para que Python trate `apps` como un paquete —y no como una simple carpeta de directorio— es necesario incluir su fichero `__init__.py`, aunque esté vacío.
 
 ### Script
+
 ```bash
 mkdir -p apps
 cat > apps/__init__.py <<'EOF'
 EOF
 ```
-### Evidencia
-![alt text](image-20.png)
-![alt text](image-21.png)
 
-> **Correccion:** En la base de datos de `Movilcare` a los clientes se les referencia como `customers` y no `clients` por lo que se creo una aplicacion customers y se elimino client
-### Evidencia
-![alt text](image-22.png)
-![alt text](image-23.png)
+### Evidencias
 
-## Parche de name a las apps
-### Parche en customers
-```
+![Evidencia de la creación del paquete apps](image-20.png)
+![Evidencia del contenido del fichero __init__.py](image-21.png)
+
+## Corrección del nombre de la aplicación de clientes
+
+> **Corrección:** en la base de datos de MovilCare a los clientes se les referencia como `customers` y no `clients`, por lo que se creó una aplicación `customer` y se eliminó `client`.
+
+Esta discrepancia de nombres se detectó al contrastar el esquema propuesto con el modelo real de datos de MovilCare. Alinear el nombre de la aplicación desde el principio evita confusiones posteriores entre el nombre técnico del módulo y el nombre de la tabla en base de datos.
+
+### Evidencias
+
+![Evidencia de la eliminación de la app client](image-22.png)
+![Evidencia de la creación de la app customer](image-23.png)
+
+## Parche del atributo `name` en las apps
+
+`startapp` deja en el `apps.py` de cada aplicación un atributo `name` que apunta solo al nombre corto. Como las aplicaciones viven anidadas dentro de la carpeta `apps`, hay que ampliarlo a la ruta completa y declarar además un `label`, que es el identificador corto que Django usará internamente.
+
+### Parche en `customer`
+
+```text
 ARCHIVO: apps/customer/apps.py
 
 UBICAR:
@@ -392,11 +481,14 @@ REEMPLAZAR POR:
     name = "apps.customer"
     label = "customer"
 ```
-### Evidencia
-![alt text](image-24.png)
 
-### Parche en product
-```
+### Evidencia
+
+![Evidencia del parche en apps/customer/apps.py](image-24.png)
+
+### Parche en `product`
+
+```text
 ARCHIVO: apps/product/apps.py
 
 UBICAR:
@@ -408,10 +500,12 @@ REEMPLAZAR POR:
 ```
 
 ### Evidencia
-![alt text](image-25.png)
 
-### Parche en sale
-```
+![Evidencia del parche en apps/product/apps.py](image-25.png)
+
+### Parche en `sale`
+
+```text
 ARCHIVO: apps/sale/apps.py
 
 UBICAR:
@@ -421,13 +515,18 @@ REEMPLAZAR POR:
     name = "apps.sale"
     label = "sale"
 ```
+
 ### Evidencia
-![alt text](image-26.png)
 
+![Evidencia del parche en apps/sale/apps.py](image-26.png)
 
-## Agregacion de las apps a ``settings/__init__.py`
-### Instruccion
-```
+## Agregación de las apps a `settings/__init__.py`
+
+Declarar las aplicaciones en `INSTALLED_APPS` es lo que activa sus modelos, sus migraciones y su registro en el panel de administración. Las rutas se escriben con la forma completa `apps.<nombre>.<ClaseConfig>` para que Django localice tanto el módulo como la clase de configuración.
+
+### Instrucción
+
+```text
 ARCHIVO: config/settings/__init__.py
 
 DEBAJO DE:
@@ -438,27 +537,54 @@ AGREGAR:
     "apps.product.apps.ProductConfig",
     "apps.sale.apps.SaleConfig",
 ```
-### Evidencia
-![alt text](image-27.png)
 
-## Prueba de aceptacion
+### Evidencia
+
+![Evidencia del alta de las apps en INSTALLED_APPS](image-27.png)
+
+## Prueba de aceptación
+
+Se ejecuta el chequeo de integridad de Django para confirmar que la configuración, las rutas y las referencias entre aplicaciones son coherentes antes de avanzar.
+
 ### Script
+
 ```bash
 python manage.py check
 ```
+
 ### Evidencia
-![alt text](image-28.png)
 
-# Unidad ISS-03 - Custom User antes de la primera migración
-## Crear carpeta apps/common y apps/secutiry
+![Evidencia del resultado del check de aceptación](image-28.png)
+
+---
+
+# Unidad ISS-03 — Custom User antes de la primera migración
+
+Esta unidad aborda uno de los momentos más delicados del proyecto: definir el modelo de usuario antes de ejecutar la primera migración. Una vez que existen migraciones aplicadas, cambiar la clave primaria del modelo de usuario exige migraciones complejas y con riesgo de pérdida de datos. Por eso se decide modelar el usuario personalizado —con estado y correo electrónico únicos— desde el principio y fijarlo con `AUTH_USER_MODEL`.
+
+## Creación de las carpetas `common` y `security`
+
+Se crean dos nuevas carpetas. `apps/common` alojará elementos compartidos por todas las aplicaciones, como la enumeración de estados de registro. `apps/security` alojará el modelo de usuario personalizado del proyecto.
+
+### Evidencias
+
+![Evidencia de la creación de la carpeta common](image-29.png)
+![Evidencia de la creación de la carpeta security](image-30.png)
+
+### Parche en el `name` de `security`
+
+Al igual que en las aplicaciones anteriores, hay que ajustar el atributo `name` del `AppConfig` para que apunte a la ruta completa dentro del paquete `apps`.
+
 ### Evidencia
-![alt text](image-29.png)
-![alt text](image-30.png)
 
-### Parche en name de security
-![alt text](image-31.png)
+![Evidencia del parche en apps/security/apps.py](image-31.png)
 
-### contenido de secutiry/models.py
+### Contenido de `security/models.py`
+
+El modelo extiende `AbstractUser` para heredar todo el comportamiento de autenticación de Django y le añade tres cosas: un campo `email` con unicidad, un campo `status` que indica si el registro está activo, y marcas de auditoría `created_at` y `updated_at`.
+
+El manager personalizado `StoreUserManager` fija el estado por defecto según el tipo de usuario que se crea: los usuarios normales nacen inactivos y requieren una habilitación previa, mientras que los superusuarios nacen activos para que el acceso al panel de administración funcione de inmediato.
+
 ```python
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
@@ -508,12 +634,19 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
 ```
 
-### Evidencia
-![alt text](image-32.png)
+La particularidad de este modelo es el sobrescrito de `save`: deriva `is_active` a partir de `status` en cada escritura. De esta forma se garantiza que ambos campos nunca queden en contradicción, sin depender de que cada punto del código recuerde mantenerlos sincronizados.
 
-## parche en `settings/__init__.py`
-### Indicacion
-```
+### Evidencia
+
+![Evidencia del modelo de usuario personalizado](image-32.png)
+
+## Parche en `settings/__init__.py`
+
+Para que Django utilice el modelo de usuario personalizado en lugar del incorporado, hay que declararlo con `AUTH_USER_MODEL`. Además se da de alta la aplicación `security` en `INSTALLED_APPS`, colocándola por delante de las demás aplicaciones del proyecto porque el resto dependerá de su modelo de usuario.
+
+### Indicación
+
+```text
 ARCHIVO: config/settings/__init__.py
 
 ENCIMA DE:
@@ -529,11 +662,17 @@ AGREGAR:
 
 AUTH_USER_MODEL = "security.User"
 ```
-### Evidencia
-![alt text](image-33.png)
 
-## Test del motor
-### Contenido de prueba en security/tests.py
+### Evidencia
+
+![Evidencia de la configuración de AUTH_USER_MODEL](image-33.png)
+
+## Test del motor de selección
+
+Antes de migrar, se cubre con pruebas el módulo de selección de base de datos desarrollado en la unidad ISS-01. Las pruebas construyen diccionarios de entorno simulados para cada motor y comprueban que la configuración resultante apunta al backend correcto, que Oracle recibe el nombre de servicio en el DSN y que los casos de error —motor no admitido o variable faltante— levantan la excepción esperada.
+
+### Contenido de prueba en `security/tests.py`
+
 ```python
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
@@ -595,26 +734,46 @@ class DatabaseSelectionTests(SimpleTestCase):
         env["POSTGRES_DB"] = ""
         with self.assertRaises(ImproperlyConfigured):
             database_from_environ(env)
-``` 
+```
 
 ### Evidencia
-![alt text](image-34.png)
 
-## Migracion
+![Evidencia de las pruebas del motor de selección](image-34.png)
+
+## Migración
+
+Con el modelo de usuario definido y las pruebas en verde, se generan las migraciones de la aplicación `security`, se aplican al motor activo y se vuelve a ejecutar la suite de pruebas para confirmar que nada se ha roto.
+
 ### Scripts
+
 ```bash
 python manage.py makemigrations security
 python manage.py migrate
 python manage.py test apps.security.tests.DatabaseSelectionTests
 ```
-### Evidencia
-![alt text](image-35.png)
-![alt text](image-36.png)
-![alt text](image-37.png)
 
-# Unidad ISS-04 Modelo Client
-## Creacion de apps models
-### contenido del fichero en common
+### Evidencias
+
+![Evidencia de la generación de migraciones](image-35.png)
+![Evidencia de la aplicación de las migraciones](image-36.png)
+![Evidencia de la ejecución de las pruebas](image-37.png)
+
+---
+
+# Unidad ISS-04 — Modelo Customer
+
+En esta unidad se modela la entidad de cliente. Antes de escribir el modelo se definen en `apps/common` las clases abstractas que van a compartir todas las entidades del proyecto: las marcas de auditoría y el estado de registro. Sobre esa base se construye el modelo `Customer` con las columnas reales de la base de datos de MovilCare.
+
+## Creación de los modelos comunes
+
+`apps/common/models.py` define dos clases abstractas. `TimeStampedModel` aporta `created_at` y `updated_at` como campos de auditoría automáticos. `StoreLabModel` hereda de ella y añade el campo `status`, que permite marcar un registro como activo o inactivo sin borrarlo físicamente.
+
+Ambas clases declaran `abstract = True`, por lo que no generan tabla propia ni aparecen como secciones independientes en el panel de administración: se limitan a aportar campos a quien las herede.
+
+El método de clase `status_constraint` centraliza la creación de la restricción a nivel de base de datos que impide que un registro guarde un estado fuera del enumerado, evitando repetir esa comprobación en cada modelo.
+
+### Contenido del fichero en `common`
+
 ```python
 from django.db import models
 
@@ -646,13 +805,18 @@ class StoreLabModel(TimeStampedModel):
             name=name,
         )
 ```
+
 ### Evidencia
-![alt text](image-38.png)
 
-## creacion del fichero en Customer
-### Contenido del fichero models en customer
+![Evidencia de los modelos abstractos comunes](image-38.png)
 
-Se adapto el modelo de customer para contener las columnas correctas de la tabla customer
+## Creación del modelo de cliente
+
+El modelo `Customer` se adapta para contener las columnas correctas de la tabla `customers` de MovilCare: tipo y número de documento, nombre, correo electrónico y teléfono. El correo se declara como único porque sirve de identificador alternativo del cliente, y el método `save` lo normaliza a minúsculas antes de persistirlo para que la unicidad no dependa de la capitalización con la que se introduzca.
+
+### Contenido del fichero `models` en `customer`
+
+Se adaptó el modelo de `customer` para contener las columnas correctas de la tabla `customer`.
 
 ```python
 from django.core.validators import MinLengthValidator
@@ -682,30 +846,41 @@ class Customer(StoreLabModel):
         if self.email:
             self.email = self.email.strip().lower()
         super().save(*args, **kwargs)
-
 ```
 
-Posteriormente se hizo la migracion ya con el modelo guardado 
+Posteriormente se hizo la migración ya con el modelo guardado.
 
-### Migracion
+### Migración
+
 ```bash
 python manage.py makemigrations customer
 python manage.py migrate
 ```
-### Evidencia
-![alt text](image-39.png)
-![alt text](image-40.png)
-![alt text](image-41.png)
-![alt text](image-42.png)
-![alt text](image-43.png)
 
-# Unidad ISS-05 Product y Serialized Unit
+### Evidencias
 
-## Definir modelos de prodduct
+![Evidencia de la migración del modelo de cliente](image-39.png)
+![Evidencia de la aplicación de la migración](image-40.png)
+![Evidencia de la estructura de la tabla creada](image-41.png)
+![Evidencia de la tabla en la base de datos](image-42.png)
+![Evidencia de la comprobación del modelo](image-43.png)
 
-Le proyecto de movilcare, a diferencia de otros proyectos, no posee una tabla Product_types y en cambio contiene la tabla Product y Serialized Units; la relaicon de productos y serialized units es de 1:N, por lo que serialized units debe contener como clave foranea el id del producto al que referencia, a su vez el producto no tiene una columna de stock. Se ajusto la planilla propuesta de modelo en la guia academica para encajar con esta estructura y se realizo una segunda migracion de correccion.
+---
+
+# Unidad ISS-05 — Product y Serialized Unit
+
+Esta unidad modela el catálogo de productos y las unidades serializadas. Su particularidad es que MovilCare no sigue la estructura genérica propuesta en la guía académica, sino que presenta una relación 1:N directa entre producto y unidad serializada, sin tabla intermedia de tipos de producto y sin columna de stock en el producto.
+
+## Definición de los modelos de producto
+
+El proyecto de MovilCare, a diferencia de otros proyectos, no posee una tabla `product_types` y en cambio contiene las tablas `product` y `serialized_units`. La relación entre producto y unidades serializadas es de 1:N, por lo que `serialized_units` debe contener como clave foránea el identificador del producto al que referencia; a su vez, el producto no tiene una columna de stock.
+
+Se ajustó la plantilla de modelo propuesta en la guía académica para encajar con esta estructura, y se realizó una segunda migración de corrección.
+
+El modelo `Product` identifica cada artículo por un `sku` único y un `name` igualmente único, y su precio se almacena como decimal con dos cifras y una restricción que impide valores negativos. El modelo `SerializedUnit` representa una unidad física concreta de un producto: su clave foránea usa `on_delete=RESTRICT`, de modo que no se puede eliminar un producto que todavía tenga unidades serializadas asociadas, protegiendo así la integridad referencial del catálogo.
 
 ### Contenido de `apps/product/models.py`
+
 ```python
 from decimal import Decimal
 
@@ -762,21 +937,29 @@ class SerializedUnit(StoreLabModel):
         return self.name
 ```
 
-### Migracion
+### Migración
+
 ```bash
 python manage.py makemigrations product
 python manage.py migrate
 ```
 
-### Evidencia
-![alt text](image-45.png)
-![alt text](image-46.png)
-![alt text](image-47.png)
+### Evidencias
 
-# Unidad ISS-06 Sale y Sale detail
+![Evidencia de la migración de los modelos de producto](image-45.png)
+![Evidencia de la aplicación de la migración](image-46.png)
+![Evidencia de las tablas creadas](image-47.png)
 
-## Creacion de `sale/managers.py`
-### Codigo
+---
+
+# Unidad ISS-06 — Sale y Sale Detail
+
+En esta unidad se modela el dominio de ventas, que es el que conecta clientes y productos. Una venta encabeza una operación con sus importes y sus datos de cabecera, y sus líneas detallan qué productos se vendieron, en qué cantidad y a qué precio. Se crea además un gestor personalizado que deja preparado el terreno para futuras consultas de negocio.
+
+## Creación de `sale/managers.py`
+
+Antes de definir los modelos se crea el módulo de gestores. `SaleQuerySet` es un conjunto de consultas que hoy está vacío pero que servirá de punto de extensión para encapsular métodos de filtrado propios del negocio, y `SaleManager` se construye a partir de él para que esos métodos estén disponibles también desde `Sale.objects`.
+
 ```python
 from django.db import models
 
@@ -788,10 +971,18 @@ class SaleQuerySet(models.QuerySet):
 class SaleManager(models.Manager.from_queryset(SaleQuerySet)):
     pass
 ```
-### Evidencia
-![alt text](image-48.png)
 
-## Definicion de los modelsos de Sale
+### Evidencia
+
+![Evidencia del módulo de gestores de venta](image-48.png)
+
+## Definición de los modelos de Sale
+
+El modelo `Sale` representa la cabecera de una operación de venta: referencia al cliente, registra la fecha y acumula los importes de subtotal, impuestos, descuentos y total. Todas las claves foráneas usan `on_delete=RESTRICT`, de modo que no se puede eliminar un cliente que tenga ventas registradas ni un producto que figure en alguna venta, protegiendo así la integridad histórica de la información comercial.
+
+El método `void()` implementa el borrado lógico de una venta. En lugar de eliminar el registro, que arrastraría sus líneas y rompería el histórico, marca la venta como inactiva. La operación se ejecuta dentro de una transacción y con `select_for_update()`, que bloquea la fila en la base de datos para que dos peticiones simultáneas no puedan anular la misma venta a la vez.
+
+El modelo `SaleDetail` representa cada línea de la venta. Su método `save` recalcula el total de línea a partir del precio unitario y la cantidad, de forma que ese importe nunca dependa de lo que el cliente del API haya enviado, sino del producto de sus dos componentes.
 
 ### Contenido de `apps/sale/models.py`
 
@@ -892,66 +1083,83 @@ class SaleDetail(StoreLabModel):
         super().save(*args, **kwargs)
 ```
 
-### Migracion
+### Migración
 
 ```bash
 python manage.py makemigrations sale
 python manage.py migrate
 ```
 
-### Evidencia
-![alt text](image-49.png)
-![alt text](image-50.png)
-![alt text](image-51.png)
+### Evidencias
 
-# Unidad ISS-07 Serializers y JSON camelCase
+![Evidencia de la migración de los modelos de venta](image-49.png)
+![Evidencia de la aplicación de la migración](image-50.png)
+![Evidencia de las tablas de venta creadas](image-51.png)
 
-## Instalacion de paquetes de REST y JSON
-### comandos
+---
+
+# Unidad ISS-07 — Serializers y JSON camelCase
+
+En esta unidad se expone el modelo a través de la API REST. Se instalan Django REST Framework y los paquetes de conversión de nomenclatura y CORS, se configuran para que la API entregue JSON en formato camelCase —propio de JavaScript— y se definen los serializers que traducen cada modelo a JSON y validan los datos entrantes.
+
+## Instalación de los paquetes de REST y JSON
+
+Se instalan tres paquetes. `djangorestframework` aporta el conjunto de herramientas para construir la API. `djangorestframework-camel-case` convierte automáticamente las claves del JSON entre snake_case, que es la convención de Python, y camelCase, que es la convención habitual de JavaScript. `django-cors-headers` gestiona las cabeceras que permiten al frontend consumir la API desde otro origen.
+
+### Comandos
+
 ```bash
 python -m pip install "djangorestframework==3.17.2" "djangorestframework-camel-case==1.4.2" "django-cors-headers==4.9.0"
 python -m pip freeze > requirements.txt
 ```
 
-### Evidencia
-![alt text](image-52.png)
-![alt text](image-53.png)
+### Evidencias
 
-## Ajustes a `config/settings/__init__.py`
+![Evidencia de la instalación de los paquetes REST](image-52.png)
+![Evidencia del requirements.txt actualizado](image-53.png)
+
+## Ajustes en `config/settings/__init__.py`
+
+Los tres paquetes recién instalados requieren su declaración en la configuración. Se añaden `rest_framework` y `corsheaders` a `INSTALLED_APPS`, y el middleware de CORS se coloca por delante del de seguridad para que las cabeceras se resuelvan antes de cualquier respuesta.
+
+Se configura además `REST_FRAMEWORK` con renderers y parsers camelCase, de modo que la conversión sea automática en ambos sentidos: la API recibe `productId` y responde con `productId`, mientras que por dentro el código sigue trabajando con `product_id`. También se fija `DEFAULT_PAGINATION_CLASS` a `None` para que las listas respondan sin paginar.
+
 ### Indicaciones
-**ARCHIVO:** `config/settings/__init__.py`
 
-**ENCIMA DE:**
+**Archivo:** `config/settings/__init__.py`
+
+**Encima de:**
 
 ```python
     "apps.security.apps.SecurityConfig",
 ```
-**AGREGAR:**
+
+**Agregar:**
 
 ```python
     "rest_framework",
     "corsheaders",
 ```
 
-**ENCIMA DE:**
+**Encima de:**
 
 ```python
     "django.middleware.security.SecurityMiddleware",
 ```
-    
-**AGREGAR:**
+
+**Agregar:**
 
 ```python
     "corsheaders.middleware.CorsMiddleware",
 ```
 
-**DEBAJO DE:**
+**Debajo de:**
 
 ```python
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 ```
 
-**AGREGAR:**
+**Agregar:**
 
 ```python
 CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "True").strip().lower() in {
@@ -979,10 +1187,15 @@ REST_FRAMEWORK = {
 ```
 
 ### Evidencia
-![alt text](image-54.png)
 
-## Creacion de los serializers
+![Evidencia de la configuración de REST Framework y CORS](image-54.png)
+
+## Creación de los serializers
+
+Los serializers tienen dos funciones: convertir los modelos a JSON y validar los datos que llegan del exterior. `CustomerSerializer` declara el correo como opcional y lo normaliza a minúsculas en su validación. `SerializedUnitSerializer` expone la unidad junto con el identificador y el nombre del producto al que pertenece, y `SaleSerializer` anida las líneas de venta dentro de la cabecera mediante un serializer en `many=True`.
+
 ### Contenido de `customer/serializers.py`
+
 ```python
 from rest_framework import serializers
 
@@ -1024,6 +1237,7 @@ class CustomerSerializer(serializers.ModelSerializer):
 ```
 
 ### Contenido de `product/serializers.py`
+
 ```python
 from rest_framework import serializers
 
@@ -1085,7 +1299,9 @@ class ProductSerializer(serializers.ModelSerializer):
             return None
         return value
 ```
+
 ### Contenido de `sale/serializers.py`
+
 ```python
 from rest_framework import serializers
 
@@ -1133,15 +1349,29 @@ class SaleSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 ```
-### Evidencias 
-![alt text](image-55.png)
-![alt text](image-57.png)
-![alt text](image-58.png)
 
-# Unidad ISS-08 Customer con ModelViewSet
+### Evidencias
 
-## Creacion de la vista para customer
-### contenido de `apps/customer/views.py`
+![Evidencia del serializer de cliente](image-55.png)
+![Evidencia de los serializers de producto](image-57.png)
+![Evidencia del serializer de venta](image-58.png)
+
+---
+
+# Unidad ISS-08 — Customer con ModelViewSet
+
+En esta unidad se publica el primer endpoint real de la API. Se crea la vista del cliente como `ModelViewSet`, que implementa de una sola vez las operaciones de listar, crear, recuperar, modificar y borrar; se cubre con pruebas automatizadas; y se enlaza todo mediante el router de REST Framework y la configuración de URLs raíz.
+
+## Creación de la vista para `customer`
+
+La vista de cliente se construye sobre `ModelViewSet`, que proporciona de serie los cinco verbos REST. A esta base se le añaden dos comportamientos propios del negocio.
+
+El primero es el filtrado por estado: el método `get_queryset` lee el parámetro de consulta `status` y, si viene presente, reduce el conjunto devuelto. Esto permite a un consumidor de la API pedir solo los clientes activos sin que el servidor exponga esa lógica de filtrado en la URL.
+
+El segundo es el borrado lógico: `perform_destroy` sobrescribe el borrado físico de Django para que, en lugar de eliminar la fila, la marque como inactiva. Así se conserva el histórico de ventas asociadas a ese cliente, algo que el modelo ya protegía mediante la restricción `RESTRICT`.
+
+### Contenido de `apps/customer/views.py`
+
 ```python
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny
@@ -1168,11 +1398,17 @@ class CustomerViewSet(viewsets.ModelViewSet):
         instance.status = RecordStatus.INACTIVE
         instance.save(update_fields=["status", "updated_at"])
 ```
-### Evidencia
-![alt text](image-59.png)
 
-## Creacion de los test para customer
-### contenido de `apps/customer/tests.py`
+### Evidencia
+
+![Evidencia de la vista de cliente](image-59.png)
+
+## Creación de las pruebas para `customer`
+
+Las pruebas cubren los comportamientos críticos del endpoint: que los valores por defecto se apliquen y persistan, que la normalización del correo a minúsculas funcione y se refleje también en el JSON serializado en camelCase, que un nombre demasiado corto y un correo duplicado devuelvan error, que el borrado conserve la fila cambiando su estado, y que el ciclo completo de listado, recuperación y actualización responda correctamente.
+
+### Contenido de `apps/customer/tests.py`
+
 ```python
 import json
 
@@ -1242,11 +1478,17 @@ class CustomerApiTests(APITestCase):
         self.assertEqual(updated.status_code, status.HTTP_200_OK)
         self.assertEqual(updated.data["status"], "active")
 ```
-### evidencia
-![alt text](image-60.png)
 
-## Enrutamiento de customer
+### Evidencia
+
+![Evidencia de las pruebas del endpoint de cliente](image-60.png)
+
+## Enrutamiento de `customer`
+
+El router de REST Framework traduce la vista en un conjunto de URLs siguiendo la convención REST: la colección en plural para el listado y la creación, y la colección con identificador para la recuperación, la modificación y el borrado. Al declarar `use_regex_path=False`, el router genera rutas con tipos concretos en lugar de expresiones regulares.
+
 ### Contenido de `apps/customer/urls.py`
+
 ```python
 from rest_framework.routers import SimpleRouter
 
@@ -1257,43 +1499,59 @@ router.register("customers", CustomerViewSet, basename="customer")
 
 urlpatterns = router.urls
 ```
-### evidencia
-![alt text](image-61.png)
 
-## Ajustes en la configuraicon de urls
+### Evidencia
+
+![Evidencia del enrutamiento de cliente](image-61.png)
+
+## Ajustes en la configuración de URLs
+
+Finalmente hay que conectar el enrutamiento de la aplicación con la URL raíz del proyecto. Se importa `include` y se añade una ruta que delega en `apps.customer.urls` todo lo que llegue bajo el prefijo `api/`, dejando el panel de administración en su ruta original.
+
 ### Indicaciones
-**ARCHIVO:** `config/urls.py`
 
-**UBICAR:**
+**Archivo:** `config/urls.py`
+
+**Ubicar:**
 
 ```python
 from django.urls import path
 ```
 
-**REEMPLAZAR POR:**
+**Reemplazar por:**
 
 ```python
 from django.urls import include, path
 ```
 
-**DEBAJO DE:**
+**Debajo de:**
 
 ```python
 path("admin/", admin.site.urls),
 ```
 
-**AGREGAR:**
+**Agregar:**
 
 ```python
 path("api/", include("apps.customer.urls")),
 ```
 
-### evidencia
-![alt text](image-62.png)
+### Evidencia
 
-# Unidad ISS-09 Catálogo con ModelViewSet
-## Creacion de las vistas para publicar productos del catalogo y unidades serialiazadas
-###  Contenido de `apps/product/views.py`
+![Evidencia de la configuración de URLs raíz](image-62.png)
+
+---
+
+# Unidad ISS-09 — Catálogo con ModelViewSet
+
+Esta unidad publica el catálogo de productos y las unidades serializadas. Para no repetir la misma lógica en ambas vistas, se extrae una clase base común `CatalogViewSet` que concentra el comportamiento compartido, y cada vista concreta se limita a declarar su modelo y su serializer.
+
+## Creación de las vistas para publicar el catálogo
+
+`CatalogViewSet` hereda de `ModelViewSet` y añade las dos particularidades del catálogo: el filtrado por estado mediante el parámetro `status` y el borrado lógico que marca el registro como inactivo en lugar de eliminarlo. Al concentrar esa lógica en una sola clase base, `ProductViewSet` y `SerializedUnitViewSet` quedan reducidos a la declaración de su consulta y su serializer, y cualquier cambio de comportamiento se aplica por igual a las dos.
+
+### Contenido de `apps/product/views.py`
+
 ```python
 
 from rest_framework import viewsets
@@ -1331,10 +1589,17 @@ class SerializedUnitViewSet(CatalogViewSet):
     queryset = SerializedUnit.objects.all()
     serializer_class = SerializedUnitSerializer
 ```
+
 ### Evidencia
-![alt text](image-63.png)
+
+![Evidencia de las vistas del catálogo](image-63.png)
+
+## Enrutamiento del catálogo
+
+Se registran las dos vistas en el router para que cada una reciba su propio espacio de URL: `products` para el catálogo de productos y `serialized-units` para las unidades serializadas.
 
 ### Contenido de `apps/product/urls.py`
+
 ```python
 from rest_framework.routers import SimpleRouter
 
@@ -1355,23 +1620,37 @@ router.register(
 
 urlpatterns = router.urls
 ```
-### Evidencia
-![alt text](image-64.png)
 
-### Ajuste de `config/urls.py`
-**DEBAJO DE:**
+### Evidencia
+
+![Evidencia del enrutamiento del catálogo](image-64.png)
+
+## Ajuste de `config/urls.py`
+
+Al igual que con el cliente, hay que delegar el prefijo `api/` en el enrutamiento de la aplicación de producto.
+
+**Debajo de:**
+
 ```python
 path("api/", include("apps.customerlient.urls")),
 ```
 
-**AGREGAR:**
+**Agregar:**
+
 ```python
 path("api/", include("apps.product.urls")),
 ```
-### Evidencia
-![alt text](image-65.png)
 
-### contenido de `apps/product/tests.py`
+### Evidencia
+
+![Evidencia del alta del catálogo en las URLs raíz](image-65.png)
+
+## Pruebas del catálogo
+
+Las pruebas verifican el ciclo completo de producto: que la creación aplique el estado por defecto, que la consulta individual devuelva el nombre correcto, que la modificación del estado se refleje en la respuesta y que el borrado marque el registro como inactivo sin eliminarlo. Se cubre también la creación de una unidad serializada, comprobando que su clave foránea apunta al producto correcto, y su borrado lógico.
+
+### Contenido de `apps/product/tests.py`
+
 ```python
 
 from decimal import Decimal
@@ -1480,35 +1759,53 @@ class ProductApiTests(APITestCase):
         unit.refresh_from_db()
         self.assertEqual(unit.status, RecordStatus.INACTIVE)
 ```
+
 ### Evidencia y test
-![alt text](image-66.png)
-![alt text](image-67.png)
 
-# Unidad ISS-10 Disponibles con ListAPIView
-## Creacion de una lectura filtrada de productos
-### ajustes de `apps/product/urls.py`
-**ARCHIVO:** `apps/product/urls.py`
+![Evidencia de las pruebas del catálogo](image-66.png)
+![Evidencia de la ejecución de las pruebas](image-67.png)
 
-**UBICAR:**
+---
+
+# Unidad ISS-10 — Disponibles con ListAPIView
+
+En esta unidad se añade un endpoint de lectura con una filtrificación específica mediante `ListAPIView`, una vista genérica de solo lectura que expone únicamente la operación de listado. A diferencia de `ModelViewSet`, que publica todos los verbos, `ListAPIView` se limita a devolver colecciones, lo que resulta adecuado para consultas de catálogo que no deben permitir escritura.
+
+## Ajustes de `apps/product/urls.py`
+
+Se amplía el enrutamiento de la aplicación de producto para incluir una ruta manual, declarada por delante del router, que atiende el endpoint de productos disponibles.
+
+### Indicaciones
+
+**Archivo:** `apps/product/urls.py`
+
+**Ubicar:**
+
 ```python
 from rest_framework.routers import SimpleRouter
 ```
 
-**REEMPLAZAR POR:**
+**Reemplazar por:**
+
 ```python
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 ```
 
-**UBICAR el import de las vistas y AGREGAR** 
-```pythonAvailableProductListAPIView.
+**Ubicar el import de las vistas y agregar:**
 
-**REEMPLAZAR:**
+```python
+from apps.product.views import ProductViewSet, SerializedUnitViewSet, AvailableProductListAPIView
+```
+
+**Reemplazar:**
+
 ```python
 urlpatterns = router.urls
 ```
 
-**POR:**
+**Por:**
+
 ```python
 urlpatterns = [
     path(
@@ -1519,21 +1816,33 @@ urlpatterns = [
 ]
 urlpatterns += router.urls
 ```
-### evidencia
-![alt text](image-68.png)
-## Ajustes a las vistas de product
-### Indicaciones
-**ARCHIVO:** `apps/product/views.py`
 
-**ENCIMA DE:**
+### Evidencia
+
+![Evidencia de los ajustes de URL para productos disponibles](image-68.png)
+
+## Ajustes a las vistas de producto
+
+Se añade la vista de productos disponibles al final del módulo de vistas. Esta consulta restringe el conjunto devuelto a los productos activos cuyo tipo también esté activo, utilizando `select_related` para traer el tipo de producto en la misma consulta y evitar así una segunda llamada a la base de datos por cada fila.
+
+### Indicaciones
+
+**Archivo:** `apps/product/views.py`
+
+**Encima de:**
+
 ```python
 from rest_framework import viewsets
 ```
-**AGREGAR, en la misma línea de imports de rest_framework si ya está viewsets:**
+
+**Agregar, en la misma línea de imports de `rest_framework` si ya está `viewsets`:**
+
 ```python
 from rest_framework.generics import ListAPIView
 ```
-**AL FINAL DEL ARCHIVO, AGREGAR:**
+
+**Al final del archivo, agregar:**
+
 ```python
 class AvailableProductListAPIView(ListAPIView):
     permission_classes = [AllowAny]
@@ -1545,14 +1854,21 @@ class AvailableProductListAPIView(ListAPIView):
             product_type__status=RecordStatus.ACTIVE,
         )
 ```
-### evidencia
-![alt text](image-69.png)
 
-## Creacion de nuevo test de productos
+### Evidencia
+
+![Evidencia de la vista de productos disponibles](image-69.png)
+
+## Creación de la prueba de productos disponibles
+
+Se añade una prueba que crea un producto activo, comprueba que aparece en el listado de disponibles y verifica que el filtrado responde correctamente ante los cambios de estado.
+
 ### Indicaciones
-**ARCHIVO:** `apps/product/tests.py`
 
-**AL FINAL DE class ProductApiTests, AGREGAR:**
+**Archivo:** `apps/product/tests.py`
+
+**Al final de la clase `ProductApiTests`, agregar:**
+
 ```python
 def test_product_crud_and_available_filter(self):
     created = self.client.post(
@@ -1572,11 +1888,484 @@ def test_product_crud_and_available_filter(self):
     self.assertEqual(empty.data, [])
 ```
 
-### script de prueba
+### Script de prueba
+
 ```bash
 python manage.py test apps.product.tests.ProductApiTests.test_product_crud_and_available_filter
 ```
 
 ### Evidencia y test
-![alt text](image-70.png)
-![alt text](image-71.png)
+
+![Evidencia de la prueba de productos disponibles](image-70.png)
+![Evidencia de la ejecución de la prueba](image-71.png)
+
+# Unidad ISS-11 - Registro de venta con APIView
+## Ajuste a `apps/sale/managers.py`
+Se adaptó el método `register` de `SaleQuerySet` a la estructura actual de MovilCare, conservando la gestión de impuestos (`tax`) y descuentos (`discounts`), así como las validaciones de cantidades, productos activos y límites de descuento. Se eliminaron las dependencias de `ProductType` y `stock`, debido a que no forman parte del modelo actual de productos. Además, se ajustó la creación de los detalles de venta mediante `SaleDetail`, se mantuvo el cálculo del subtotal y del total, y se conservaron las transacciones atómicas y el bloqueo de registros para garantizar la integridad de los datos durante el registro de cada venta. El impuesto se inicializa en cero, pendiente de aplicar la regla de cálculo definida por el proyecto.
+### Indicaciones
+**ARCHIVO:** `apps/sale/managers.py`
+
+**UBICAR:**
+```python
+from django.db import models
+```
+
+**REEMPLAZAR POR:**
+```python
+from decimal import Decimal
+
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
+
+from apps.common.status import RecordStatus
+from apps.customer.models import Customer
+from apps.product.models import Product
+```
+
+**UBICAR:**
+```python
+class SaleQuerySet(models.QuerySet):
+    pass
+```
+
+**REEMPLAZAR POR:**
+```python
+class SaleQuerySet(models.QuerySet):
+
+    def register(self, *, customer, sale_date, items, discounts):
+        if not items:
+            raise ValidationError({
+                "items": ["La venta requiere al menos un producto."]
+            })
+
+        discounts = Decimal(str(discounts)).quantize(Decimal("0.01"))
+
+        if discounts < 0:
+            raise ValidationError({
+                "discounts": ["El descuento no puede ser negativo."]
+            })
+
+        quantities = {}
+
+        for item in items:
+            try:
+                product_id = int(item["product_id"])
+                quantity = int(item["quantity"])
+            except (KeyError, TypeError, ValueError):
+                raise ValidationError({
+                    "items": [
+                        "Cada producto debe tener product_id y quantity válidos."
+                    ]
+                })
+
+            if quantity < 1:
+                raise ValidationError({
+                    "items": ["La cantidad debe ser al menos 1."]
+                })
+
+            quantities[product_id] = (
+                quantities.get(product_id, 0) + quantity
+            )
+
+        with transaction.atomic():
+            locked_customer = (
+                Customer.objects
+                .select_for_update()
+                .filter(pk=customer.pk)
+                .first()
+            )
+
+            if locked_customer is None:
+                raise ValidationError({
+                    "customer_id": ["El cliente no existe."]
+                })
+
+            if locked_customer.status != RecordStatus.ACTIVE:
+                raise ValidationError({
+                    "customer_id": ["El cliente debe estar activo."]
+                })
+
+            locked_products = {
+                product.id: product
+                for product in (
+                    Product.objects
+                    .select_for_update()
+                    .filter(pk__in=quantities)
+                    .order_by("id")
+                )
+            }
+
+            if len(locked_products) != len(quantities):
+                raise ValidationError({
+                    "items": ["Hay productos que no existen."]
+                })
+
+            for product in locked_products.values():
+                if product.status != RecordStatus.ACTIVE:
+                    raise ValidationError({
+                        "items": [
+                            f"El producto {product.name} no está activo."
+                        ]
+                    })
+
+            sale = self.model(
+                customer=locked_customer,
+                sale_date=sale_date,
+                subtotal=Decimal("0.00"),
+                tax=Decimal("0.00"),
+                discounts=discounts,
+                total=Decimal("0.00"),
+                status=RecordStatus.INACTIVE,
+            )
+            sale.save()
+
+            subtotal = Decimal("0.00")
+
+            for item in items:
+                product = locked_products[int(item["product_id"])]
+                quantity = int(item["quantity"])
+
+                unit_price = Decimal(str(product.price))
+                line_total = (
+                    unit_price * quantity
+                ).quantize(Decimal("0.01"))
+
+                SaleDetail.objects.create(
+                    sale=sale,
+                    product=product,
+                    quantity=quantity,
+                    unit_price=unit_price,
+                    total=line_total,
+                    status=RecordStatus.ACTIVE,
+                )
+
+                subtotal += line_total
+
+            subtotal = subtotal.quantize(Decimal("0.01"))
+
+            if discounts > subtotal:
+                raise ValidationError({
+                    "discounts": [
+                        "El descuento no puede superar el subtotal."
+                    ]
+                })
+
+            # Conservamos el campo tax de Sale.
+            # Se inicializa en cero porque no se ha definido
+            # una regla de cálculo de impuestos en este método.
+            tax = Decimal("0.00")
+
+            total = (subtotal + tax - discounts).quantize(Decimal("0.01"))
+
+            sale.subtotal = subtotal
+            sale.tax = tax
+            sale.discounts = discounts
+            sale.total = total
+            sale.status = RecordStatus.ACTIVE
+
+            sale.save(
+                update_fields=[
+                    "subtotal",
+                    "tax",
+                    "discounts",
+                    "total",
+                    "status",
+                    "updated_at",
+                ]
+            )
+
+            return sale
+```
+### Evidencia
+![alt text](image-72.png)
+
+## Ajuste al `apps/sale/serializers.py`
+### indicaciones
+**ARCHIVO:** `apps/sale/serializers.py`
+
+**ENCIMA DE:**
+```python
+from rest_framework import serializers
+```
+
+**AGREGAR:**
+```python
+from decimal import Decimal
+
+from django.core.exceptions import ValidationError as DjangoValidationError
+```
+
+**DEBAJO DE los imports existentes, AGREGAR:**
+```python
+from apps.customer.models import Customer
+from apps.product.models import Product
+```
+**AL FINAL DEL ARCHIVO, AGREGAR:**
+```python
+class SaleItemSerializer(serializers.Serializer):
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        source="product",
+    )
+    quantity = serializers.IntegerField(min_value=1)
+
+
+class SaleRegisterSerializer(serializers.Serializer):
+    customer_id = serializers.PrimaryKeyRelatedField(
+        queryset=Client.objects.all(),
+        source="customer",
+    )
+    sale_date = serializers.DateTimeField()
+    discounts = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        required=False,
+        default=Decimal("0.00"),
+    )
+    items = SaleItemSerializer(many=True, allow_empty=False)
+
+    def create(self, validated_data):
+        items = [
+            {"product_id": item["product"].id, "quantity": item["quantity"]}
+            for item in validated_data["items"]
+        ]
+        try:
+            return Sale.objects.register(
+                customer=validated_data["customer"],
+                sale_date=validated_data["sale_date"],
+                discounts=validated_data["discounts"],
+                items=items,
+            )
+        except DjangoValidationError as exc:
+            if getattr(exc, "message_dict", None):
+                raise serializers.ValidationError(exc.message_dict) from exc
+            raise serializers.ValidationError(exc.messages) from exc
+```
+
+### Evidencia
+![alt text](image-73.png)
+
+## Creacion de `apps/sale/views.py`
+```python
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.sale.models import Sale
+from apps.sale.serializers import SaleRegisterSerializer, SaleSerializer
+
+
+class SaleRegisterAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = SaleRegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sale = serializer.save()
+        sale = Sale.objects.prefetch_related("lines__product").get(pk=sale.pk)
+        return Response(SaleSerializer(sale).data, status=status.HTTP_201_CREATED)
+
+
+class SaleCollectionAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        handler = SaleRegisterAPIView()
+        handler.request = request
+        handler.format_kwarg = None
+        handler.args = ()
+        handler.kwargs = {}
+        return handler.post(request)
+```
+
+### Evidencia
+![alt text](image-74.png)
+
+## Creacion de `apps/sale/urls.py`
+```python
+from django.urls import path
+
+from apps.sale.views import SaleCollectionAPIView
+
+urlpatterns = [
+    path("sales/", SaleCollectionAPIView.as_view(), name="sale-collection"),
+]
+```
+
+## ajuste a `config/urls.py` 
+**DEBAJO DE:**
+```python
+    path("api/", include("apps.product.urls")),
+```
+
+**AGREGAR:**
+```python
+    path("api/", include("apps.sale.urls")),
+```
+
+### Evidencia
+![alt text](image-75.png)
+![alt text](image-76.png)
+
+## Creacion del este de sales
+### contenido de `apps/sale/tests.py`
+```python
+from decimal import Decimal
+from unittest.mock import patch
+
+from django.utils import timezone
+from rest_framework.test import APITestCase
+
+from apps.customer.models import Customer
+from apps.common.status import RecordStatus
+from apps.product.models import Product
+from apps.sale.models import Sale, SaleDetail
+
+
+class SaleTransactionTests(APITestCase):
+    def setUp(self):
+        self.customer = Customer.objects.create(
+            name="Comprador",
+            status=RecordStatus.ACTIVE,
+        )
+
+        self.water = Product.objects.create(
+            name="Agua",
+            price=Decimal("10.00"),
+            status=RecordStatus.ACTIVE,
+        )
+
+        self.bread = Product.objects.create(
+            name="Pan",
+            price=Decimal("4.50"),
+            status=RecordStatus.ACTIVE,
+        )
+
+    def _payload(self, items, discounts="0.00"):
+        return {
+            "customer_id": self.customer.id,
+            "sale_date": timezone.now().isoformat(),
+            "discounts": discounts,
+            "items": items,
+        }
+
+    def test_register_snapshots_prices_and_applies_discounts(self):
+        response = self.client.post(
+            "/api/sales/",
+            self._payload(
+                [
+                    {
+                        "product_id": self.water.id,
+                        "quantity": 2,
+                    },
+                    {
+                        "product_id": self.bread.id,
+                        "quantity": 1,
+                    },
+                ],
+                discounts="1.50",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assertEqual(Decimal(str(response.data["subtotal"])), Decimal("24.50"))
+        self.assertEqual(Decimal(str(response.data["tax"])), Decimal("0.00"))
+        self.assertEqual(Decimal(str(response.data["discounts"])), Decimal("1.50"))
+        self.assertEqual(Decimal(str(response.data["total"])), Decimal("23.00"))
+        self.assertEqual(response.data["status"], "active")
+
+        sale = Sale.objects.get(pk=response.data["id"])
+        details = SaleDetail.objects.filter(sale=sale)
+
+        self.assertEqual(details.count(), 2)
+
+        water_detail = details.get(product=self.water)
+        self.assertEqual(water_detail.quantity, 2)
+        self.assertEqual(water_detail.unit_price, Decimal("10.00"))
+        self.assertEqual(water_detail.total, Decimal("20.00"))
+
+    def test_discount_cannot_exceed_subtotal(self):
+        response = self.client.post(
+            "/api/sales/",
+            self._payload(
+                [
+                    {
+                        "product_id": self.bread.id,
+                        "quantity": 1,
+                    }
+                ],
+                discounts="5.00",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Sale.objects.count(), 0)
+        self.assertEqual(SaleDetail.objects.count(), 0)
+
+    def test_detail_creation_failure_rolls_back_the_sale(self):
+        with patch.object(
+            SaleDetail.objects,
+            "create",
+            side_effect=RuntimeError("Fallo al crear el detalle"),
+        ):
+            with self.assertRaises(RuntimeError):
+                self.client.post(
+                    "/api/sales/",
+                    self._payload(
+                        [
+                            {
+                                "product_id": self.water.id,
+                                "quantity": 1,
+                            }
+                        ]
+                    ),
+                    format="json",
+                )
+
+        self.assertEqual(Sale.objects.count(), 0)
+        self.assertEqual(SaleDetail.objects.count(), 0)
+
+    def test_inactive_customer_is_rejected(self):
+        self.customer.status = RecordStatus.INACTIVE
+        self.customer.save()
+
+        response = self.client.post(
+            "/api/sales/",
+            self._payload(
+                [
+                    {
+                        "product_id": self.water.id,
+                        "quantity": 1,
+                    }
+                ]
+            ),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Sale.objects.count(), 0)
+        self.assertEqual(SaleDetail.objects.count(), 0)
+
+    def test_empty_items_are_rejected(self):
+        response = self.client.post(
+            "/api/sales/",
+            self._payload([]),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Sale.objects.count(), 0)
+        self.assertEqual(SaleDetail.objects.count(), 0)
+```
+
+Se adaptaron las pruebas de transacciones de ventas a la estructura actual de MovilCare, reemplazando el modelo `Client` por `Customer` y eliminando las dependencias de `ProductType`, `ProductSale` y `stock`. Se actualizaron los datos de prueba y los campos enviados al endpoint para utilizar `customer_id` y `product_id`. Además, se conservaron las validaciones de subtotal, impuestos (`tax`) y descuentos (`discounts`), y se añadieron pruebas para verificar que los descuentos no superen el subtotal, que los clientes inactivos sean rechazados y que los errores al crear los detalles reviertan la transacción completa, garantizando la integridad de los datos.
+
+### Evidencia
+![alt text](image-77.png)
+![alt text](image-78.png)
+
+# Unidad ISS-12 - 
