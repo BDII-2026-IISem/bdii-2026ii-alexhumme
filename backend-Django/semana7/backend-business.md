@@ -3562,3 +3562,121 @@ Usuario inexistente, inactivo o clave mala responden el **mismo 401**: no se dic
 | AC-17-03 | usuario `inactive` → 401 | PASS |
 | AC-17-04 | clave mala → 401 | PASS |
 | AC-17-05 | sin `password` en el JSON | PASS |
+
+---
+
+# Unidad ISS-18 — Refresh con rotación
+
+**Objetivo:** cambiar el *refresh* en cada uso y tratar la **reutilización como revocación de la familia**.
+
+**Fuente:** [19-ISS-18-refresh-con-rotacion](https://tecnogua.com/academic/site/backend2026/django/manual/19-ISS-18-refresh-con-rotacion/)
+
+> El material trabaja sobre StoreLab. MovilCare reutiliza los `RefreshToken`, `issue_refresh` y `token_payload` ya escritos en el ISS-15/ISS-17; solo se añade `RefreshAPIView` a `apps/security/auth_views.py`. El comportamiento (rotación, reuso → revocación de familia, vencido sin revocar) es idéntico.
+
+## 1. `RefreshAPIView` — `apps/security/auth_views.py`
+
+`APIView` en acceso **OPEN**. Busca la fila por hash dentro de `select_for_update()`.
+
+```python
+from django.db import models, transaction
+from django.utils import timezone
+from apps.security.serializers import LoginSerializer, RefreshSerializer, TokenPairSerializer
+
+
+def _revoke_family(family_id):
+    # Apaga todos los tokens vivos de la familia, incluido el recién emitido.
+    RefreshToken.objects.filter(family_id=family_id).filter(
+        models.Q(revoked_at__isnull=True) & models.Q(replaced_by__isnull=True)
+    ).update(revoked_at=timezone.now(), status=RecordStatus.INACTIVE)
+
+
+class RefreshAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(request=RefreshSerializer, responses={200: TokenPairSerializer}, tags=["auth"])
+    def post(self, request):
+        serializer = RefreshSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        raw_refresh = serializer.validated_data["refresh"]
+
+        with transaction.atomic():
+            stored = (
+                RefreshToken.objects.select_for_update()
+                .select_related("user")
+                .filter(token_hash=hash_token(raw_refresh))
+                .first()
+            )
+            if stored is None:
+                return Response({"detail": "Refresh inválido."}, status=401)
+            user = stored.user
+            # Ya rotado, revocado o inactivo: se asume reuso y se apaga la familia.
+            if (stored.replaced_by_id is not None or stored.revoked_at is not None
+                    or stored.status != RecordStatus.ACTIVE):
+                return _unusable_response(stored.family_id)
+            # Vencido o usuario inactivo: se inactiva ese token, sin revocar familia.
+            if stored.expires_at <= timezone.now():
+                stored.status = RecordStatus.INACTIVE
+                stored.save(update_fields=["status", "updated_at"])
+                return Response({"detail": "Refresh inválido."}, status=401)
+            if user.status != RecordStatus.ACTIVE:
+                stored.status = RecordStatus.INACTIVE
+                stored.save(update_fields=["status", "updated_at"])
+                return Response({"detail": "Refresh inválido."}, status=401)
+            # Vigente: se emite otro par de la misma familia y el anterior queda replaced_by.
+            _new, raw_new = issue_refresh(user, family_id=stored.family_id)
+            new_stored = RefreshToken.objects.get(token_hash=hash_token(raw_new))
+            stored.replaced_by = new_stored
+            stored.save(update_fields=["replaced_by", "updated_at"])
+            return Response(token_payload(user, raw_new), status=200)
+```
+
+## 2. Ruta — `apps/security/urls.py`
+
+```python
+from apps.security.auth_views import LoginAPIView, RefreshAPIView
+
+urlpatterns = [
+    path("auth/login/", LoginAPIView.as_view(), name="auth-login"),
+    path("auth/refresh/", RefreshAPIView.as_view(), name="auth-refresh"),
+]
+```
+
+`config/urls.py` no se toca: el `include` del ISS-17 ya entrega `api/`.
+
+## Explicación
+
+```
+no existe                        → 401
+ya rotado, revocado o inactivo   → revoca la familia → 401
+vencido                          → inactiva ese token → 401
+usuario inactive                 → inactiva ese token → 401
+vigente                          → emite otro par de la misma familia, marca el anterior replaced_by
+```
+
+**Rotar sin detectar reuso deja vivo el token robado.** Si el token viejo vuelve a presentarse, se asume que alguien más lo tiene y se apagan todos los de esa `family_id`, incluido el recién emitido al cliente legítimo: ese cliente tendrá que volver a login. El **vencimiento no revoca la familia** — un token expirado no prueba que se haya copiado.
+
+## Criterios de aceptación
+
+- **AC-18-01:** el segundo refresh es distinto del primero; el primero responde 200 la primera vez.
+- **AC-18-02:** reusar el primero responde 401.
+- **AC-18-03:** el segundo, ya comprometida la familia, también responde 401.
+
+## Verificación
+
+`AuthFlowTests.test_refresh_rotates_and_reuse_revokes_family` (más `test_expired_refresh_is_400_or_401_without_family_revocation` y `test_unknown_refresh_is_401`). La suite completa pasa con **45 pruebas OK** y `spectacular --validate` en código 0.
+
+```
+login → refresh A
+POST /api/auth/refresh/  {refresh: A}  200 → B   (A queda replaced_by)
+POST /api/auth/refresh/  {refresh: A}  401        (reuso: se apaga la familia)
+POST /api/auth/refresh/  {refresh: B}  401        (B murió con la familia)
+```
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-18-01 | rotación: B ≠ A, A → 200 la primera vez | PASS |
+| AC-18-02 | reusar A → 401 | PASS |
+| AC-18-03 | B, tras el reuso, → 401 | PASS |

@@ -272,3 +272,59 @@ class AuthFlowTests(APITestCase):
             format="json",
         )
         self.assertEqual(missing.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_refresh_rotates_and_reuse_revokes_family(self):
+        login = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        )
+        first = login.data["refresh"]
+
+        rotated = self.client.post(
+            "/api/auth/refresh/", {"refresh": first}, format="json"
+        )
+        self.assertEqual(rotated.status_code, status.HTTP_200_OK)
+        second = rotated.data["refresh"]
+        self.assertNotEqual(first, second)
+        # El anterior queda marcado con replaced_by.
+        old = RefreshToken.objects.get(token_hash=hash_token(first))
+        self.assertIsNotNone(old.replaced_by_id)
+
+        # Reusar el primero se trata como robo: se apaga la familia.
+        reused = self.client.post(
+            "/api/auth/refresh/", {"refresh": first}, format="json"
+        )
+        self.assertEqual(reused.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # El segundo murió con la familia.
+        after_reuse = self.client.post(
+            "/api/auth/refresh/", {"refresh": second}, format="json"
+        )
+        self.assertEqual(after_reuse.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_expired_refresh_is_400_or_401_without_family_revocation(self):
+        login = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        )
+        raw = login.data["refresh"]
+        stored = RefreshToken.objects.get(token_hash=hash_token(raw))
+        stored.expires_at = timezone.now() - timedelta(minutes=1)
+        stored.save(update_fields=["expires_at", "updated_at"])
+
+        expired = self.client.post(
+            "/api/auth/refresh/", {"refresh": raw}, format="json"
+        )
+        self.assertEqual(expired.status_code, status.HTTP_401_UNAUTHORIZED)
+        stored.refresh_from_db()
+        self.assertEqual(stored.status, RecordStatus.INACTIVE)
+        # El vencimiento no prueba reuso: la familia no se revoca.
+        self.assertIsNone(stored.revoked_at)
+
+    def test_unknown_refresh_is_401(self):
+        unknown = self.client.post(
+            "/api/auth/refresh/", {"refresh": "no-existe"}, format="json"
+        )
+        self.assertEqual(unknown.status_code, status.HTTP_401_UNAUTHORIZED)
