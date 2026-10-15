@@ -328,3 +328,84 @@ class AuthFlowTests(APITestCase):
             "/api/auth/refresh/", {"refresh": "no-existe"}, format="json"
         )
         self.assertEqual(unknown.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_invalidates_refresh(self):
+        login = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        )
+        raw = login.data["refresh"]
+
+        logout = self.client.post(
+            "/api/auth/logout/", {"refresh": raw}, format="json"
+        )
+        self.assertEqual(logout.status_code, status.HTTP_204_NO_CONTENT)
+
+        # Ese refresh ya no puede renovar.
+        again = self.client.post(
+            "/api/auth/refresh/", {"refresh": raw}, format="json"
+        )
+        self.assertEqual(again.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        stored = RefreshToken.objects.get(token_hash=hash_token(raw))
+        self.assertIsNotNone(stored.revoked_at)
+        self.assertEqual(stored.status, RecordStatus.INACTIVE)
+
+    def test_logout_twice_still_returns_204(self):
+        login = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        )
+        raw = login.data["refresh"]
+        first = self.client.post(
+            "/api/auth/logout/", {"refresh": raw}, format="json"
+        )
+        self.assertEqual(first.status_code, status.HTTP_204_NO_CONTENT)
+        second = self.client.post(
+            "/api/auth/logout/", {"refresh": raw}, format="json"
+        )
+        self.assertEqual(second.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_logout_of_rotated_token_revokes_family(self):
+        login = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        )
+        first = login.data["refresh"]
+        rotated = self.client.post(
+            "/api/auth/refresh/", {"refresh": first}, format="json"
+        )
+        second = rotated.data["refresh"]
+
+        # Presentar el token ya rotado en logout es reuso: se apaga la familia.
+        reuse_logout = self.client.post(
+            "/api/auth/logout/", {"refresh": first}, format="json"
+        )
+        self.assertEqual(reuse_logout.status_code, status.HTTP_401_UNAUTHORIZED)
+        after = self.client.post(
+            "/api/auth/refresh/", {"refresh": second}, format="json"
+        )
+        self.assertEqual(after.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_logout_does_not_touch_other_sessions(self):
+        raw_a = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        ).data["refresh"]
+        # Otro dispositivo: misma cuenta, otra familia de refresh.
+        raw_b = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        ).data["refresh"]
+
+        self.client.post("/api/auth/logout/", {"refresh": raw_a}, format="json")
+        # La otra sesión sigue viva.
+        still_ok = self.client.post(
+            "/api/auth/refresh/", {"refresh": raw_b}, format="json"
+        )
+        self.assertEqual(still_ok.status_code, status.HTTP_200_OK)

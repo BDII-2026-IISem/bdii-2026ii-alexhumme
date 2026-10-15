@@ -3680,3 +3680,85 @@ POST /api/auth/refresh/  {refresh: B}  401        (B murió con la familia)
 | AC-18-01 | rotación: B ≠ A, A → 200 la primera vez | PASS |
 | AC-18-02 | reusar A → 401 | PASS |
 | AC-18-03 | B, tras el reuso, → 401 | PASS |
+
+---
+
+# Unidad ISS-19 — Logout
+
+**Objetivo:** invalidar el *refresh* presentado, **sin guardar el access token**.
+
+**Fuente:** [20-ISS-19-logout](https://tecnogua.com/academic/site/backend2026/django/manual/20-ISS-19-logout/)
+
+> MovilCare reutiliza los modelos y helpers ya escritos; solo se añade `LogoutAPIView` a `apps/security/auth_views.py`. El comportamiento (204 al cerrar, 401 si el hash no existe, revocación de familia si el token ya fue rotado) es idéntico.
+
+## 1. `LogoutAPIView` — `apps/security/auth_views.py`
+
+```python
+class LogoutAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(request=LogoutSerializer, responses={204: None}, tags=["auth"])
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        raw_refresh = serializer.validated_data["refresh"]
+        stored = RefreshToken.objects.filter(token_hash=hash_token(raw_refresh)).first()
+        if stored is None:
+            return Response({"detail": "Refresh inválido."}, status=status.HTTP_401_UNAUTHORIZED)
+        # Ya rotado: se trata como reuso y se apaga la familia entera.
+        if stored.replaced_by_id is not None:
+            _revoke_family(stored.family_id)
+            return Response({"detail": "Refresh inválido."}, status=status.HTTP_401_UNAUTHORIZED)
+        # Cerrar sesión invalida solo ese refresh, no otras familias del usuario.
+        stored.revoked_at = timezone.now()
+        stored.status = RecordStatus.INACTIVE
+        stored.save(update_fields=["revoked_at", "status", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+```
+
+## 2. Ruta — `apps/security/urls.py`
+
+```python
+from apps.security.auth_views import LoginAPIView, LogoutAPIView, RefreshAPIView
+
+urlpatterns = [
+    path("auth/login/", LoginAPIView.as_view(), name="auth-login"),
+    path("auth/refresh/", RefreshAPIView.as_view(), name="auth-refresh"),
+    path("auth/logout/", LogoutAPIView.as_view(), name="auth-logout"),
+]
+```
+
+## Explicación
+
+```
+hash desconocido        → 401
+token ya reemplazado    → revoca la familia → 401
+en cualquier otro caso  → status inactive, revoked_at = ahora → 204
+```
+
+Logout **no pide access token**: la credencial de la sesión persistida es el *refresh*. Cerrar sesión en un dispositivo **no tiene por qué cerrar otra familia** (otro dispositivo de la misma cuenta). Si el valor presentado ya fue rotado, se trata como **reuso** y sí se apaga la familia: alguien está presentando un token que ya no debía existir. No hay tabla de access tokens que limpiar.
+
+Un segundo logout del mismo token (si no fue rotado) vuelve a dejarlo inactivo y responde 204.
+
+## Criterios de aceptación
+
+- **AC-19-01:** logout responde 204.
+- **AC-19-02:** ese refresh ya no puede renovar: el siguiente refresh responde 401.
+
+## Verificación
+
+`AuthFlowTests.test_logout_invalidates_refresh` (más `test_logout_twice_still_returns_204`, `test_logout_of_rotated_token_revokes_family` y `test_logout_does_not_touch_other_sessions`). La suite completa pasa con **49 pruebas OK** y `spectacular --validate` en código 0.
+
+```
+login → refresh R   (fila active en refresh_tokens)
+POST /api/auth/logout/  {refresh: R}  204
+POST /api/auth/refresh/ {refresh: R}  401
+```
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-19-01 | logout → HTTP 204 | PASS |
+| AC-19-02 | refresh posterior → 401 | PASS |

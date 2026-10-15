@@ -15,6 +15,7 @@ from apps.common.status import RecordStatus
 from apps.security.models import RefreshToken
 from apps.security.serializers import (
     LoginSerializer,
+    LogoutSerializer,
     RefreshSerializer,
     TokenPairSerializer,
 )
@@ -114,6 +115,35 @@ class RefreshAPIView(APIView):
             stored.replaced_by = new_stored
             stored.save(update_fields=["replaced_by", "updated_at"])
             return Response(token_payload(user, raw_new), status=status.HTTP_200_OK)
+
+
+class LogoutAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(request=LogoutSerializer, responses={204: None}, tags=["auth"])
+    def post(self, request):
+        serializer = LogoutSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        raw_refresh = serializer.validated_data["refresh"]
+        stored = RefreshToken.objects.filter(token_hash=hash_token(raw_refresh)).first()
+        if stored is None:
+            return Response(
+                {"detail": "Refresh inválido."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        # Ya rotado: se trata como reuso y se apaga la familia entera.
+        if stored.replaced_by_id is not None:
+            _revoke_family(stored.family_id)
+            return Response(
+                {"detail": "Refresh inválido."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        # Cerrar sesión invalida solo ese refresh, no otras familias del usuario.
+        stored.revoked_at = timezone.now()
+        stored.status = RecordStatus.INACTIVE
+        stored.save(update_fields=["revoked_at", "status", "updated_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def _find_user(username, email):
