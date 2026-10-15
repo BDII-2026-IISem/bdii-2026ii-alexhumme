@@ -1,4 +1,5 @@
 import hashlib
+import json
 import uuid
 from datetime import timedelta
 
@@ -11,7 +12,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIRequestFactory
 
 from apps.common.status import RecordStatus
-from apps.common.testing import PASSWORD, create_active_user
+from apps.common.testing import PASSWORD, create_active_user, grant_crud
 from apps.security.models import (
     RefreshToken,
     Resource,
@@ -556,3 +557,153 @@ class RbacTests(TestCase):
 
     def test_options_is_allowed_for_authenticated_user(self):
         self.assertTrue(self._allowed(self._request(method="OPTIONS", user=self.user)))
+
+
+class SecurityMatrixApiTests(APITestCase):
+    """CRUD de la matriz: se administra la matriz y se usa para autorizar.
+
+    Los endpoints son JWT con token + RBAC: el setUp abre la matriz para
+    poder escribirla; la cadena de negocio usa otro usuario, el que el
+    propio POST acaba de crear, sin grant() manual.
+    """
+
+    def setUp(self):
+        self.admin = create_active_user(username="root", email="root@movilcare.test")
+        for collection, detail in (
+            ("/api/users/", "/api/users/1/"),
+            ("/api/roles/", "/api/roles/1/"),
+            ("/api/role-users/", "/api/role-users/1/"),
+            ("/api/resources/", "/api/resources/1/"),
+            ("/api/resource-roles/", "/api/resource-roles/1/"),
+        ):
+            grant_crud(self.admin, collection, detail)
+        self.client.force_authenticate(user=self.admin)
+
+    def test_role_crud_soft_delete_and_status_filter(self):
+        created = self.client.post(
+            "/api/roles/",
+            {"name": "cajero", "description": "Caja y cobro", "status": "active"},
+            format="json",
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(created.data["status"], RecordStatus.ACTIVE)
+        pk = created.data["id"]
+
+        listed = self.client.get("/api/roles/")
+        self.assertEqual(listed.status_code, status.HTTP_200_OK)
+        self.assertIn(pk, [row["id"] for row in listed.data])
+
+        detail = self.client.get(f"/api/roles/{pk}/")
+        self.assertEqual(detail.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail.data["name"], "cajero")
+
+        patched = self.client.patch(
+            f"/api/roles/{pk}/", {"description": "Caja 2"}, format="json"
+        )
+        self.assertEqual(patched.status_code, status.HTTP_200_OK)
+        self.assertEqual(patched.data["description"], "Caja 2")
+
+        deleted = self.client.delete(f"/api/roles/{pk}/")
+        self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
+        # AC-23-03: DELETE no borra la fila, queda inactive.
+        self.assertTrue(Role.objects.filter(pk=pk).exists())
+        self.assertEqual(Role.objects.get(pk=pk).status, RecordStatus.INACTIVE)
+
+        active_ids = [row["id"] for row in self.client.get("/api/roles/?status=active").data]
+        inactive_ids = [row["id"] for row in self.client.get("/api/roles/?status=inactive").data]
+        self.assertNotIn(pk, active_ids)
+        self.assertIn(pk, inactive_ids)
+
+    def test_user_role_resource_chain_grants_the_route_step_by_step(self):
+        role = self.client.post(
+            "/api/roles/", {"name": "bodega", "status": "active"}, format="json"
+        )
+        self.assertEqual(role.status_code, status.HTTP_201_CREATED)
+        role_id = role.data["id"]
+
+        created_user = self.client.post(
+            "/api/users/",
+            {
+                "username": "bodega1",
+                "email": "bodega1@movilcare.test",
+                "firstName": "Bodega",
+                "password": PASSWORD,
+                "status": "active",
+            },
+            format="json",
+        )
+        self.assertEqual(created_user.status_code, status.HTTP_201_CREATED)
+        user_id = created_user.data["id"]
+
+        # AC-23-01: el serializer no devuelve password.
+        self.assertNotIn("password", created_user.data)
+        self.assertNotIn("password", json.loads(created_user.content))
+
+        # AC-23-02: la contraseña pasa por set_password (hash), no en claro.
+        bodega1 = User.objects.get(pk=user_id)
+        self.assertTrue(bodega1.check_password(PASSWORD))
+        self.assertNotEqual(bodega1.password, PASSWORD)
+
+        # Sin rol → 403.
+        self.client.force_authenticate(user=bodega1)
+        self.assertEqual(
+            self.client.get("/api/customers/").status_code, status.HTTP_403_FORBIDDEN
+        )
+
+        # RoleUser sin ResourceRole → sigue 403.
+        self.client.force_authenticate(user=self.admin)
+        link = self.client.post(
+            "/api/role-users/",
+            {"role": role_id, "user": user_id, "status": "active"},
+            format="json",
+        )
+        self.assertEqual(link.status_code, status.HTTP_201_CREATED)
+        self.client.force_authenticate(user=bodega1)
+        self.assertEqual(
+            self.client.get("/api/customers/").status_code, status.HTTP_403_FORBIDDEN
+        )
+
+        # Recurso suelto, sin ResourceRole → sigue 403.
+        self.client.force_authenticate(user=self.admin)
+        resource = self.client.post(
+            "/api/resources/",
+            {
+                "name": "Customer list",
+                "method": "GET",
+                "route": "api/customers/",
+                "status": "active",
+            },
+            format="json",
+        )
+        self.assertEqual(resource.status_code, status.HTTP_201_CREATED)
+        self.client.force_authenticate(user=bodega1)
+        self.assertEqual(
+            self.client.get("/api/customers/").status_code, status.HTTP_403_FORBIDDEN
+        )
+
+        # ResourceRole active → 200 en GET; POST no se concedió, sigue 403.
+        self.client.force_authenticate(user=self.admin)
+        grant_row = self.client.post(
+            "/api/resource-roles/",
+            {"resource": resource.data["id"], "role": role_id, "status": "active"},
+            format="json",
+        )
+        self.assertEqual(grant_row.status_code, status.HTTP_201_CREATED)
+
+        self.client.force_authenticate(user=bodega1)
+        self.assertEqual(
+            self.client.get("/api/customers/").status_code, status.HTTP_200_OK
+        )
+        self.assertEqual(
+            self.client.post("/api/customers/", {"name": "No permitido"}, format="json").status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+        # AC-23-02: update también pasa por set_password.
+        self.client.force_authenticate(user=self.admin)
+        changed = self.client.patch(
+            f"/api/users/{user_id}/", {"password": "Otra-Clave-77"}, format="json"
+        )
+        self.assertEqual(changed.status_code, status.HTTP_200_OK)
+        bodega1.refresh_from_db()
+        self.assertTrue(bodega1.check_password("Otra-Clave-77"))

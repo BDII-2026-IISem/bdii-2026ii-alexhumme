@@ -4064,3 +4064,120 @@ Este ISS no cambia la forma de la venta ni del cliente: **cambia quién puede ej
 | AC-22-01 | negocio con RBAC (suite OK) | PASS |
 | AC-22-02 | deny by default (403/401) | PASS |
 | AC-22-03 | perfil sigue en JWT con token (`ProfileAPIView.permission_classes`) | PASS |
+
+---
+
+# Unidad ISS-23 — CRUD de la matriz
+
+**Objetivo:** administrar la matriz y usarla para autorizar: el CRUD crea cada fila, `RoleUser` asigna el rol al usuario y `ResourceRole` asigna el recurso al rol. Con los dos enlaces activos, ese usuario puede ejecutar la ruta concedida.
+
+**Fuente:** [24-ISS-23-crud-de-la-matriz](https://tecnogua.com/academic/site/backend2026/django/manual/24-ISS-23-crud-de-la-matriz/)
+
+> MovilCare usa sus modelos reales del ISS-16. Los endpoints son `api/users/`, `api/roles/`, `api/role-users/`, `api/resources/` y `api/resource-roles/` (lista y detalle de cada uno). La prueba de cadena usa `GET /api/customers/` de MovilCare en lugar del `GET /api/clients/` de StoreLab.
+
+## 1. `SoftDeleteModelViewSet` — `apps/security/rbac_views.py`
+
+```python
+class SoftDeleteModelViewSet(ModelViewSet):
+    """ModelViewSet con baja lógica y filtro ?status= para la matriz RBAC."""
+
+    lookup_value_converter = "int"
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        status_value = self.request.query_params.get("status")
+        if status_value:
+            queryset = queryset.filter(status=status_value)
+        return queryset
+
+    def perform_destroy(self, instance):
+        # La fila nunca se borra: queda inactive.
+        # save() completo para que User sincronice is_active con status.
+        instance.status = RecordStatus.INACTIVE
+        instance.save()
+```
+
+De él heredan `UserViewSet`, `RoleViewSet`, `RoleUserViewSet`, `ResourceViewSet` y `ResourceRoleViewSet`, todos con `permission_classes = [IsAuthenticated, HasResourceAccess]`.
+
+## 2. `UserSerializer` con `password` write_only — `apps/security/serializers.py`
+
+```python
+password = serializers.CharField(write_only=True, required=True, style={"input_type": "password"})
+
+def validate_password(self, value):
+    # Validadores de Django traducidos al ValidationError de DRF.
+    try:
+        django_validate_password(value)
+    except DjangoValidationError as exc:
+        raise serializers.ValidationError(exc.messages)
+    return value
+
+def create(self, validated_data):
+    password = validated_data.pop("password", None)
+    user = User(**validated_data)
+    if password:
+        user.set_password(password)
+    user.save()
+    return user
+
+def update(self, instance, validated_data):
+    password = validated_data.pop("password", None)
+    for attr, value in validated_data.items():
+        setattr(instance, attr, value)
+    if password:
+        instance.set_password(password)
+    instance.save()
+    return instance
+```
+
+`RoleSerializer`, `RoleUserSerializer`, `ResourceSerializer` y `ResourceRoleSerializer` son `ModelSerializer` directos sobre los modelos del ISS-16. El `method` del recurso se envía en mayúsculas: las choices no aceptan `get`. La `route` es el patrón `api/customers/`, el mismo que devuelve el resolver.
+
+## 3. Router en `apps/security/urls.py`
+
+```python
+router = SimpleRouter(use_regex_path=False)
+router.register("users", UserViewSet, basename="user")
+router.register("roles", RoleViewSet, basename="role")
+router.register("role-users", RoleUserViewSet, basename="role-user")
+router.register("resources", ResourceViewSet, basename="resource")
+router.register("resource-roles", ResourceRoleViewSet, basename="resource-role")
+
+urlpatterns += router.urls
+```
+
+Se concatena al mismo módulo que ya tiene login, refresh, logout y perfil. El prefijo sigue siendo el `api/` del include. `auth/profile/` queda fuera del router a propósito.
+
+## Explicación
+
+Las tablas `role_users` y `resource_roles` no son un CRUD más: son los dos eslabones de la cadena. `RoleUser` dice qué rol tiene el usuario; `ResourceRole` dice qué método y qué ruta puede ese rol. `HasResourceAccess` exige los dos enlaces, y el rol, el recurso y la concesión, en `active`. Un usuario creado por el CRUD nace `inactive` si el cuerpo no envía `status`. Hasta que alguien lo active, el login responde 401.
+
+```
+User ── RoleUser ── Role ── ResourceRole ── Resource
+bodega1             bodega                  GET api/customers/
+        │
+        ▼
+HasResourceAccess
+        └── los cuatro eslabones active → la ruta responde
+```
+
+## Criterios de aceptación
+
+- **AC-23-01:** el serializer no devuelve `password`.
+- **AC-23-02:** la contraseña pasa por `set_password`, no se asigna en claro.
+- **AC-23-03:** DELETE de estas entidades no borra la fila.
+- **AC-23-04:** asignar el rol con `RoleUser`, sin `ResourceRole`, deja `GET /api/customers/` en 403.
+- **AC-23-05:** con `ResourceRole` active de `GET api/customers/`, ese GET responde 200 y el POST sigue en 403.
+
+## Verificación
+
+`SecurityMatrixApiTests` (2 pruebas): `test_role_crud_soft_delete_and_status_filter` cubre alta, lista, detalle, PATCH, DELETE (fila queda `inactive`) y filtro `?status=`. `test_user_role_resource_chain_grants_the_route_step_by_step` publica el usuario `bodega1` (sin `password` en la respuesta, hash `check_password`, no en claro), concede solo `GET api/customers/` eslabón por eslabón (403 sin rol, 403 con `RoleUser`, 403 con el recurso suelto, 200 con `ResourceRole`) y confirma que el POST de clientes sigue en 403. La suite completa pasa con **63 pruebas OK** y `spectacular --validate` en código 0 (las 10 rutas del CRUD aparecen en el esquema).
+
+## GATE
+
+| AC | Verificación | Evidencia | Resultado |
+| --- | --- | --- | --- |
+| AC-23-01 | `password` write_only | EVI-23-01 (`UserSerializer`) | PASS |
+| AC-23-02 | `set_password` en create y update | EVI-23-02 (`check_password` en tests) | PASS |
+| AC-23-03 | `perform_destroy` lógico | `rbac_views.py` | PASS |
+| AC-23-04 | GET clientes sin ResourceRole → 403 | test de la cadena | PASS |
+| AC-23-05 | GET 200 y POST 403 | test de la cadena | PASS |
