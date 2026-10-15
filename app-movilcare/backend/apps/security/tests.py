@@ -3,11 +3,12 @@ import uuid
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 from rest_framework import status
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, APIRequestFactory
 
 from apps.common.status import RecordStatus
 from apps.common.testing import PASSWORD, create_active_user
@@ -18,6 +19,7 @@ from apps.security.models import (
     Role,
     RoleUser,
 )
+from apps.security.permissions import HasResourceAccess
 from apps.security.tokens import generate_refresh_value, hash_token
 from config.database import database_from_environ
 
@@ -459,3 +461,98 @@ class AuthFlowTests(APITestCase):
         self.user.refresh_from_db()
         self.assertEqual(self.user.username, "ana")
         self.assertEqual(self.user.status, RecordStatus.ACTIVE)
+
+
+class RbacTests(TestCase):
+    """HasResourceAccess: autoriza por método + patrón de ruta, negando por defecto."""
+
+    def setUp(self):
+        self.user = create_active_user()
+        self.factory = APIRequestFactory()
+        self.permission = HasResourceAccess()
+        self.resource = Resource.objects.create(
+            name="Customer list",
+            method="GET",
+            route="api/customers/",
+            status=RecordStatus.ACTIVE,
+        )
+        self.role = Role.objects.create(name="Vendedor", status=RecordStatus.ACTIVE)
+        self.link = RoleUser.objects.create(
+            role=self.role, user=self.user, status=RecordStatus.ACTIVE
+        )
+        self.grant = ResourceRole.objects.create(
+            resource=self.resource, role=self.role, status=RecordStatus.ACTIVE
+        )
+
+    def _request(self, path="/api/customers/", method="GET", user=...):
+        req = getattr(self.factory, method.lower())(path)
+        from urllib.parse import urlparse
+
+        from django.urls import resolve
+
+        req.resolver_match = resolve(urlparse(path).path)
+        req.user = AnonymousUser() if user is ... else user
+        return req
+
+    def _allowed(self, req):
+        return self.permission.has_permission(req, view=None)
+
+    def test_authenticated_user_without_grant_is_denied(self):
+        # Quitar la concesión: el mismo usuario autenticado ya no pasa.
+        self.grant.status = RecordStatus.INACTIVE
+        self.grant.save()
+        self.assertFalse(self._allowed(self._request(user=self.user)))
+
+    def test_anonymous_is_denied(self):
+        self.assertFalse(self._allowed(self._request(user=AnonymousUser())))
+        self.assertFalse(self._allowed(self._request(user=None)))
+
+    def test_active_grant_allows(self):
+        self.assertTrue(self._allowed(self._request(user=self.user)))
+
+    def test_grant_for_other_route_does_not_allow(self):
+        # La concesión es sobre api/customers/, no sobre api/sales/.
+        other = self._request(path="/api/sales/", method="GET", user=self.user)
+        self.assertFalse(self._allowed(other))
+
+    def test_method_mismatch_is_denied(self):
+        # El recurso es GET; un DELETE sobre la misma ruta no está concedido.
+        self.assertFalse(self._allowed(self._request(method="DELETE", user=self.user)))
+
+    def test_each_inactive_link_denies_access(self):
+        # Rol apagado.
+        self.role.status = RecordStatus.INACTIVE
+        self.role.save()
+        self.assertFalse(self._allowed(self._request(user=self.user)))
+        self.role.status = RecordStatus.ACTIVE
+        self.role.save()
+
+        # Asignación usuario-rol apagada.
+        self.link.status = RecordStatus.INACTIVE
+        self.link.save()
+        self.assertFalse(self._allowed(self._request(user=self.user)))
+        self.link.status = RecordStatus.ACTIVE
+        self.link.save()
+
+        # Concesión recurso-rol apagada.
+        self.grant.status = RecordStatus.INACTIVE
+        self.grant.save()
+        self.assertFalse(self._allowed(self._request(user=self.user)))
+        self.grant.status = RecordStatus.ACTIVE
+        self.grant.save()
+
+        # Recurso apagado.
+        self.resource.status = RecordStatus.INACTIVE
+        self.resource.save()
+        self.assertFalse(self._allowed(self._request(user=self.user)))
+
+    def test_head_is_evaluated_as_get(self):
+        self.assertTrue(self._allowed(self._request(method="HEAD", user=self.user)))
+
+    def test_inactive_user_is_denied_even_with_grant(self):
+        self.user.status = RecordStatus.INACTIVE
+        self.user.save()
+        self.assertFalse(self._allowed(self._request(user=self.user)))
+
+    def test_options_is_allowed_for_authenticated_user(self):
+        self.assertTrue(self._allowed(self._request(method="OPTIONS", user=self.user)))

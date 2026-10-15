@@ -3875,3 +3875,94 @@ usuario inactive → GET /api/auth/profile/  el mismo Bearer 401
 | AC-20-02 | perfil 200 sin `password` | PASS |
 | AC-20-03 | PATCH de `firstName` persiste | PASS |
 | AC-20-04 | usuario desactivado → 401 | PASS |
+
+---
+
+# Unidad ISS-21 — HasResourceAccess
+
+**Objetivo:** autorizar por **método + patrón de ruta** con **negación por defecto**. Esta clase es la mitad de autorización del tercer acceso, **JWT con token + RBAC**. Sola no autentica: el JWT ya tuvo que identificar al usuario.
+
+**Fuente:** [22-ISS-21-hasresourceaccess](https://tecnogua.com/academic/site/backend2026/django/manual/22-ISS-21-hasresourceaccess/)
+
+> MovilCare usa los modelos del ISS-16. Las rutas reales que devuelve `resolve()` son `api/customers/`, `api/customers/<int:pk>/`, `api/products/`, `api/sales/`, etc. La clase es idéntica a la guía.
+
+## `apps/security/permissions.py` (nuevo)
+
+```python
+from rest_framework.permissions import BasePermission
+
+from apps.common.status import RecordStatus
+from apps.security.models import ResourceRole
+
+
+class HasResourceAccess(BasePermission):
+    message = "No tiene autorización para ejecutar esta operación."
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        if getattr(user, "status", None) != RecordStatus.ACTIVE:
+            return False
+        # OPTIONS con usuario identificado es el preflight, no una operación de negocio.
+        if request.method.upper() == "OPTIONS":
+            return True
+
+        match = request.resolver_match
+        if match is None:
+            return False
+        method = request.method.upper()
+        # HEAD se documenta y se autoriza como GET.
+        if method == "HEAD":
+            method = "GET"
+        return ResourceRole.objects.filter(
+            status=RecordStatus.ACTIVE,
+            resource__status=RecordStatus.ACTIVE,
+            resource__method=method,
+            resource__route=match.route,
+            role__status=RecordStatus.ACTIVE,
+            role__assignments__user=user,
+            role__assignments__status=RecordStatus.ACTIVE,
+        ).exists()
+```
+
+## Explicación
+
+DRF convierte el fallo así:
+
+```
+hay authenticators y ninguno autenticó  →  401 NotAuthenticated
+usuario autenticado y el permiso falla  →  403 PermissionDenied
+```
+
+Por eso la misma clase produce **401 o 403** según haya identidad. No se compara la URL `/api/customers/15/` con un texto guardado: se compara `resolver_match.route`, que en MovilCare es `api/customers/<int:pk>/`. Si el filtro no encuentra una **cadena completa y activa**, `exists()` es falso — no hay permiso implícito.
+
+```
+Request → JWT → User active? → method + route → ¿todos los eslabones active?
+                                                    ├── no → 403
+                                                    └── sí → endpoint
+```
+
+`HEAD` se evalúa como `GET`. `OPTIONS`, con usuario identificado, no busca recurso.
+
+## Criterios de aceptación
+
+- **AC-21-01:** usuario autenticado sin concesión → 403 en `GET /api/customers/`.
+- **AC-21-02:** el mismo request sin usuario → 401.
+- **AC-21-03:** con la concesión, la lista responde 200.
+- **AC-21-04:** apagar el rol, el `RoleUser`, el `ResourceRole` o el `Resource` vuelve a 403.
+
+> La aplicación de `HasResourceAccess` a los endpoints del negocio (y las pruebas 401/403 por HTTP) es la unidad ISS-22; aquí se verifica la lógica de la permisión directamente contra peticiones resueltas (`resolver_match.route` real), sin tocar todavía los viewsets de negocio (que siguen en `AllowAny` hasta el ISS-22).
+
+## Verificación
+
+`apps.security.tests.RBACMatrixTests` y la nueva `RbacTests` (9 pruebas): concesión activa permite; sin concesión, anónimo, método/ruta que no coincide, y cada eslabón apagado (rol, `RoleUser`, `ResourceRole`, `Resource`) niegan; `HEAD`≡`GET`; usuario `inactive` niega aunque tenga concesión; `OPTIONS` pasa. La suite completa pasa con **60 pruebas OK** y `spectacular --validate` en código 0.
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-21-01 | 403 (sin concesión) | PASS |
+| AC-21-02 | 401 (anónimo) | PASS |
+| AC-21-03 | concesión activa → 200 | PASS |
+| AC-21-04 | cada eslabón inactivo → 403 | PASS |
