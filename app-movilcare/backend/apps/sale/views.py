@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -11,6 +12,11 @@ from apps.sale.serializers import SaleRegisterSerializer, SaleSerializer
 class SaleRegisterAPIView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        request=SaleRegisterSerializer,
+        responses={201: SaleSerializer},
+        tags=["sales"],
+    )
     def post(self, request):
         serializer = SaleRegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -47,6 +53,10 @@ class SaleReadViewSet(
 class SaleCollectionAPIView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        responses={200: SaleSerializer(many=True)},
+        tags=["sales"],
+    )
     def get(self, request, *args, **kwargs):
         # GET reutiliza el queryset y el serializer del viewset ya montado,
         # en lugar de duplicarlos aquí.
@@ -57,6 +67,11 @@ class SaleCollectionAPIView(APIView):
         viewset.kwargs = {}
         return viewset.list(request, *args, **kwargs)
 
+    @extend_schema(
+        request=SaleRegisterSerializer,
+        responses={201: SaleSerializer},
+        tags=["sales"],
+    )
     def post(self, request, *args, **kwargs):
         handler = SaleRegisterAPIView()
         handler.request = request

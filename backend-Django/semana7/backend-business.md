@@ -2918,3 +2918,177 @@ Detalle de venta `#2`: cabecera (`Customer`, `Total`, `Status`, `Created at`) co
 | AC-13-02 | se puede crear un cliente desde la interfaz (botón *AÑADIR CLIENTE*, `image-85`) | PASS |
 | AC-13-03 | se edita un producto y su precio desde la lista (`image-86`) | PASS |
 | AC-13-04 | las ventas son de solo lectura: sin *Añadir* ni acciones de borrado (`image-87`, `image-89`) | PASS |
+
+---
+
+# Unidad ISS-14 — OpenAPI
+
+**Objetivo:** publicar el contrato de la API en un esquema OpenAPI **generado desde las vistas** (no escrito a mano), con `drf-spectacular`, sirviendo Swagger y ReDoc en acceso abierto. Esta unidad cierra la **Fase I — Business**.
+
+**Fuente:** [15-ISS-14-openapi](https://tecnogua.com/academic/site/backend2026/django/manual/15-ISS-14-openapi/)
+
+> El material trabaja sobre StoreLab (`StoreLab API`, `clients`, `product-types`, `sales` con `product_sales`). MovilCare expone `customers`, `products`, `serialized-units` y `sales` con `sale_detail` en línea; el esquema se genera sobre las vistas reales. Donde la guía usa `StoreLabJWTAuthentication` / `apps/security/schema.py`, MovilCare aún no tiene JWT (eso es la Fase II, ISS-15 en adelante), así que aquí solo se registra el esquema del negocio.
+
+## 1. Instalación (versión fijada)
+
+```bash
+python -m pip install "drf-spectacular==0.30.0"
+python -m pip freeze > requirements.txt
+```
+
+La versión queda fijada a `0.30.0` para no saltar a una serie incompatibile con DRF 3.17.
+
+## 2. Settings — `config/settings/__init__.py`
+
+Se agrega `drf_spectacular` a `INSTALLED_APPS`, `DEFAULT_SCHEMA_CLASS` dentro de `REST_FRAMEWORK` y el bloque `SPECTACULAR_SETTINGS`. El hook `camelize_serializer_fields` alinea el esquema con el JSON `camelCase` que MovilCare ya emite.
+
+```python
+INSTALLED_APPS = [
+    ...
+    "rest_framework",
+    "drf_spectacular",
+    ...
+]
+
+REST_FRAMEWORK = {
+    ...
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    ...
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "MovilCare API",
+    "DESCRIPTION": "API REST de MovilCare.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "CAMELIZE_NAMES": True,
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "drf_spectacular.contrib.djangorestframework_camel_case.camelize_serializer_fields",
+    ],
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.AllowAny"],
+    "SWAGGER_UI_SETTINGS": {"persistAuthorization": True},
+}
+```
+
+`SERVE_PERMISSIONS` en `AllowAny` deja el esquema en acceso abierto (en Fase I no hay JWT). `SERVE_INCLUDE_SCHEMA` en falso evita duplicar el esquema dentro de Swagger.
+
+## 3. Rutas — `config/urls.py`
+
+Las tres rutas del esquema se parchean en el URLconf raíz, delante de los `include` de las apps, porque documentan la API completa y no un recurso puntual.
+
+```python
+from drf_spectacular.views import (
+    SpectacularAPIView,
+    SpectacularRedocView,
+    SpectacularSwaggerView,
+)
+
+urlpatterns = [
+    path("admin/", admin.site.urls),
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    ...
+]
+```
+
+## 4. `extend_schema` en las vistas que construyen el serializer por dentro
+
+Una `APIView` que arma el serializer internamente no la adivina spectacular. `SaleRegisterAPIView` y `SaleCollectionAPIView` declaran `extend_schema`; sin eso, `--validate` reportaba `unable to guess serializer` (8 errores, 1 único). Tras añadirlo, `--validate` termina con código 0.
+
+```python
+# apps/sale/views.py
+from drf_spectacular.utils import extend_schema
+
+class SaleRegisterAPIView(APIView):
+    @extend_schema(request=SaleRegisterSerializer, responses={201: SaleSerializer}, tags=["sales"])
+    def post(self, request): ...
+
+class SaleCollectionAPIView(APIView):
+    @extend_schema(responses={200: SaleSerializer(many=True)}, tags=["sales"])
+    def get(self, request, *args, **kwargs): ...
+
+    @extend_schema(request=SaleRegisterSerializer, responses={201: SaleSerializer}, tags=["sales"])
+    def post(self, request, *args, **kwargs): ...
+```
+
+## 5. Generación y verificación
+
+```bash
+python manage.py spectacular --file /tmp/movilcare-schema.yml --validate   # exit 0, sin errores
+```
+
+El esquema resultante usa los campos camelCase reales (`documentNumber`, `createdAt`, `lineTotal`, `unitPrice`, `serialNumber`), confirmando el hook `camelize_serializer_fields`.
+
+## Cómo probarlo
+
+```bash
+python manage.py runserver
+```
+
+`GET /api/schema/`, `GET /api/schema/swagger-ui/` y `GET /api/schema/redoc/` responden `200` **sin Bearer**. El botón *Authorize* está presente pero no se usa: todavía no hay token (eso es la Fase II).
+
+## Criterios de aceptación
+
+- **AC-14-01:** `spectacular --validate` termina sin errores (código 0).
+- **AC-14-02:** Swagger y el esquema son accesibles sin Bearer (acceso abierto).
+- **AC-14-03:** el esquema describe el cuerpo camelCase.
+
+## Evidencias
+
+- **EVI-14-01:** exit code 0 de `--validate` + esquema con campos camelCase.
+
+![image-90](image-90.png)
+
+Swagger UI en `/api/schema/swagger-ui/`: cabecera **MovilCare API 1.0.0 · OAS 3.0** y la lista de operaciones (`customers` y `products` con GET/POST/PUT/PATCH/DELETE), servidas en acceso abierto sin iniciar sesión.
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-14-01 | `spectacular --validate` → código 0, sin errores | PASS |
+| AC-14-02 | Swagger/esquema accesibles sin Bearer (`SERVE_PERMISSIONS` AllowAny, `image-90`) | PASS |
+| AC-14-03 | hook camelCase aplicado (`documentNumber`, `createdAt`, `lineTotal` en el YAML) | PASS |
+
+---
+
+## Cierre de la Fase I — Business
+
+Esta fase es solo negocio: **no hay login, no hay JWT y no hay RBAC**. Los tres accesos de la API se definen en la Fase II.
+
+### Qué queda construido en MovilCare
+
+Clientes, productos, unidades serializadas, ventas y detalles. Relaciones con `RESTRICT`. Precio histórico en `SaleDetail.unit_price`. Anulación lógica (`void()`) que preserva la fila y sus líneas. Django Admin de inspección. OpenAPI del negocio.
+
+Los endpoints de `customer`, `product` y `sale` quedan en `AllowAny` durante la construcción. La Fase II (ISS-15 a ISS-25) los moverá a **JWT con token + RBAC**.
+
+### Verificación integral
+
+```bash
+python manage.py check        # 0 issues
+python manage.py test         # 23 tests OK
+python manage.py spectacular --file /tmp/movilcare-schema.yml --validate   # exit 0
+```
+
+| Pieza | Resultado |
+| --- | --- |
+| Customer CRUD y baja lógica | PASS |
+| Product / SerializedUnit y `RESTRICT` | PASS |
+| Disponibles | PASS |
+| Venta, precio histórico, rollback, anulación idempotente | PASS |
+| Admin de Django (ISS-13) | PASS |
+| `spectacular --validate` | PASS |
+
+### GATE BUSINESS
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| Modelos y relaciones | migraciones y suite (23 tests) | PASS |
+| Precio histórico y anulación | tests de `apps.sale` | PASS |
+| Serializers y camelCase | render/parser camelCase + hook de esquema | PASS |
+| Tres estilos de vista usados con motivo | `ModelViewSet`, `ListAPIView`, `APIView` | PASS |
+| OpenAPI generado desde vistas | `--validate` exit 0 | PASS |
+
+El GATE de negocio queda superado. **No se abre la Fase II si este GATE tiene algún FAIL.**
