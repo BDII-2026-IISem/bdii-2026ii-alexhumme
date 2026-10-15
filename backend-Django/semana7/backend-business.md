@@ -3092,3 +3092,164 @@ python manage.py spectacular --file /tmp/movilcare-schema.yml --validate   # exi
 | OpenAPI generado desde vistas | `--validate` exit 0 | PASS |
 
 El GATE de negocio queda superado. **No se abre la Fase II si este GATE tiene algún FAIL.**
+
+---
+
+# Unidad ISS-15 — RefreshToken
+
+**Objetivo:** persistir la sesión de refresh **sin guardar el token en claro** y sin usar la *blacklist* de SimpleJWT como almacén. SimpleJWT entra al proyecto, aunque aquí solo emite y verifica el *access token*.
+
+**Fuente:** [16-ISS-15-refreshtoken](https://tecnogua.com/academic/site/backend2026/django/manual/16-ISS-15-refreshtoken/)
+
+> El material trabaja sobre StoreLab con `User` ya existente desde el ISS-03. MovilCare tiene su `User` propio en `apps/security/models.py` (custom `AbstractUser` con `status` y `StoreUserManager`), así que `RefreshToken` se pega **al final de ese mismo archivo**, sin reescribir el usuario. El comportamiento (hash SHA-256, `family_id`, revocación, expiración) es idéntico.
+
+## 1. Instalación de SimpleJWT (versión fijada)
+
+```bash
+python -m pip install "djangorestframework-simplejwt==5.5.1"
+python -m pip freeze > requirements.txt
+```
+
+**No** se instala `rest_framework_simplejwt.token_blacklist`: el refresh de MovilCare vive en la tabla `refresh_tokens`, no en esa app. `PyJWT` llega como dependencia.
+
+## 2. `apps/security/tokens.py` (nuevo)
+
+```python
+import hashlib
+import secrets
+
+
+def generate_refresh_value():
+    return secrets.token_urlsafe(48)
+
+
+def hash_token(raw_token):
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+```
+
+El valor en claro usa `secrets.token_urlsafe`; en la base solo se guarda el SHA-256 en hexadecimal.
+
+## 3. Modelo `RefreshToken` — `apps/security/models.py`
+
+Se agregan los imports `import uuid`, `from django.conf import settings` y `from django.utils import timezone`, y la clase al final del archivo:
+
+```python
+class RefreshToken(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.RESTRICT,
+        related_name="refresh_tokens",
+        db_column="user_id",
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    family_id = models.UUIDField(default=uuid.uuid4, editable=False, db_index=True)
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    replaced_by = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.SET_NULL, related_name="replacements"
+    )
+    status = models.CharField(max_length=8, choices=RecordStatus.choices, default=RecordStatus.ACTIVE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "refresh_tokens"
+        ordering = ["-created_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(status__in=RecordStatus.values),
+                name="refresh_tokens_status_valid",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user} {self.family_id}"
+
+    @property
+    def is_usable(self):
+        return (
+            self.status == RecordStatus.ACTIVE
+            and self.revoked_at is None
+            and self.replaced_by_id is None
+            and self.expires_at > timezone.now()
+        )
+
+    @classmethod
+    def lifetime(cls):
+        return settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+
+    @classmethod
+    def default_expiry(cls):
+        return timezone.now() + cls.lifetime()
+```
+
+Campos: `user`, `token_hash` (64, único), `family_id` (UUID), `expires_at`, `revoked_at`, `replaced_by`, `status`, `created_at`, `updated_at`. Tabla `refresh_tokens`.
+
+El `default` de `status` aquí es **`active`**: es la excepción del diccionario de proyecto — el token acaba de nacer de un login válido. El resto de entidades sigue naciendo `inactive`.
+
+## 4. Settings — `config/settings/__init__.py`
+
+```python
+from datetime import timedelta
+...
+INSTALLED_APPS = [
+    ...
+    "rest_framework",
+    "drf_spectacular",
+    "rest_framework_simplejwt",
+    ...
+]
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+}
+```
+
+`ROTATE_REFRESH_TOKENS` y `BLACKLIST_AFTER_ROTATION` quedan en `False` porque la rotación es la propia de MovilCare (se construye en el ISS-18).
+
+## 5. Migración
+
+```bash
+python manage.py makemigrations security   # 0002_refreshtoken
+python manage.py migrate
+```
+
+## Explicación
+
+El *access token* es un JWT: se verifica con la firma y la expiración, sin fila en la base. El *refresh* tiene que poder **revocarse**, así que necesita estado persistente. Guardarlo en claro convertiría la tabla en la sesión misma; el hash no se puede invertir, así que hace falta el valor que solo vio el cliente.
+
+```
+refresh en claro  --solo en la respuesta-->
+        │
+        ▼
+SHA-256 → refresh_tokens.token_hash
+```
+
+## Criterios de aceptación
+
+- **AC-15-01:** tras emitir un token hay una fila y su `token_hash` **no** es el refresh devuelto.
+- **AC-15-02:** el hash coincide con SHA-256 del valor devuelto.
+- **AC-15-03:** no se guarda ni se devuelve el `password`.
+
+> MovilCare aún no tiene endpoint de login (eso es el ISS-17), por lo que estas condiciones se verifican a nivel de **modelo y helpers**: `RefreshTokenTests` emite un valor real con `generate_refresh_value()`, lo hashea con `hash_token()` y confirma que la fila persiste el SHA-256 y nunca el claro. El flujo completo «login → fila → respuesta sin password» se cubre cuando nasca el login en el ISS-17.
+
+## Verificación
+
+`apps.security.tests.RefreshTokenTests` (7 pruebas). La suite completa del proyecto pasa con **30 pruebas OK**.
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-15-01 | `test_stored_hash_is_not_the_plaintext_refresh` | PASS |
+| AC-15-02 | `test_hash_is_sha256_of_the_returned_value` | PASS |
+| AC-15-03 | el modelo/serializador no expone `password` (verificación de modelo; flujo completo en ISS-17) | PASS |
