@@ -4181,3 +4181,134 @@ HasResourceAccess
 | AC-23-03 | `perform_destroy` lógico | `rbac_views.py` | PASS |
 | AC-23-04 | GET clientes sin ResourceRole → 403 | test de la cadena | PASS |
 | AC-23-05 | GET 200 y POST 403 | test de la cadena | PASS |
+
+---
+
+# Unidad ISS-24 — Semilla RBAC y Swagger con Bearer
+
+**Objetivo:** cargar la matriz desde las rutas reales y permitir probar el JWT en Swagger.
+
+**Fuente:** [25-ISS-24-semilla-rbac-y-swagger-con-bearer](https://tecnogua.com/academic/site/backend2026/django/manual/25-ISS-24-semilla-rbac-y-swagger-con-bearer/)
+
+## 1. Extensión Bearer — `apps/security/schema.py` (nuevo)
+
+```python
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
+
+
+class MovilCareJWTScheme(OpenApiAuthenticationExtension):
+    target_class = "apps.security.authentication.MovilCareJWTAuthentication"
+    name = "bearerAuth"
+
+    def get_security_definition(self, auto_schema):
+        return {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+```
+
+`apps/security/apps.py` ya existía; el `ready()` carga esa extensión:
+
+```python
+class SecurityConfig(AppConfig):
+    ...
+    def ready(self):
+        # Registra la extensión bearerAuth de drf-spectacular.
+        from apps.security import schema  # noqa: F401
+```
+
+En Swagger, Authorize recibe el access token. No se pega la palabra `Bearer`; el esquema ya es `http` / `bearer`.
+
+## 2. Comando `seed_rbac` — `apps/security/management/commands/seed_rbac.py` (nuevo)
+
+```
+python manage.py seed_rbac
+python manage.py seed_rbac --username admin
+```
+
+Recorre una lista de `(método, path de muestra)`, llama `resolve(path).route` y hace `get_or_create` del `Resource` por `(method, route)` y de la concesión `ResourceRole` al rol `admin`. Crea o reactiva el rol `admin`. Si se pasa `--username`, crea (o reactiva) el `RoleUser` de ese usuario; exige que el usuario exista y esté `active`.
+
+La lista cubre el negocio de MovilCare — `customers`, `products`, `serialized-units`, `products/1/units/` y `sales` (GET y POST en la colección; GET y DELETE en el detalle) — más el CRUD de `users`, `roles`, `role-users`, `resources` y `resource-roles`. **No incluye login, refresh, logout ni perfil:** esos accesos no son RBAC.
+
+```python
+for method, path in samples:
+    route = resolve(path).route
+    resource, _ = Resource.objects.get_or_create(
+        method=method,
+        route=route,
+        defaults={"name": f"{method} {route}", "status": RecordStatus.ACTIVE},
+    )
+    ...
+    ResourceRole.objects.get_or_create(resource=resource, role=role, defaults={"status": RecordStatus.ACTIVE})
+```
+
+## Explicación
+
+Sembrar rutas a mano como texto `/api/customers/1/` se rompe en cuanto el convertidor cambia. `resolve().route` es la misma cadena que verá el permiso en la petición: la semilla y el permiso no pueden divergir. Swagger queda **OPEN** para abrir la documentación sin token; las operaciones RBAC, dentro de Swagger, siguen exigiendo el token.
+
+```
+createsuperuser  →  usuario admin active
+        │
+seed_rbac --username admin        53 recursos + concesiones al rol admin
+        │
+GET /api/schema/swagger-ui/       OPEN, sin token
+        │
+POST /api/auth/login/             copiar access
+        │
+Authorize                          pegar el access, sin escribir Bearer
+        │
+        ├── OPEN                   refresh, logout y el propio esquema
+        ├── JWT con token          /api/auth/profile/
+        └── JWT con token + RBAC   customers, products, sales y la matriz
+```
+
+## Criterios de aceptación
+
+- **AC-24-01:** `seed_rbac` termina sin error.
+- **AC-24-02:** las rutas guardadas usan `<int:pk>`.
+- **AC-24-03:** `spectacular --validate` sale con código 0 e incluye el esquema Bearer.
+
+## Verificación
+
+Comando ejecutado sobre la BD de desarrollo con el superuser `admin` (activo). Evidencias:
+
+**EVI-24-01** — salida del comando:
+
+```
+$ python manage.py seed_rbac --username admin
+Rol admin asignado a admin.
+Recursos RBAC sincronizados. (53 concesiones)
+```
+
+**EVI-24-02** — consulta de `resources`: **53 filas**, 53 concesiones activas al rol `admin`, 1 `RoleUser` (admin→admin), con patrón `<int:pk>` en los detalles:
+
+```
+resources: 53
+role admin grants: 53
+role_users admin: 1
+patron: DELETE api/customers/<int:pk>/
+patron: GET api/customers/<int:pk>/
+patron: PATCH api/customers/<int:pk>/
+patron: PUT api/customers/<int:pk>/
+```
+
+**EVI-24-03** — `spectacular --validate` exit 0 y `securitySchemes` con el scheme:
+
+```yaml
+securitySchemes:
+  bearerAuth:
+    type: http
+    scheme: bearer
+    bearerFormat: JWT
+```
+
+**EVI-24-04** — Swagger UI tras la extensión: aparece el botón **Authorize** y los candados en las operaciones con token; login, refresh y logout siguen sin candado. `image-91.png`.
+
+![Swagger con Authorize](image-91.png)
+
+La suite completa sigue en **63 pruebas OK**.
+
+## GATE
+
+| AC | Verificación | Evidencia | Resultado |
+| --- | --- | --- | --- |
+| AC-24-01 | comando sin error | EVI-24-01 | PASS |
+| AC-24-02 | rutas con `<int:pk>` | EVI-24-02 | PASS |
+| AC-24-03 | `--validate` exit 0 + Bearer | EVI-24-03 | PASS |
