@@ -3253,3 +3253,122 @@ SHA-256 → refresh_tokens.token_hash
 | AC-15-01 | `test_stored_hash_is_not_the_plaintext_refresh` | PASS |
 | AC-15-02 | `test_hash_is_sha256_of_the_returned_value` | PASS |
 | AC-15-03 | el modelo/serializador no expone `password` (verificación de modelo; flujo completo en ISS-17) | PASS |
+
+---
+
+# Unidad ISS-16 — Role, RoleUser, Resource y ResourceRole
+
+**Objetivo:** modelar la **matriz de autorización** (RBAC) sin usar Groups ni Permissions de Django como regla de la API.
+
+**Fuente:** [17-ISS-16-role-roleuser-resource-y-resourcerole](https://tecnogua.com/academic/site/backend2026/django/manual/17-ISS-16-role-roleuser-resource-y-resourcerole/)
+
+> El material trabaja sobre StoreLab con `User` y `RefreshToken` ya presentes. MovilCare tiene los mismos en `apps/security/models.py`, así que estas cuatro clases se agregan **al final** del mismo archivo, sin reescribir lo anterior. El comportamiento (tablas, unicidad, `RESTRICT`, `status` en `inactive`) es idéntico.
+
+## Modelos — `apps/security/models.py`
+
+Se añaden `HttpMethod`, `Role`, `RoleUser`, `Resource` y `ResourceRole` al final del archivo. Tablas `roles`, `role_users`, `resources` y `resource_roles`. Todos con `status` default **`inactive`**; las parejas `(role, user)`, `(resource, role)` y `(method, route)` son únicas; las FK usan `RESTRICT`.
+
+```python
+class HttpMethod(models.TextChoices):
+    GET = "GET", "GET"
+    POST = "POST", "POST"
+    PUT = "PUT", "PUT"
+    PATCH = "PATCH", "PATCH"
+    DELETE = "DELETE", "DELETE"
+
+
+class Role(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(max_length=8, choices=RecordStatus.choices, default=RecordStatus.INACTIVE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "roles"
+        constraints = [
+            models.CheckConstraint(condition=models.Q(status__in=RecordStatus.values), name="roles_status_valid"),
+        ]
+
+
+class RoleUser(models.Model):
+    role = models.ForeignKey(Role, on_delete=models.RESTRICT, related_name="assignments")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.RESTRICT, related_name="role_links")
+    status = models.CharField(max_length=8, choices=RecordStatus.choices, default=RecordStatus.INACTIVE)
+    ...
+
+    class Meta:
+        db_table = "role_users"
+        constraints = [
+            models.UniqueConstraint(fields=["role", "user"], name="role_user_unique"),
+            models.CheckConstraint(..., name="role_users_status_valid"),
+        ]
+
+
+class Resource(models.Model):
+    name = models.CharField(max_length=150)
+    method = models.CharField(max_length=10, choices=HttpMethod.choices)
+    route = models.CharField(max_length=255)
+    status = models.CharField(max_length=8, choices=RecordStatus.choices, default=RecordStatus.INACTIVE)
+    ...
+
+    class Meta:
+        db_table = "resources"
+        constraints = [
+            models.UniqueConstraint(fields=["method", "route"], name="resource_method_route_uniq"),
+            models.CheckConstraint(..., name="resources_status_valid"),
+        ]
+
+
+class ResourceRole(models.Model):
+    resource = models.ForeignKey(Resource, on_delete=models.RESTRICT, related_name="grants")
+    role = models.ForeignKey(Role, on_delete=models.RESTRICT, related_name="grants")
+    status = models.CharField(max_length=8, choices=RecordStatus.choices, default=RecordStatus.INACTIVE)
+    ...
+
+    class Meta:
+        db_table = "resource_roles"
+        constraints = [
+            models.UniqueConstraint(fields=["resource", "role"], name="resource_role_unique"),
+            models.CheckConstraint(..., name="resource_roles_status_valid"),
+        ]
+```
+
+`Resource.method` es un `TextChoices` HTTP. `Resource.route` guarda **el patrón** (`api/customers/<int:pk>/`), no el path con el id ya sustituido; el comando `seed_rbac` (ISS-24) lo obtiene con `resolve(path).route`.
+
+## Migración
+
+```bash
+python manage.py makemigrations security   # 0003_resource_role_resourcerole_roleuser
+python manage.py migrate
+```
+
+## Explicación
+
+Django ya tiene grupos, pero MovilCare necesita responder otra pregunta: **dado un método y un patrón de ruta, ¿la cadena usuario → rol → recurso está toda activa?** Esa cadena no se expresa con `auth_permission`.
+
+```
+User → RoleUser → Role → ResourceRole → Resource(method, route)
+```
+
+Un eslabón que nace `inactive` no autoriza: hay que activarlo a propósito. Es la forma de **negar por defecto también en los datos**, no solo en el código.
+
+## Criterios de aceptación
+
+- **AC-16-01:** las cuatro tablas existen.
+- **AC-16-02:** no se puede repetir la pareja rol-usuario ni recurso-rol (ni `method`+`route`).
+- **AC-16-03:** la ruta se guarda como patrón con `<int:pk>`, no el path de ejemplo `/api/customers/1/`.
+
+> La semilla `seed_rbac` que puebla `resources` desde los `resolve()` reales es la unidad ISS-24; aquí se verifica el comportamiento del modelo (los patrones se almacenan con `<int:pk>` y la unicidad/`RESTRICT` se imponen por constraint).
+
+## Verificación
+
+`apps.security.tests.RBACMatrixTests` (8 pruebas): tablas y `status` default, unicidad de `Role.name`, de `(role, user)`, de `(resource, role)` y de `(method, route)`, `RESTRICT` en las FK y el patrón de ruta. La suite completa del proyecto pasa con **38 pruebas OK**.
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-16-01 | migración `0003` crea las cuatro tablas | PASS |
+| AC-16-02 | `UniqueConstraint` en `(role, user)`, `(resource, role)` y `(method, route)` | PASS |
+| AC-16-03 | `test_resource_route_keeps_the_url_pattern` (`<int:pk>` presente) | PASS |

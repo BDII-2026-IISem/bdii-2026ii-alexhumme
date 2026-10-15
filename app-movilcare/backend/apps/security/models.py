@@ -105,3 +105,113 @@ class RefreshToken(models.Model):
     @classmethod
     def default_expiry(cls):
         return timezone.now() + cls.lifetime()
+
+
+class HttpMethod(models.TextChoices):
+    GET = "GET", "GET"
+    POST = "POST", "POST"
+    PUT = "PUT", "PUT"
+    PATCH = "PATCH", "PATCH"
+    DELETE = "DELETE", "DELETE"
+
+
+class Role(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    status = models.CharField(
+        max_length=8, choices=RecordStatus.choices, default=RecordStatus.INACTIVE
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "roles"
+        verbose_name = "rol"
+        verbose_name_plural = "roles"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(status__in=RecordStatus.values),
+                name="roles_status_valid",
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+class RoleUser(models.Model):
+    role = models.ForeignKey(Role, on_delete=models.RESTRICT, related_name="assignments")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.RESTRICT, related_name="role_links"
+    )
+    status = models.CharField(
+        max_length=8, choices=RecordStatus.choices, default=RecordStatus.INACTIVE
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "role_users"
+        verbose_name = "asignación de rol"
+        verbose_name_plural = "asignaciones de rol"
+        constraints = [
+            models.UniqueConstraint(fields=["role", "user"], name="role_user_unique"),
+            models.CheckConstraint(
+                condition=models.Q(status__in=RecordStatus.values),
+                name="role_users_status_valid",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} → {self.role}"
+
+
+class Resource(models.Model):
+    name = models.CharField(max_length=150)
+    method = models.CharField(max_length=10, choices=HttpMethod.choices)
+    route = models.CharField(max_length=255)
+    status = models.CharField(
+        max_length=8, choices=RecordStatus.choices, default=RecordStatus.INACTIVE
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "resources"
+        verbose_name = "recurso"
+        verbose_name_plural = "recursos"
+        constraints = [
+            models.UniqueConstraint(fields=["method", "route"], name="resource_method_route_uniq"),
+            models.CheckConstraint(
+                condition=models.Q(status__in=RecordStatus.values),
+                name="resources_status_valid",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.method} {self.route}"
+
+
+class ResourceRole(models.Model):
+    resource = models.ForeignKey(Resource, on_delete=models.RESTRICT, related_name="grants")
+    role = models.ForeignKey(Role, on_delete=models.RESTRICT, related_name="grants")
+    status = models.CharField(
+        max_length=8, choices=RecordStatus.choices, default=RecordStatus.INACTIVE
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "resource_roles"
+        verbose_name = "concesión de recurso"
+        verbose_name_plural = "concesiones de recurso"
+        constraints = [
+            models.UniqueConstraint(fields=["resource", "role"], name="resource_role_unique"),
+            models.CheckConstraint(
+                condition=models.Q(status__in=RecordStatus.values),
+                name="resource_roles_status_valid",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.resource} → {self.role}"

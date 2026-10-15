@@ -8,7 +8,13 @@ from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
 from apps.common.status import RecordStatus
-from apps.security.models import RefreshToken
+from apps.security.models import (
+    RefreshToken,
+    Resource,
+    ResourceRole,
+    Role,
+    RoleUser,
+)
 from apps.security.tokens import generate_refresh_value, hash_token
 from config.database import database_from_environ
 
@@ -134,3 +140,67 @@ class RefreshTokenTests(TestCase):
             expires_at=timezone.now() - timedelta(minutes=1),
         )
         self.assertFalse(expired.is_usable)
+
+
+class RBACMatrixTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="luis", email="luis@movilcare.com", password="S3cret-pass"
+        )
+        self.role = Role.objects.create(name="Vendedor")
+        self.other = User.objects.create_user(
+            username="maria", email="maria@movilcare.com", password="S3cret-pass"
+        )
+
+    def _resource(self, method="GET", route="api/customers/<int:pk>/"):
+        return Resource.objects.create(name="Customer detail", method=method, route=route)
+
+    def test_tables_exist_and_default_status_is_inactive(self):
+        self.assertEqual(self.role.status, RecordStatus.INACTIVE)
+        resource = self._resource()
+        self.assertEqual(resource.status, RecordStatus.INACTIVE)
+        link = RoleUser.objects.create(role=self.role, user=self.user)
+        self.assertEqual(link.status, RecordStatus.INACTIVE)
+        grant = ResourceRole.objects.create(resource=resource, role=self.role)
+        self.assertEqual(grant.status, RecordStatus.INACTIVE)
+
+    def test_role_name_is_unique(self):
+        with self.assertRaises(Exception):
+            Role.objects.create(name="Vendedor")
+
+    def test_role_user_pair_is_unique(self):
+        RoleUser.objects.create(role=self.role, user=self.user)
+        with self.assertRaises(Exception):
+            RoleUser.objects.create(role=self.role, user=self.user)
+
+    def test_resource_role_pair_is_unique(self):
+        resource = self._resource()
+        ResourceRole.objects.create(resource=resource, role=self.role)
+        with self.assertRaises(Exception):
+            ResourceRole.objects.create(resource=resource, role=self.role)
+
+    def test_resource_method_route_is_unique(self):
+        self._resource(method="GET", route="api/customers/")
+        with self.assertRaises(Exception):
+            self._resource(method="GET", route="api/customers/")
+
+    def test_different_user_can_share_same_role(self):
+        RoleUser.objects.create(role=self.role, user=self.user)
+        RoleUser.objects.create(role=self.role, user=self.other)
+        self.assertEqual(self.role.assignments.count(), 2)
+
+    def test_foreign_keys_use_restrict(self):
+        resource = self._resource()
+        RoleUser.objects.create(role=self.role, user=self.user)
+        ResourceRole.objects.create(resource=resource, role=self.role)
+        # RESTRICT: no se puede borrar un rol que está en uso.
+        with self.assertRaises(Exception):
+            self.role.delete()
+        with self.assertRaises(Exception):
+            self.user.delete()
+
+    def test_resource_route_keeps_the_url_pattern(self):
+        # La ruta se guarda como patrón (con <int:pk>), no con el id sustituido.
+        resource = self._resource(method="GET", route="api/customers/<int:pk>/")
+        self.assertIn("<int:pk>", resource.route)
+        self.assertNotIn("/1/", resource.route)
