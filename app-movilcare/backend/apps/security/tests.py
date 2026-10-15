@@ -12,7 +12,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase, APIRequestFactory
 
 from apps.common.status import RecordStatus
-from apps.common.testing import PASSWORD, create_active_user, grant_crud
+from apps.common.testing import PASSWORD, create_active_user, grant, grant_crud
 from apps.security.models import (
     RefreshToken,
     Resource,
@@ -707,3 +707,55 @@ class SecurityMatrixApiTests(APITestCase):
         self.assertEqual(changed.status_code, status.HTTP_200_OK)
         bodega1.refresh_from_db()
         self.assertTrue(bodega1.check_password("Otra-Clave-77"))
+
+
+class RbacHttpTests(APITestCase):
+    """Cierre Fase II: la diferencia entre no tener identidad (401) y no
+    tener permiso (403), probada contra los endpoints reales por HTTP.
+
+    El RbacTests del ISS-21 prueba la lógica de la permisión; esta clase
+    prueba el corte real de la API sobre GET /api/customers/.
+    """
+
+    def setUp(self):
+        self.user = create_active_user()
+        self.client.force_authenticate(user=self.user)
+
+    def test_missing_grant_is_403_and_missing_identity_is_401(self):
+        # AC-25-03/04: identidad vigente sin concesión → 403, nunca 401.
+        denied = self.client.get("/api/customers/")
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+
+        # AC-25-02: sin identidad → 401, no 403.
+        self.client.force_authenticate(user=None)
+        anonymous = self.client.get("/api/customers/")
+        self.assertEqual(anonymous.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_any_inactive_link_denies(self):
+        grant(self.user, "GET", "/api/customers/")
+        self.assertEqual(
+            self.client.get("/api/customers/").status_code, status.HTTP_200_OK
+        )
+
+        role = Role.objects.get(assignments__user=self.user)
+        link = RoleUser.objects.get(user=self.user)
+        grant_row = ResourceRole.objects.get(
+            role=role, resource__method="GET", resource__route="api/customers/"
+        )
+        resource = grant_row.resource
+
+        for name, instance in (
+            ("role", role),
+            ("RoleUser", link),
+            ("ResourceRole", grant_row),
+            ("Resource", resource),
+        ):
+            instance.status = RecordStatus.INACTIVE
+            instance.save()
+            self.assertEqual(
+                self.client.get("/api/customers/").status_code,
+                status.HTTP_403_FORBIDDEN,
+                f"{name} inactive debe devolver 403",
+            )
+            instance.status = RecordStatus.ACTIVE
+            instance.save()

@@ -4312,3 +4312,141 @@ La suite completa sigue en **63 pruebas OK**.
 | AC-24-01 | comando sin error | EVI-24-01 | PASS |
 | AC-24-02 | rutas con `<int:pk>` | EVI-24-02 | PASS |
 | AC-24-03 | `--validate` exit 0 + Bearer | EVI-24-03 | PASS |
+
+---
+
+# Unidad ISS-25 — Pruebas 401 y 403
+
+**Objetivo:** dejar por escrito, en tests, la diferencia entre **no tener identidad** (401) y **no tener permiso** (403). 401 corresponde a OPEN mal credenciado o a un JWT que no identifica un usuario `active`; 403 corresponde solo al acceso **JWT con token + RBAC**: el JWT es válido y la concesión no.
+
+**Fuente:** [26-ISS-25-pruebas-401-y-403](https://tecnogua.com/academic/site/backend2026/django/manual/26-ISS-25-pruebas-401-y-403/)
+
+> La guía llama a esta clase `RbacTests`; en MovilCare esa clase ya existe desde el ISS-21 (pruebas de la lógica de la permisión contra peticiones resueltas), así que las pruebas HTTP del cierre se añaden como `RbacHttpTests`, sobre los endpoints reales con `GET /api/customers/` en lugar del `GET /api/clients/` de StoreLab.
+
+## `RbacHttpTests` — `apps/security/tests.py` (final del archivo)
+
+```python
+class RbacHttpTests(APITestCase):
+    def setUp(self):
+        self.user = create_active_user()
+        self.client.force_authenticate(user=self.user)
+
+    def test_missing_grant_is_403_and_missing_identity_is_401(self):
+        # AC-25-03/04: identidad vigente sin concesión → 403, nunca 401.
+        denied = self.client.get("/api/customers/")
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+
+        # AC-25-02: sin identidad → 401, no 403.
+        self.client.force_authenticate(user=None)
+        anonymous = self.client.get("/api/customers/")
+        self.assertEqual(anonymous.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_any_inactive_link_denies(self):
+        grant(self.user, "GET", "/api/customers/")
+        self.assertEqual(self.client.get("/api/customers/").status_code, status.HTTP_200_OK)
+        # role, RoleUser, ResourceRole y Resource: cada uno a inactive → 403.
+```
+
+`test_any_inactive_link_denies` concede `GET api/customers/`, comprueba 200 y luego pasa a `inactive`, uno por uno, el rol, el `RoleUser`, el `ResourceRole` y el `Resource`. Cada uno debe responder 403.
+
+```
+GET /api/customers/
+        ├── sin identidad                                401
+        ├── identidad vigente, sin concesión             403
+        ├── concesión active                             200
+        └── uno de estos eslabones inactive
+              Role · RoleUser · ResourceRole · Resource   403
+```
+
+## Explicación
+
+401 y 403 no se intercambian para "que se vea un error". **401** significa que la petición no demostró una identidad vigente. **403** significa que la identidad está vigente y la operación no está concedida. Un usuario inactivo con un JWT bien firmado es 401: la identidad que el token nombra ya no está vigente.
+
+## Criterios de aceptación
+
+- **AC-25-01:** la suite `apps` pasa.
+- **AC-25-02:** existe un test cuyo resultado esperado es 401.
+- **AC-25-03:** existe un test cuyo resultado esperado es 403.
+- **AC-25-04:** el 403 no aparece cuando falta el token (el anónimo es 401).
+
+## Verificación
+
+```
+$ python manage.py test apps.security.tests.RbacHttpTests
+Ran 2 tests in 0.372s
+OK
+
+$ python manage.py test apps            # suite completa en MySQL
+Ran 65 tests in 15.477s
+OK
+```
+
+EVI-25-01: `Ran 65 tests` / `OK` sobre **MySQL** (motor activo del entorno, `DB_ENGINE=mysql`, BD `MovilCare`). EVI-25-02: `RbacHttpTests` OK en la repetición. `manage.py check` limpio y `spectacular --validate` exit 0.
+
+## GATE
+
+| AC | Verificación | Evidencia | Resultado |
+| --- | --- | --- | --- |
+| AC-25-01 | suite `apps` | EVI-25-01 (65 OK) | PASS |
+| AC-25-02 | test con 401 esperado | `test_missing_grant_is_403_and_missing_identity_is_401` | PASS |
+| AC-25-03 | test con 403 esperado | idem + `test_any_inactive_link_denies` | PASS |
+| AC-25-04 | anónimo no es 403 | aserción 401 del anónimo | PASS |
+
+---
+
+# Cierre de la Fase II — Auth con RBAC
+
+Esta fase agregó identidad y autorización sobre el negocio ya cerrado en el ISS-14. Los **tres accesos**, y cada endpoint de la API usa uno solo:
+
+| Acceso | Endpoints MovilCare |
+| --- | --- |
+| **OPEN** | `POST /api/auth/login/`, `POST /api/auth/refresh/`, `POST /api/auth/logout/`, esquema y Swagger |
+| **JWT con token** | `GET/PATCH /api/auth/profile/` |
+| **JWT con token + RBAC** | customers, products, serialized-units, units, sales y el CRUD de users, roles, role-users, resources y resource-roles |
+
+## Qué queda construido
+
+- Custom User con hash de Django. Access token no persistido.
+- Refresh con hash (SHA-256), familia, rotación y revocación por reuso.
+- Logout del refresh (204 + invalidación).
+- Perfil solo con JWT, sin matriz.
+- Matriz `Role` → `Resource` con `RoleUser` y `ResourceRole`.
+- Permiso `HasResourceAccess` sobre el negocio y la matriz.
+- 401 sin identidad. 403 con identidad y sin concesión. Deny by default.
+- Semilla `seed_rbac` tomada de `resolve().route` (53 recursos).
+- Swagger con Bearer (`bearerAuth`).
+
+## Verificación del cierre
+
+```
+python manage.py check              →  0 silenced
+python manage.py test apps          →  Ran 65 tests … OK   (MySQL)
+python manage.py spectacular --validate  →  exit 0
+python manage.py seed_rbac          →  Recursos RBAC sincronizados. (53 concesiones)
+```
+
+| Pieza | Resultado |
+| --- | --- |
+| Login username y email | PASS |
+| Usuario inactive y clave mala = 401 | PASS |
+| Rotación y reuso de familia | PASS |
+| Logout 204 y refresh posterior 401 | PASS |
+| Perfil JWT con token, y access inválido tras desactivar | PASS |
+| 401 distinto de 403 | PASS |
+| Eslabones inactive (rol, RoleUser, ResourceRole, Resource) → 403 | PASS |
+| Esquema OpenAPI con Bearer | PASS (`--validate` exit 0) |
+| **MySQL** | **65 tests OK** (motor verificado en este entorno) |
+| PostgreSQL / SQL Server / Oracle | NO VERIFICADOS en este entorno (sin instancias disponibles) |
+
+## GATE AUTH/RBAC
+
+| AC | Verificación | Evidencia | Resultado |
+| --- | --- | --- | --- |
+| Hash de contraseña y de refresh | tests de login y RefreshToken | suite | PASS |
+| OPEN, JWT con token, JWT con token + RBAC | contrato y tests | suite | PASS |
+| Deny by default | `RbacTests` + `RbacHttpTests` | suite | PASS |
+| 401 distinto de 403 | tests explícitos | suite | PASS |
+| Swagger Bearer | extensión OpenAPI | `--validate` exit 0 | PASS |
+| Oracle | conexión | sin instancia | NO VERIFICADO |
+
+> **La ruta Django+DRF (StoreLab) queda cerrada en la unidad ISS-25**, adaptada íntegramente al esquema real de MovilCare: clientes (`Customer`), catálogo (`Product` + `SerializedUnit`), ventas (`Sale` + `SaleDetail`) y las tres modalidades de acceso (OPEN · JWT · JWT + RBAC).
