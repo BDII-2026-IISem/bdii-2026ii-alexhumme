@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.core.validators import MinValueValidator
 from django.db import models, transaction
+from django.utils import timezone
 
 from apps.customer.models import Customer
 from apps.common.models import StoreLabModel
@@ -44,12 +45,22 @@ class Sale(StoreLabModel):
         return f"Venta {self.pk}"
 
     def void(self):
+        """Anula la venta y sus líneas sin borrar ninguna fila.
+
+        MovilCare no tiene columna de stock, así que la anulación no repone
+        cantidad alguna: se limita a marcar la venta y sus líneas como
+        inactivas. Es idempotente, una segunda llamada no vuelve a tocar nada.
+        """
         with transaction.atomic():
             sale = Sale.objects.select_for_update().get(pk=self.pk)
             if sale.status == RecordStatus.INACTIVE:
                 return sale
             sale.status = RecordStatus.INACTIVE
             sale.save(update_fields=["status", "updated_at"])
+            sale.lines.filter(status=RecordStatus.ACTIVE).update(
+                status=RecordStatus.INACTIVE,
+                updated_at=timezone.now(),
+            )
             return sale
 
 

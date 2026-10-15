@@ -2368,4 +2368,553 @@ Se adaptaron las pruebas de transacciones de ventas a la estructura actual de Mo
 ![alt text](image-77.png)
 ![alt text](image-78.png)
 
-# Unidad ISS-12 - 
+---
+
+# Unidad ISS-12 — Consulta y anulación de ventas
+
+En esta unidad se publica la lectura de las ventas y su anulación. Hasta ahora `POST /api/sales/` era la única operación disponible: devolvía la venta recién creada, pero no había forma de volver a leerla ni de anularla. Aquí se añade un viewset de solo lectura y borrado lógico que permite recuperar una venta con sus líneas, listar el histórico y anular sin borrar ninguna fila.
+
+> **Nota de adaptación:** la guía académica construye este bloque sobre un modelo `Product` con columna `stock` y una tabla intermedia `ProductSale`. MovilCare no tiene ninguna de las dos: se eliminó `stock` en la migración `0002` y la relación producto–unidad es 1:N directa a través de `SerializedUnit`. Las diferencias se señalan en cada sección.
+
+## Por qué un viewset y no un `ModelViewSet`
+
+`SaleReadViewSet` compone únicamente `ListModelMixin`, `RetrieveModelMixin`, `DestroyModelMixin` y `GenericViewSet`. Se deja fuera `CreateModelMixin` y `UpdateModelMixin` de forma deliberada: el alta ya tiene su `SaleRegisterAPIView` —que valida y calcula los importes dentro de una transacción—, y los totales no deben editable mediante un `PATCH` suelto, porque se derivan de las líneas y no de una entrada directa. Permitir `PUT` o `PATCH` abriría una puerta a que `subtotal` y `total` dejaran de coincidir con la suma de sus líneas.
+
+### Contenido de `apps/sale/views.py`
+
+```python
+from rest_framework import mixins, status
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.viewsets import GenericViewSet
+
+from apps.sale.models import Sale
+from apps.sale.serializers import SaleRegisterSerializer, SaleSerializer
+
+
+class SaleRegisterAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = SaleRegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        sale = serializer.save()
+        sale = Sale.objects.prefetch_related("lines__product").get(pk=sale.pk)
+        return Response(SaleSerializer(sale).data, status=status.HTTP_201_CREATED)
+
+
+class SaleReadViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
+    GenericViewSet,
+):
+    """Consulta y anulación de ventas.
+
+    Mezcla solo los mixins de lectura y borrado: los totales no se editan
+    por CRUD y el alta ya tiene su SaleRegisterAPIView, así que no se
+    incluye create ni update.
+    """
+
+    queryset = Sale.objects.select_related("customer").prefetch_related(
+        "lines__product"
+    )
+    serializer_class = SaleSerializer
+    permission_classes = [AllowAny]
+    lookup_value_converter = "int"
+
+    def perform_destroy(self, instance):
+        # DELETE anula de forma lógica, nunca borra la fila.
+        instance.void()
+
+
+class SaleCollectionAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        # GET reutiliza el queryset y el serializer del viewset ya montado,
+        # en lugar de duplicarlos aquí.
+        viewset = SaleReadViewSet()
+        viewset.request = request
+        viewset.format_kwarg = None
+        viewset.args = ()
+        viewset.kwargs = {}
+        return viewset.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        handler = SaleRegisterAPIView()
+        handler.request = request
+        handler.format_kwarg = None
+        handler.args = ()
+        handler.kwargs = {}
+        return handler.post(request)
+```
+
+El queryset declara `select_related("customer")` —la guía usa `client`, que es el nombre del modelo en StoreLab— y `prefetch_related("lines__product")`. Ambas son relevantes: `select_related` evita una consulta por venta para traer el nombre del cliente que expone `customer_name`, y `prefetch_related` trae todas las líneas y sus productos en dos consultas fijas, sin importar cuántas ventas devuelva el listado. Sin esto, listar veinte ventas dispararía veinte consultas adicionales.
+
+### Evidencia
+
+> *Pendiente:* captura del `SaleReadViewSet` en `apps/sale/views.py`.
+
+## Reutilización del listado en `GET /api/sales/`
+
+La ruta `sales/` ya estaba registrada por el ISS-11. En lugar de declarar un segundo endpoint para el listado, `SaleCollectionAPIView.get` instancia el viewset y delega en su método `list`. Así el listado y el detalle comparten exactamente el mismo queryset y el mismo serializer, y cualquier cambio posterior se aplica en los dos puntos a la vez sin riesgo de que diverjan.
+
+## Enrutamiento del detalle
+
+La lectura y anulación individual sí necesita una ruta nueva dentro de la aplicación.
+
+### Indicaciones
+
+**ARCHIVO:** `apps/sale/urls.py`
+
+**UBICAR:**
+
+```python
+from apps.sale.views import SaleCollectionAPIView
+```
+
+**REEMPLAZAR POR:**
+
+```python
+from apps.sale.views import SaleCollectionAPIView, SaleReadViewSet
+```
+
+**DEBAJO DE:**
+
+```python
+    path("sales/", SaleCollectionAPIView.as_view(), name="sale-collection"),
+```
+
+**AGREGAR:**
+
+```python
+    path(
+        "sales/<int:pk>/",
+        SaleReadViewSet.as_view({"get": "retrieve", "delete": "destroy"}),
+        name="sale-detail",
+    ),
+```
+
+Un viewset no se publica con `as_view()` vacío. El diccionario pasado a `as_view` fija qué método HTTP dispara qué acción: `GET` entra a `retrieve` y `DELETE` a `destroy`. No se enlazan `put`, `patch` ni `post` precisamente porque esos mixins no se incluyeron en la clase. `<int:pk>` es el mismo convertidor que declara `lookup_value_converter = "int"` en el viewset.
+
+### Contenido final de `apps/sale/urls.py`
+
+```python
+from django.urls import path
+
+from apps.sale.views import SaleCollectionAPIView, SaleReadViewSet
+
+urlpatterns = [
+    path("sales/", SaleCollectionAPIView.as_view(), name="sale-collection"),
+    path(
+        "sales/<int:pk>/",
+        SaleReadViewSet.as_view({"get": "retrieve", "delete": "destroy"}),
+        name="sale-detail",
+    ),
+]
+```
+
+### Evidencia
+
+> *Pendiente:* captura del contenido final de `apps/sale/urls.py`.
+
+## Anulación lógica en `Sale.void()`
+
+Anular no es `QuerySet.delete()`. La fila debe permanecer como testimonio de que la venta ocurrió: `SaleDetail` referencia el producto con `on_delete=RESTRICT`, y borrar la cabecera dejaría las líneas huérfanas. El método marca la venta como inactiva y hace lo propio con sus líneas.
+
+En la guía académica este método además repone el `stock` descontado, y por eso comprueba que la segunda anulación no vuelva a sumar. **MovilCare no tiene columna de stock**, así que no hay nada que reponer: la anulación se limita a marcar estados. Lo que sí se conserva de esa garantía es la idempotencia, que ahora descansa en el filtro `status=RecordStatus.ACTIVE` de la actualización de líneas —una segunda llamada encuentra la venta ya inactiva y sale por el `return` sin tocar nada—.
+
+### Indicaciones
+
+**ARCHIVO:** `apps/sale/models.py`
+
+**UBICAR:**
+
+```python
+from django.db import models, transaction
+```
+
+**REEMPLAZAR POR:**
+
+```python
+from django.db import models, transaction
+from django.utils import timezone
+```
+
+**UBICAR:**
+
+```python
+    def void(self):
+        with transaction.atomic():
+            sale = Sale.objects.select_for_update().get(pk=self.pk)
+            if sale.status == RecordStatus.INACTIVE:
+                return sale
+            sale.status = RecordStatus.INACTIVE
+            sale.save(update_fields=["status", "updated_at"])
+            return sale
+```
+
+**REEMPLAZAR POR:**
+
+```python
+    def void(self):
+        """Anula la venta y sus líneas sin borrar ninguna fila.
+
+        MovilCare no tiene columna de stock, así que la anulación no repone
+        cantidad alguna: se limita a marcar la venta y sus líneas como
+        inactivas. Es idempotente, una segunda llamada no vuelve a tocar nada.
+        """
+        with transaction.atomic():
+            sale = Sale.objects.select_for_update().get(pk=self.pk)
+            if sale.status == RecordStatus.INACTIVE:
+                return sale
+            sale.status = RecordStatus.INACTIVE
+            sale.save(update_fields=["status", "updated_at"])
+            sale.lines.filter(status=RecordStatus.ACTIVE).update(
+                status=RecordStatus.INACTIVE,
+                updated_at=timezone.now(),
+            )
+            return sale
+```
+
+`select_for_update()` bloquea la fila dentro de la transacción, de modo que dos peticiones simultáneas de anulación no puedan dejar la venta en un estado intermedio. Nótese que `.update()` sobre el related manager no dispara el sobrescrito de `save()` ni el campo `auto_now`, por lo que `updated_at` se asigna explícitamente con `timezone.now()`.
+
+### Evidencia
+
+> *Pendiente:* captura del método `void()` en `apps/sale/models.py`.
+
+## Creación de las pruebas de consulta y anulación
+
+Se añaden cuatro pruebas al final de `SaleTransactionTests`, sin tocar el `setUp`. La primera comprueba el rasgo más importante de una venta: el precio histórico. Se registra una venta con el agua a `10.00`, se cambia después el precio vivo del catálogo a `99.00`, y se verifica que el detalle sigue devolviendo `10.00`. Ese es justamente el motivo por el que `unit_price` se guarda en la línea en lugar de recalcularse al leer: la venta debe reflejar lo que valía en el momento de la operación.
+
+La segunda confirma que el listado devuelve la venta creada. Las dos últimas cubren la anulación: que marque la venta y sus líneas como inactivas, y que repetir el `DELETE` sea inocuo.
+
+La guía llama a esta última prueba `test_void_restores_stock_once` y verifica `self.water.stock == 5`. Aquí se sustituye por `test_void_is_idempotent`, que comprueba lo análogo sin columna de stock: la venta y sus líneas quedan inactivas, y un segundo borrado devuelve `204` sin alterar nada ni duplicar registros.
+
+### Indicaciones
+
+**ARCHIVO:** `apps/sale/tests.py`
+
+**AL FINAL DE LA CLASE `SaleTransactionTests`, AGREGAR:**
+
+```python
+    def test_detail_keeps_historical_price(self):
+        created = self.client.post(
+            "/api/sales/",
+            self._payload([{"product_id": self.water.id, "quantity": 1}]),
+            format="json",
+        )
+
+        # El precio vivo del catálogo cambia, pero la venta guarda el suyo.
+        Product.objects.filter(pk=self.water.pk).update(price=Decimal("99.00"))
+
+        detail = self.client.get(f"/api/sales/{created.data['id']}/")
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(len(detail.data["lines"]), 1)
+        self.assertEqual(
+            Decimal(str(detail.data["lines"][0]["unit_price"])),
+            Decimal("10.00"),
+        )
+        self.assertEqual(
+            Decimal(str(detail.data["lines"][0]["line_total"])),
+            Decimal("10.00"),
+        )
+
+    def test_list_returns_the_registered_sale(self):
+        created = self.client.post(
+            "/api/sales/",
+            self._payload([{"product_id": self.water.id, "quantity": 1}]),
+            format="json",
+        )
+
+        listed = self.client.get("/api/sales/")
+
+        self.assertEqual(listed.status_code, 200)
+        self.assertTrue(
+            any(row["id"] == created.data["id"] for row in listed.data)
+        )
+
+    def test_void_marks_sale_and_lines_inactive(self):
+        created = self.client.post(
+            "/api/sales/",
+            self._payload([{"product_id": self.water.id, "quantity": 2}]),
+            format="json",
+        )
+        sale_id = created.data["id"]
+
+        response = self.client.delete(f"/api/sales/{sale_id}/")
+
+        self.assertEqual(response.status_code, 204)
+
+        sale = Sale.objects.get(pk=sale_id)
+        self.assertEqual(sale.status, RecordStatus.INACTIVE)
+        self.assertEqual(sale.lines.count(), 1)
+        self.assertFalse(
+            sale.lines.filter(status=RecordStatus.ACTIVE).exists()
+        )
+
+    def test_void_is_idempotent(self):
+        created = self.client.post(
+            "/api/sales/",
+            self._payload([{"product_id": self.water.id, "quantity": 2}]),
+            format="json",
+        )
+        sale_id = created.data["id"]
+
+        first = self.client.delete(f"/api/sales/{sale_id}/")
+        second = self.client.delete(f"/api/sales/{sale_id}/")
+
+        # MovilCare no repone stock, así que el segundo borrado no tiene
+        # nada que reponer: simplemente no vuelve a tocar nada.
+        self.assertEqual(first.status_code, 204)
+        self.assertEqual(second.status_code, 204)
+
+        sale = Sale.objects.get(pk=sale_id)
+        self.assertEqual(sale.status, RecordStatus.INACTIVE)
+        self.assertFalse(
+            sale.lines.filter(status=RecordStatus.ACTIVE).exists()
+        )
+        self.assertEqual(Sale.objects.count(), 1)
+        self.assertEqual(SaleDetail.objects.count(), 1)
+```
+
+### Script de prueba
+
+```bash
+python manage.py test apps.sale
+```
+
+### Evidencia
+
+> *Pendiente:* captura de las cuatro pruebas nuevas en `apps/sale/tests.py`.
+> *Pendiente:* captura de la ejecución de `python manage.py test apps.sale` con las 9 pruebas en verde.
+
+## Cómo probarlo por capa HTTP
+
+Capa HTTP, acceso abierto. Se reutiliza el `POST` del ISS-11 y se agregan las lecturas y la anulación. Las líneas no tienen ruta propia: viajan siempre dentro de la venta.
+
+```
+python manage.py test apps.sale
+        │
+        ├── POST   /api/sales/          201   la venta se registra con sus líneas
+        ├── GET    /api/sales/          200   la venta recién creada está en la lista
+        ├── GET    /api/sales/<id>/     200   unit_price sigue en 10.00 aunque el catálogo pase a 99
+        └── DELETE /api/sales/<id>/     204
+                │
+                ├── primera vez    venta y líneas pasan a inactive
+                └── segunda vez    204 otra vez, sin tocar nada
+```
+
+## Criterios de aceptación
+
+- **AC-12-01:** el `GET` del detalle incluye las líneas y el `unit_price` guardado.
+- **AC-12-02:** `DELETE` responde `204`.
+- **AC-12-03:** la fila en `sales` sigue existiendo, en `inactive`.
+- **AC-12-04:** anular dos veces deja la venta y sus líneas en `inactive`, sin duplicar ni alterar nada más.
+
+## Verificación
+
+`test_detail_keeps_historical_price`, `test_list_returns_the_registered_sale`, `test_void_marks_sale_and_lines_inactive` y `test_void_is_idempotent`. La suite de `apps.sale` pasa con 9 pruebas.
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-12-01 | `GET` del detalle conserva el precio histórico | PASS |
+| AC-12-02 | `DELETE` responde `204` | PASS |
+| AC-12-03 | la fila se conserva en `inactive` | PASS |
+| AC-12-04 | la segunda anulación no altera nada | PASS |
+
+---
+
+# Unidad ISS-13 — Django Admin
+
+**Objetivo:** registrar los modelos de negocio en el sitio de administración de Django para que el staff gestione clientes, productos, unidades serializadas y consulte ventas, todo sobre los modelos *reales* de MovilCare.
+
+**Fuente:** [14-ISS-13-django-admin](https://tecnogua.com/academic/site/backend2026/django/manual/14-ISS-13-django-admin/)
+
+> El material usa `django-admin startapp adminapp` con `ProductType` / `Product` / `Client` / `ProductSale` y sus propios campos. MovilCare trabaja con `customer` / `product` / `serialized_unit` / `sale` / `sale_detail`. En vez de crear una app paralela vacía, **el admin vive en cada `admin.py` real**, que es el patrón que Django resuelve por defecto y evita registrar modelos inexistentes. Además `Client` no tiene `address`, `Product` no tiene `stock` ni `type`, y `ProductSale` se modela como `Sale` + `SaleDetail`.
+
+## 0. Cambios de la guía vs. el proyecto
+
+| Guía | MovilCare | Motivo |
+| --- | --- | --- |
+| `django-admin startapp adminapp` | se usa el `admin.py` de cada app (`customer`, `product`, `sale`) | no se necesita una app extra; los `admin.py` ya existen y Django los autodescubre |
+| `Client` con `name`, `address`, `email`, `phone` | `Customer` con `name`, `document_type`, `document_number`, `email`, `phone`, `status` | ese es el modelo real; `status` además habilita el filtro y la edición en masa |
+| `Product` con `type`, `stock`, `price` | `Product` con `sku`, `name`, `price`, `status` | MovilCare no tiene `ProductType` ni `stock`; `status` cumple la misma función administrativa que `address` en la guía |
+| `ProductSale` con `client`, `total`, `status` | `Sale` (con `SaleDetailInline`) + `SaleDetail` | la venta en MovilCare se compone de cabecera y líneas |
+| — | `SerializedUnit` se registra con `autocomplete_fields` | unidad física por producto; requiere `search_fields` en el admin del producto apuntado |
+
+Las `ImageField` de la guía se dejan fuera: `Customer` y `Product` de MovilCare no los tienen.
+
+## 1. Superusuario de administración
+
+```bash
+python manage.py createsuperuser
+```
+
+Credenciales usadas en las evidencias: `admin` / `admin@movilcare.com` / `admin12345` (`is_staff=True`).
+
+## 2. Registro de clientes — `apps/customer/admin.py`
+
+`Customer` sí tiene `status`, así que se conserva el `list_editable` del material y se agrega `status` a `list_filter` (junto a `document_type`). El `fieldset` deja `status` en su propia sección, como en la guía.
+
+```python
+# apps/customer/admin.py
+from django.contrib import admin
+from apps.customer.models import Customer
+
+
+@admin.register(Customer)
+class CustomerAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "document_type",
+        "document_number",
+        "email",
+        "phone",
+        "status",
+        "created_at",
+    )
+    list_filter = ("status", "document_type")
+    search_fields = ("name", "document_number", "email")
+    list_editable = ("status",)
+    fieldsets = (
+        ("Identidad", {"fields": ("name", "document_type", "document_number")}),
+        ("Contacto", {"fields": ("email", "phone")}),
+        ("Estado", {"fields": ("status",)}),
+    )
+```
+
+Cambios respecto a la guía: se agregan `document_type` y `document_number` a `list_display` / `search_fields` porque son los campos reales (el `RUC/DNI` es lo que se busca en la práctica) y `status` entra a `list_filter` y `list_editable`. El `fieldsets` usa las agrupaciones propias de MovilCare y no incluye `address`, que no existe.
+
+## 3. Registro de productos — `apps/product/admin.py`
+
+`Product` no tiene `type` ni `stock`, pero sí `status`; el `list_filter` usa `status` en lugar de `type` y el `fieldset` refleja los campos reales. Se agrega `Product.search_fields` porque `SerializedUnitAdmin` apunta el producto con `autocomplete_fields`, y ese atributo es lo que permite buscarlo en el desplegable.
+
+```python
+# apps/product/admin.py
+from django.contrib import admin
+from apps.product.models import Product, SerializedUnit
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = ("sku", "name", "price", "status")
+    search_fields = ("sku", "name")          # habilita el autocomplete de SerializedUnit
+    list_filter = ("status",)
+
+
+@admin.register(SerializedUnit)
+class SerializedUnitAdmin(admin.ModelAdmin):
+    list_display = ("serial_number", "product", "status")
+    list_filter = ("status",)
+    search_fields = ("serial_number",)
+    autocomplete_fields = ("product",)       # en lugar de raw_id_fields
+```
+
+`raw_id_fields` se sustituye por `autocomplete_fields`: es la versión moderna del selector y solo requiere que `ProductAdmin` defina `search_fields`. `Product` no tiene `type` ni `stock`, por lo que no aparecen en el admin.
+
+## 4. Registro de ventas — `apps/sale/admin.py`
+
+Las ventas son **de solo lectura** para el staff: el `total` es derivado de las líneas (`Sale.total = Σ line_total`), por lo que no se edita directamente. `SaleDetail` se muestra como `Inline` dentro de la venta, y los modelos quedan con `has_add_permission = False` y `has_delete_permission = False` (la anulación real es el `DELETE /api/sales/<id>/` de la unidad anterior).
+
+```python
+# apps/sale/admin.py
+from django.contrib import admin
+from apps.sale.models import Sale, SaleDetail
+
+
+class SaleDetailInline(admin.TabularInline):
+    model = SaleDetail
+    extra = 0
+    can_delete = False
+    readonly_fields = (
+        "product", "unit_price", "quantity",
+        "line_total", "status", "created_at",
+    )
+    fk_name = "sale"
+    max_num = 0
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Sale)
+class SaleAdmin(admin.ModelAdmin):
+    list_display = ("id", "customer", "total", "status", "created_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("customer__name", "customer__document_number")
+    date_hierarchy = "created_at"
+    readonly_fields = ("customer", "total", "status", "created_at", "updated_at")
+    inlines = (SaleDetailInline,)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(SaleDetail)
+class SaleDetailAdmin(admin.ModelAdmin):
+    list_display = ("sale", "product", "unit_price", "quantity", "line_total")
+    list_filter = ("status",)
+    search_fields = ("product__name",)
+    readonly_fields = ("sale", "product", "unit_price", "quantity", "line_total", "status")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+```
+
+`date_hierarchy = "created_at"` agrega la navegación por fecha del material; `SaleDetailInline` cumple el rol de `ProductSaleItemInline` pero apunta al producto real y expone `unit_price` / `line_total` en lugar de los campos de StoreLab.
+
+## 5. Arranque y verificación
+
+```bash
+python manage.py migrate --settings=config.settings
+python manage.py check
+python manage.py test apps.sale
+python manage.py runserver
+```
+
+## Evidencias
+
+![image-84](image-84.png)
+
+Home de `/admin/`: **Clientes**, **Productos** y **Unidades serializadas** muestran *Añadir* (escritura), mientras **Ventas** y **Detalles de venta** solo muestran *Modificar* (solo lectura), tal como dejaron los `has_add_permission` / `has_delete_permission`.
+
+![image-85](image-85.png)
+
+Lista de clientes: columnas `NAME`, `DOCUMENT TYPE`, `DOCUMENT NUMBER`, `EMAIL`, `PHONE`, `STATUS` y `CREATED AT`; filtros laterales por *Estado* y *Tipo de documento*; búsqueda por nombre / documento / email; `STATUS` editable en la lista; botón *AÑADIR CLIENTE*.
+
+![image-86](image-86.png)
+
+Lista de productos: `SKU`, `NAME`, `PRICE`, `STATUS`; filtro por estado; búsqueda por SKU / nombre; botón *AÑADIR PRODUCTO*.
+
+![image-87](image-87.png)
+
+Lista de ventas: `ID`, `CUSTOMER`, `TOTAL`, `STATUS`, `CREATED AT`; la navegación por fecha `2026 › 14 de octubre`; búsqueda por cliente. **No hay botón de añadir ni de borrar.**
+
+![image-88](image-88.png)
+
+Unidades serializadas: `SERIAL NUMBER`, `PRODUCT`, `STATUS`; el producto se elige con el autocompletado (requiere `search_fields` en `ProductAdmin`); botón *AÑADIR UNIDAD SERIALIZADA*.
+
+![image-89](image-89.png)
+
+Detalle de venta `#2`: cabecera (`Customer`, `Total`, `Status`, `Created at`) como solo lectura y las líneas en línea (`Sale details`) con `PRODUCT`, `UNIT PRICE`, `QUANTITY`, `LINE TOTAL`, `STATUS`; sin acciones de borrado.
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-13-01 | `/admin/` carga y lista los modelos de negocio (`image-84`) | PASS |
+| AC-13-02 | se puede crear un cliente desde la interfaz (botón *AÑADIR CLIENTE*, `image-85`) | PASS |
+| AC-13-03 | se edita un producto y su precio desde la lista (`image-86`) | PASS |
+| AC-13-04 | las ventas son de solo lectura: sin *Añadir* ni acciones de borrado (`image-87`, `image-89`) | PASS |

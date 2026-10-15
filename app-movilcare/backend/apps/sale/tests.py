@@ -148,3 +148,83 @@ class SaleTransactionTests(APITestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Sale.objects.count(), 0)
         self.assertEqual(SaleDetail.objects.count(), 0)
+
+    def test_detail_keeps_historical_price(self):
+        created = self.client.post(
+            "/api/sales/",
+            self._payload([{"product_id": self.water.id, "quantity": 1}]),
+            format="json",
+        )
+
+        # El precio vivo del catálogo cambia, pero la venta guarda el suyo.
+        Product.objects.filter(pk=self.water.pk).update(price=Decimal("99.00"))
+
+        detail = self.client.get(f"/api/sales/{created.data['id']}/")
+
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(len(detail.data["lines"]), 1)
+        self.assertEqual(
+            Decimal(str(detail.data["lines"][0]["unit_price"])),
+            Decimal("10.00"),
+        )
+        self.assertEqual(
+            Decimal(str(detail.data["lines"][0]["line_total"])),
+            Decimal("10.00"),
+        )
+
+    def test_list_returns_the_registered_sale(self):
+        created = self.client.post(
+            "/api/sales/",
+            self._payload([{"product_id": self.water.id, "quantity": 1}]),
+            format="json",
+        )
+
+        listed = self.client.get("/api/sales/")
+
+        self.assertEqual(listed.status_code, 200)
+        self.assertTrue(
+            any(row["id"] == created.data["id"] for row in listed.data)
+        )
+
+    def test_void_marks_sale_and_lines_inactive(self):
+        created = self.client.post(
+            "/api/sales/",
+            self._payload([{"product_id": self.water.id, "quantity": 2}]),
+            format="json",
+        )
+        sale_id = created.data["id"]
+
+        response = self.client.delete(f"/api/sales/{sale_id}/")
+
+        self.assertEqual(response.status_code, 204)
+
+        sale = Sale.objects.get(pk=sale_id)
+        self.assertEqual(sale.status, RecordStatus.INACTIVE)
+        self.assertEqual(sale.lines.count(), 1)
+        self.assertFalse(
+            sale.lines.filter(status=RecordStatus.ACTIVE).exists()
+        )
+
+    def test_void_is_idempotent(self):
+        created = self.client.post(
+            "/api/sales/",
+            self._payload([{"product_id": self.water.id, "quantity": 2}]),
+            format="json",
+        )
+        sale_id = created.data["id"]
+
+        first = self.client.delete(f"/api/sales/{sale_id}/")
+        second = self.client.delete(f"/api/sales/{sale_id}/")
+
+        # MovilCare no repone stock, así que el segundo borrado no tiene
+        # nada que reponer: simplemente no vuelve a tocar nada.
+        self.assertEqual(first.status_code, 204)
+        self.assertEqual(second.status_code, 204)
+
+        sale = Sale.objects.get(pk=sale_id)
+        self.assertEqual(sale.status, RecordStatus.INACTIVE)
+        self.assertFalse(
+            sale.lines.filter(status=RecordStatus.ACTIVE).exists()
+        )
+        self.assertEqual(Sale.objects.count(), 1)
+        self.assertEqual(SaleDetail.objects.count(), 1)
