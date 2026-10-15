@@ -3966,3 +3966,101 @@ Request → JWT → User active? → method + route → ¿todos los eslabones ac
 | AC-21-02 | 401 (anónimo) | PASS |
 | AC-21-03 | concesión activa → 200 | PASS |
 | AC-21-04 | cada eslabón inactivo → 403 | PASS |
+
+---
+
+# Unidad ISS-22 — RBAC sobre el negocio
+
+**Objetivo:** pasar el negocio de la Fase I al **tercer acceso: JWT con token + RBAC**. Hasta aquí esos endpoints no pedían JWT.
+
+**Fuente:** [23-ISS-22-rbac-sobre-el-negocio](https://tecnogua.com/academic/site/backend2026/django/manual/23-ISS-22-rbac-sobre-el-negocio/)
+
+> MovilCare aplica el mismo cierre a sus vistas reales: `CustomerViewSet`, `CatalogViewSet` (`ProductViewSet`/`SerializedUnitViewSet`), `ProductUnitsListAPIView`, `SaleRegisterAPIView`, `SaleReadViewSet` y `SaleCollectionAPIView`. El comportamiento (401 sin identidad, 403 sin concesión, CRUD con concesión) es idéntico.
+
+## 1. Vistas de negocio → `[IsAuthenticated, HasResourceAccess]`
+
+Se reemplaza `AllowAny` por `[IsAuthenticated, HasResourceAccess]` en `apps/customer/views.py`, `apps/product/views.py` y `apps/sale/views.py`. Ejemplo:
+
+```python
+# apps/customer/views.py
+from rest_framework.permissions import IsAuthenticated
+from apps.security.permissions import HasResourceAccess
+
+class CustomerViewSet(viewsets.ModelViewSet):
+    permission_classes = [IsAuthenticated, HasResourceAccess]
+```
+
+## 2. Permiso global → `IsAuthenticated` — `config/settings/__init__.py`
+
+```python
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    ...
+}
+```
+
+## 3. `grant` y `grant_crud` — `apps/common/testing.py`
+
+```python
+from django.urls import resolve
+from apps.security.models import Resource, ResourceRole, Role, RoleUser, User
+
+
+def grant(user, method, path, role_name=None):
+    role, _ = Role.objects.get_or_create(
+        name=role_name or f"test-role-{user.pk}",
+        defaults={"description": "Rol de prueba", "status": RecordStatus.ACTIVE},
+    )
+    RoleUser.objects.get_or_create(role=role, user=user, defaults={"status": RecordStatus.ACTIVE})
+    match = resolve(path)
+    resource, _ = Resource.objects.get_or_create(
+        method=method.upper(),
+        route=match.route,
+        defaults={"name": f"{method.upper()} {match.route}", "status": RecordStatus.ACTIVE},
+    )
+    ResourceRole.objects.get_or_create(resource=resource, role=role, defaults={"status": RecordStatus.ACTIVE})
+    return role
+
+
+def grant_crud(user, collection, detail):
+    grant(user, "GET", collection)
+    grant(user, "POST", collection)
+    for method in ("GET", "PUT", "PATCH", "DELETE"):
+        grant(user, method, detail)
+```
+
+## 4. Tests de negocio autenticados
+
+Cada `setUp` crea un usuario, concede la ruta (vía `grant`/`grant_crud`) y llama `force_authenticate`. Se conservan los datos de negocio; se autentica encima. La venta concede `GET`/`POST` colección y `GET`/`DELETE` detalle (no `PUT`/`PATCH`: el detalle no los publica).
+
+## Los tres accesos, ya completos
+
+```
+OPEN                    login, refresh, logout, esquema        AllowAny + authentication_classes vacías
+JWT con token           perfil                                 IsAuthenticated
+JWT con token + RBAC    client, product, sale                  IsAuthenticated + HasResourceAccess
+```
+
+## Explicación
+
+Este ISS no cambia la forma de la venta ni del cliente: **cambia quién puede ejecutarla**. Un test que antes hacía POST directo ahora falla con 401 o 403 hasta que concede método y ruta. Ese fallo es la prueba de que el cierre quedó puesto.
+
+## Criterios de aceptación
+
+- **AC-22-01:** los tests de cliente, producto y venta siguen PASS con usuario concedido.
+- **AC-22-02:** sin concesión, clientes responde 403; sin identidad, 401.
+- **AC-22-03:** perfil sigue sin consultar la matriz.
+
+## Verificación
+
+`manage.py test` → **61 pruebas OK**. La nueva prueba `test_missing_grant_is_403_and_missing_identity_is_401` en `CustomerApiTests` confirma 401 anónimo, 403 sin concesión y 200 con concesión. `spectacular --validate` sigue en código 0.
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-22-01 | negocio con RBAC (suite OK) | PASS |
+| AC-22-02 | deny by default (403/401) | PASS |
+| AC-22-03 | perfil sigue en JWT con token (`ProfileAPIView.permission_classes`) | PASS |

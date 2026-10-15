@@ -4,11 +4,17 @@ from django.test import TestCase
 from rest_framework.test import APITestCase
 
 from apps.common.status import RecordStatus
+from apps.common.testing import create_active_user, grant, grant_crud
 from apps.product.models import Product, SerializedUnit
 
 
 class ProductApiTests(APITestCase):
     def setUp(self):
+        self.user = create_active_user(username="nora", email="nora@movilcare.test")
+        grant_crud(self.user, "/api/products/", "/api/products/1/")
+        grant_crud(self.user, "/api/serialized-units/", "/api/serialized-units/1/")
+        grant(self.user, "GET", "/api/products/1/units/")
+        self.client.force_authenticate(user=self.user)
         self.product = Product.objects.create(
             sku="MOV-001",
             name="Leche",

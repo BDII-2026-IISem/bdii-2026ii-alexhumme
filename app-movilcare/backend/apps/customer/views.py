@@ -1,15 +1,16 @@
 from rest_framework import viewsets
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 
+from apps.common.status import RecordStatus
 from apps.customer.models import Customer
 from apps.customer.serializers import CustomerSerializer
-from apps.common.status import RecordStatus
+from apps.security.permissions import HasResourceAccess
 
 
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, HasResourceAccess]
     lookup_value_converter = "int"
 
     def get_queryset(self):

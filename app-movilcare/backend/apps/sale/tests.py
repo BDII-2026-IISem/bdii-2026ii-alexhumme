@@ -4,14 +4,22 @@ from unittest.mock import patch
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from apps.customer.models import Customer
 from apps.common.status import RecordStatus
+from apps.common.testing import create_active_user, grant
+from apps.customer.models import Customer
 from apps.product.models import Product
 from apps.sale.models import Sale, SaleDetail
 
 
 class SaleTransactionTests(APITestCase):
     def setUp(self):
+        self.user = create_active_user(username="leo", email="leo@movilcare.test")
+        grant(self.user, "GET", "/api/sales/")
+        grant(self.user, "POST", "/api/sales/")
+        grant(self.user, "GET", "/api/sales/1/")
+        grant(self.user, "DELETE", "/api/sales/1/")
+        self.client.force_authenticate(user=self.user)
+
         self.customer = Customer.objects.create(
             name="Comprador",
             status=RecordStatus.ACTIVE,

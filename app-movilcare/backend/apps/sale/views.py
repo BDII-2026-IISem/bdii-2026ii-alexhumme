@@ -1,16 +1,17 @@
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 
 from apps.sale.models import Sale
 from apps.sale.serializers import SaleRegisterSerializer, SaleSerializer
+from apps.security.permissions import HasResourceAccess
 
 
 class SaleRegisterAPIView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, HasResourceAccess]
 
     @extend_schema(
         request=SaleRegisterSerializer,
@@ -42,7 +43,7 @@ class SaleReadViewSet(
         "lines__product"
     )
     serializer_class = SaleSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, HasResourceAccess]
     lookup_value_converter = "int"
 
     def perform_destroy(self, instance):
@@ -51,7 +52,7 @@ class SaleReadViewSet(
 
 
 class SaleCollectionAPIView(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, HasResourceAccess]
 
     @extend_schema(
         responses={200: SaleSerializer(many=True)},

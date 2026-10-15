@@ -1,15 +1,16 @@
 from rest_framework.generics import ListAPIView
 from rest_framework import viewsets
 from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 
 from apps.common.status import RecordStatus
 from apps.product.models import Product, SerializedUnit
 from apps.product.serializers import ProductSerializer, SerializedUnitSerializer
+from apps.security.permissions import HasResourceAccess
 
 
 class CatalogViewSet(viewsets.ModelViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, HasResourceAccess]
     lookup_value_converter = "int"
 
     def get_queryset(self):
@@ -39,7 +40,7 @@ class ProductUnitsListAPIView(ListAPIView):
     GET /api/products/<product_id>/units/
     """
 
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated, HasResourceAccess]
     serializer_class = SerializedUnitSerializer
 
     def get_queryset(self):
