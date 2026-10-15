@@ -1,5 +1,14 @@
 from rest_framework import serializers
 
+from apps.security.models import User
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "first_name", "last_name", "status")
+        read_only_fields = ("id", "username", "status")
+
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(required=False, allow_blank=False)

@@ -409,3 +409,53 @@ class AuthFlowTests(APITestCase):
             "/api/auth/refresh/", {"refresh": raw_b}, format="json"
         )
         self.assertEqual(still_ok.status_code, status.HTTP_200_OK)
+
+    def test_profile_requires_token_and_rejects_inactive_user(self):
+        anonymous = self.client.get("/api/auth/profile/")
+        self.assertEqual(anonymous.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        login = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+
+        profile = self.client.get("/api/auth/profile/")
+        self.assertEqual(profile.status_code, status.HTTP_200_OK)
+        self.assertEqual(profile.data["username"], "ana")
+        self.assertEqual(profile.data["email"], "ana@movilcare.test")
+        self.assertNotIn("password", profile.data)
+
+        patched = self.client.patch(
+            "/api/auth/profile/",
+            {"firstName": "Ana"},
+            format="json",
+        )
+        self.assertEqual(patched.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.first_name, "Ana")
+
+        # El mismo access deja de servir si el usuario pasa a inactive.
+        self.user.status = RecordStatus.INACTIVE
+        self.user.save()
+        denied = self.client.get("/api/auth/profile/")
+        self.assertEqual(denied.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_profile_does_not_expose_password_or_status_change(self):
+        login = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login.data['access']}")
+        # username y status son de solo lectura: no se modifican por el perfil.
+        patched = self.client.patch(
+            "/api/auth/profile/",
+            {"username": "otro", "status": "inactive"},
+            format="json",
+        )
+        self.assertEqual(patched.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, "ana")
+        self.assertEqual(self.user.status, RecordStatus.ACTIVE)

@@ -3762,3 +3762,116 @@ POST /api/auth/refresh/ {refresh: R}  401
 | --- | --- | --- |
 | AC-19-01 | logout → HTTP 204 | PASS |
 | AC-19-02 | refresh posterior → 401 | PASS |
+
+---
+
+# Unidad ISS-20 — Perfil JWT con token
+
+**Objetivo:** responder **quién es el llamador**. Este es el **segundo acceso de la Fase II: JWT con token** — firma, vigencia y usuario `active`. **No** consulta la matriz: esa consulta es el tercer acceso (ISS-21/ISS-22).
+
+**Fuente:** [21-ISS-20-perfil-jwt-con-token](https://tecnogua.com/academic/site/backend2026/django/manual/21-ISS-20-perfil-jwt-con-token/)
+
+> MovilCare adapta el nombre de la clase a `MovilCareJWTAuthentication` (la guía usa `StoreLabJWTAuthentication`) y el perfil opera sobre el `User` propio. El comportamiento (401 sin header, 200 con access, PATCH de `first_name`, 401 si el usuario pasa a `inactive`) es idéntico.
+
+## 1. `apps/security/authentication.py` (nuevo)
+
+Relee `status` **después** de validar la firma: un JWT bien firmado de un usuario `inactive` se rechaza con 401.
+
+```python
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+
+from apps.common.status import RecordStatus
+
+
+class MovilCareJWTAuthentication(JWTAuthentication):
+    def get_user(self, validated_token):
+        user = super().get_user(validated_token)
+        if user.status != RecordStatus.ACTIVE or not user.is_active:
+            raise AuthenticationFailed("El usuario no está active.", code="user_inactive")
+        return user
+```
+
+## 2. Settings — `config/settings/__init__.py`
+
+```python
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.security.authentication.MovilCareJWTAuthentication",
+    ],
+    ...
+}
+```
+
+## 3. `ProfileSerializer` — `apps/security/serializers.py`
+
+Campos `id`, `username`, `email`, `first_name`, `last_name`, `status`. `username` y `status` son **solo lectura**. No incluye `password`.
+
+```python
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "first_name", "last_name", "status")
+        read_only_fields = ("id", "username", "status")
+```
+
+## 4. `apps/security/rbac_views.py` (nuevo)
+
+En este ISS solo contiene el perfil; los viewsets de la matriz se agregan en el ISS-23.
+
+```python
+class ProfileAPIView(RetrieveUpdateAPIView):
+    serializer_class = ProfileSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_object(self):
+        return self.request.user
+```
+
+El perfil **no entra al router** del ISS-23: no tiene `pk` en la URL porque el objeto es `request.user`. Un `ModelViewSet` de usuarios expondría `/api/users/<int:pk>/`, que es otro recurso y exige RBAC. `RetrieveUpdateAPIView` no abre POST ni DELETE.
+
+## 5. Ruta — `apps/security/urls.py`
+
+```python
+path("auth/profile/", ProfileAPIView.as_view(), name="auth-profile"),
+```
+
+## Explicación
+
+```
+Bearer access → firma + vigencia → User.active?  ── no → 401
+                                          │ sí
+                                          ▼
+                                    IsAuthenticated → perfil
+```
+
+**JWT con token** no ejecuta `HasResourceAccess`: un usuario autenticado lee su perfil aunque no tenga ningún rol. Si el mismo usuario llama a un recurso del negocio sin concesión, el ISS-22 responderá **403** (ahí el acceso ya es *JWT con token + RBAC*).
+
+## Criterios de aceptación
+
+- **AC-20-01:** sin header, GET perfil responde 401.
+- **AC-20-02:** con access válido responde 200 y no incluye `password`.
+- **AC-20-03:** PATCH de `firstName` se guarda.
+- **AC-20-04:** si el usuario pasa a `inactive`, el mismo access responde 401.
+
+## Verificación
+
+`AuthFlowTests.test_profile_requires_token_and_rejects_inactive_user` (más `test_profile_does_not_expose_password_or_status_change`). La suite completa pasa con **51 pruebas OK** y `spectacular --validate` en código 0 con `/api/auth/profile/` documentado.
+
+```
+GET  /api/auth/profile/                    sin header    401
+login → Bearer
+GET  /api/auth/profile/                    Bearer        200  username ana
+PATCH /api/auth/profile/  {firstName:Ana}  Bearer        200
+usuario inactive → GET /api/auth/profile/  el mismo Bearer 401
+```
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-20-01 | anónimo → 401 | PASS |
+| AC-20-02 | perfil 200 sin `password` | PASS |
+| AC-20-03 | PATCH de `firstName` persiste | PASS |
+| AC-20-04 | usuario desactivado → 401 | PASS |
