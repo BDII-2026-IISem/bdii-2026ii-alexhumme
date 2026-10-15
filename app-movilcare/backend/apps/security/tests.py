@@ -6,8 +6,11 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from apps.common.status import RecordStatus
+from apps.common.testing import PASSWORD, create_active_user
 from apps.security.models import (
     RefreshToken,
     Resource,
@@ -204,3 +207,68 @@ class RBACMatrixTests(TestCase):
         resource = self._resource(method="GET", route="api/customers/<int:pk>/")
         self.assertIn("<int:pk>", resource.route)
         self.assertNotIn("/1/", resource.route)
+
+
+class AuthFlowTests(APITestCase):
+    """Login OPEN: no force_authenticate ni grant, el endpoint es público."""
+
+    def setUp(self):
+        self.user = create_active_user()
+
+    def test_login_with_username_and_email(self):
+        by_username = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        )
+        self.assertEqual(by_username.status_code, status.HTTP_200_OK)
+        self.assertIn("access", by_username.data)
+        self.assertIn("refresh", by_username.data)
+        self.assertNotIn("password", by_username.data)
+
+        stored = RefreshToken.objects.get()
+        self.assertEqual(stored.token_hash, hash_token(by_username.data["refresh"]))
+        self.assertNotEqual(stored.token_hash, by_username.data["refresh"])
+
+        by_email = self.client.post(
+            "/api/auth/login/",
+            {"email": "ANA@movilcare.test", "password": PASSWORD},
+            format="json",
+        )
+        self.assertEqual(by_email.status_code, status.HTTP_200_OK)
+        self.assertIn("access", by_email.data)
+
+    def test_inactive_user_and_bad_password_are_401(self):
+        self.user.status = RecordStatus.INACTIVE
+        self.user.save()
+        inactive = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": PASSWORD},
+            format="json",
+        )
+        self.assertEqual(inactive.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.user.status = RecordStatus.ACTIVE
+        self.user.save()
+        bad_password = self.client.post(
+            "/api/auth/login/",
+            {"username": "ana", "password": "otra-clave"},
+            format="json",
+        )
+        self.assertEqual(bad_password.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_unknown_user_is_401(self):
+        unknown = self.client.post(
+            "/api/auth/login/",
+            {"username": "nadie", "password": PASSWORD},
+            format="json",
+        )
+        self.assertEqual(unknown.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_login_without_username_or_email_is_400(self):
+        missing = self.client.post(
+            "/api/auth/login/",
+            {"password": PASSWORD},
+            format="json",
+        )
+        self.assertEqual(missing.status_code, status.HTTP_400_BAD_REQUEST)

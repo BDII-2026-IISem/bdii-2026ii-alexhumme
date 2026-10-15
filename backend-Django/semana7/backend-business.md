@@ -3372,3 +3372,193 @@ Un eslabón que nace `inactive` no autoriza: hay que activarlo a propósito. Es 
 | AC-16-01 | migración `0003` crea las cuatro tablas | PASS |
 | AC-16-02 | `UniqueConstraint` en `(role, user)`, `(resource, role)` y `(method, route)` | PASS |
 | AC-16-03 | `test_resource_route_keeps_the_url_pattern` (`<int:pk>` presente) | PASS |
+
+---
+
+# Unidad ISS-17 — Login OPEN
+
+**Objetivo:** demostrar identidad por **username o email** y entregar `access` + `refresh`. Este ISS abre el **primer acceso de la Fase II: OPEN** (no pide JWT). El segundo acceso (**JWT con token**) es el perfil (ISS-20) y el tercero (**JWT con token + RBAC**) cierra el negocio (ISS-22) y la matriz (ISS-23).
+
+**Fuente:** [18-ISS-17-login-open](https://tecnogua.com/academic/site/backend2026/django/manual/18-ISS-17-login-open/)
+
+> El material trabaja sobre StoreLab (`apps/common/testing.py` con `ana@storelab.test`). MovilCare usa su propio `User` (`StoreUserManager`, `email` único e `iexact`), así que los helpers y el test se adaptan a `ana@movilcare.test` y a la contraseña `MovilCare-Test-1`. El comportamiento del endpoint (200 con par de tokens, 401 uniforme, 401 sin distinguir usuario inactivo / clave mala) es idéntico.
+
+## 1. `apps/security/serializers.py` (nuevo)
+
+```python
+from rest_framework import serializers
+
+
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(required=False, allow_blank=False)
+    email = serializers.EmailField(required=False)
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if not attrs.get("username") and not attrs.get("email"):
+            raise serializers.ValidationError("Informe username o email junto con password.")
+        return attrs
+
+
+class RefreshSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+
+class LogoutSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+
+class TokenPairSerializer(serializers.Serializer):
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+    token_type = serializers.CharField()
+    access_expires_in = serializers.IntegerField()
+```
+
+`RefreshSerializer` y `LogoutSerializer` quedan listos para el ISS-18 y el ISS-19.
+
+## 2. `apps/security/auth_views.py` (nuevo)
+
+```python
+import uuid
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from rest_framework import status
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import AccessToken
+
+from apps.common.status import RecordStatus
+from apps.security.models import RefreshToken
+from apps.security.serializers import LoginSerializer, TokenPairSerializer
+from apps.security.tokens import generate_refresh_value, hash_token
+
+User = get_user_model()
+
+
+def token_payload(user, raw_refresh):
+    access = AccessToken.for_user(user)
+    lifetime = int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds())
+    return {
+        "access": str(access),
+        "refresh": raw_refresh,
+        "token_type": "Bearer",
+        "access_expires_in": lifetime,
+    }
+
+
+def issue_refresh(user, family_id=None):
+    raw_refresh = generate_refresh_value()
+    stored = RefreshToken.objects.create(
+        user=user,
+        token_hash=hash_token(raw_refresh),
+        family_id=family_id or uuid.uuid4(),
+        expires_at=RefreshToken.default_expiry(),
+        status=RecordStatus.ACTIVE,
+    )
+    return stored, raw_refresh
+
+
+def _find_user(username, email):
+    if username and email:
+        return User.objects.filter(username=username, email__iexact=email).first()
+    if username:
+        return User.objects.filter(username=username).first()
+    if email:
+        return User.objects.filter(email__iexact=email).first()
+    return None
+
+
+class LoginAPIView(APIView):
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(request=LoginSerializer, responses={200: TokenPairSerializer}, tags=["auth"])
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        user = _find_user(data.get("username"), data.get("email"))
+        invalid = Response({"detail": "Credenciales inválidas."}, status=status.HTTP_401_UNAUTHORIZED)
+        if user is None or user.status != RecordStatus.ACTIVE:
+            return invalid
+        if not user.check_password(data["password"]):
+            return invalid
+        _stored, raw_refresh = issue_refresh(user)
+        return Response(token_payload(user, raw_refresh), status=status.HTTP_200_OK)
+```
+
+Login es `APIView` con `authentication_classes = []` y `permission_classes = [AllowAny]`. `extend_schema` documenta `LoginSerializer` y `TokenPairSerializer`.
+
+## 3. Rutas — `apps/security/urls.py` (nuevo) + `config/urls.py`
+
+```python
+# apps/security/urls.py
+from django.urls import path
+from apps.security.auth_views import LoginAPIView
+
+urlpatterns = [
+    path("auth/login/", LoginAPIView.as_view(), name="auth-login"),
+]
+```
+
+```python
+# config/urls.py — se agrega un include bajo api/
+path("api/", include("apps.security.urls")),
+```
+
+`auth/login/` vive en la app `security`; el proyecto solo agrega otro `include`. Refresh, logout, perfil y el CRUD de la matriz se agregan a este mismo `urlpatterns` en los ISS siguientes.
+
+## 4. `apps/common/testing.py` (nuevo)
+
+El material lo escribe completo en el ISS-22, pero el test de login lo necesita desde ahora, así que se crea aquí con `PASSWORD` y `create_active_user` (el ISS-22 lo completa con `grant` y `grant_crud` sin borrar esto).
+
+```python
+from apps.common.status import RecordStatus
+from apps.security.models import User
+
+PASSWORD = "MovilCare-Test-1"
+
+
+def create_active_user(username="ana", email="ana@movilcare.test", password=PASSWORD):
+    return User.objects.create_user(
+        username=username, email=email, password=password, status=RecordStatus.ACTIVE
+    )
+```
+
+## Flujo
+
+```
+POST /api/auth/login/  (sin Authorize)
+        │
+username o email → ¿user active? → check_password()
+        │
+        ├── no  → 401 "Credenciales inválidas."
+        └── sí  → AccessToken.for_user + hash del refresh (fila en refresh_tokens)
+```
+
+Usuario inexistente, inactivo o clave mala responden el **mismo 401**: no se dice cuál de los tres falló.
+
+## Criterios de aceptación
+
+- **AC-17-01:** username y password correctos responden 200 con `access` y `refresh`.
+- **AC-17-02:** el email (en cualquier combinación de mayúsculas) también entra.
+- **AC-17-03:** usuario `inactive` responde 401.
+- **AC-17-04:** clave incorrecta responde 401.
+- **AC-17-05:** el JSON no trae `password`.
+
+## Verificación
+
+`apps.security.tests.AuthFlowTests` (4 pruebas): login por username y email, `inactive` y clave mala en 401, usuario desconocido en 401, y sin username/email en 400. La suite completa del proyecto pasa con **42 pruebas OK** y `spectacular --validate` sigue en código 0 con `/api/auth/login/` documentado.
+
+## GATE
+
+| AC | Verificación | Resultado |
+| --- | --- | --- |
+| AC-17-01 | login username → 200 con `access`/`refresh` | PASS |
+| AC-17-02 | login email (mayúsculas) → 200 | PASS |
+| AC-17-03 | usuario `inactive` → 401 | PASS |
+| AC-17-04 | clave mala → 401 | PASS |
+| AC-17-05 | sin `password` en el JSON | PASS |
