@@ -12,6 +12,7 @@ import { providePrimeNG } from 'primeng/config';
 import Aura from '@primeuix/themes/aura';
 
 import { routes } from './app.routes';
+import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -27,6 +28,7 @@ export const appConfig: ApplicationConfig = {
     providePrimeNG({
       ripple: true,
       inputVariant: 'outlined',
+      license: environment.primeUiLicense || undefined, 
       theme: {
         preset: Aura,
         options: {

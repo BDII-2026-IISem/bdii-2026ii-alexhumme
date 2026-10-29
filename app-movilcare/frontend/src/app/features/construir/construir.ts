@@ -45,9 +45,9 @@ export class Construir {
       command: () => this.seleccionar('Clientes'),
     },
     {
-      label: 'Tipos de producto',
+      label: 'Unidades serializadas',
       icon: 'pi pi-tags',
-      command: () => this.seleccionar('Tipos de producto'),
+      command: () => this.seleccionar('Unidades serializadas'),
     },
     {
       label: 'Productos',

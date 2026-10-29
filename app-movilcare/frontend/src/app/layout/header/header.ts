@@ -15,7 +15,7 @@ import { TagModule } from 'primeng/tag';
   },
 })
 export class Header {
-  readonly appName = input('StoreLab');
+  readonly appName = input('Movilcare');
 
   readonly username = input('');
   readonly initials = input('IN');

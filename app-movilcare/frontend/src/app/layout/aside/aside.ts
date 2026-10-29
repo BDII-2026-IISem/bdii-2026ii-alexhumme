@@ -13,7 +13,7 @@ import { PanelMenuModule } from 'primeng/panelmenu';
   },
 })
 export class Aside {
-  readonly appName = input('StoreLab');
+  readonly appName = input('Movilcare');
   readonly items = input<MenuItem[]>([]);
 
   readonly showSession = input(false);
