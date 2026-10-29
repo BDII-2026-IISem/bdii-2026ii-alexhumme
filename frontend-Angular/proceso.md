@@ -540,3 +540,401 @@ Select-String -Path src/app/app.html -Pattern 'app-ejemplo'
 ### Evidencias
 ![alt text](image-28.png)
 ![alt text](image-29.png)
+
+# Unidad ISS-01B Menú PrimeNG y primera interacción
+
+## Actualizacion del Aside
+
+### Contenido de `aside.ts`
+```ts
+import { Component, input, output } from '@angular/core';
+import { MenuItem } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { PanelMenuModule } from 'primeng/panelmenu';
+
+@Component({
+  selector: 'app-aside',
+  imports: [ButtonModule, PanelMenuModule],
+  templateUrl: './aside.html',
+  styleUrl: './aside.css',
+  host: {
+    class: 'block h-full',
+  },
+})
+export class Aside {
+  readonly appName = input('Movilcare');
+  readonly items = input<MenuItem[]>([]);
+
+  readonly showSession = input(false);
+  readonly username = input('');
+  readonly roleLabel = input('Sin rol');
+  readonly permissionCount = input(0);
+
+  readonly navigated = output<void>();
+  readonly logoutRequested = output<void>();
+
+  onNavigationClick(event: Event): void {
+    if (
+      (event.target as HTMLElement).closest(
+        'a, button, [role="button"]',
+      )
+    ) {
+      this.navigated.emit();
+    }
+  }
+}
+```
+### Contenido de `aside.html`
+```html
+<div class="flex h-full flex-col border-r border-slate-200 bg-white text-slate-900">
+  <div class="flex h-16 items-center gap-3 border-b border-slate-200 px-5">
+    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 font-bold text-white">
+      S
+    </div>
+
+    <div class="min-w-0">
+      <p class="truncate text-sm font-semibold">
+        {{ appName() }}
+      </p>
+
+      <p class="text-[11px] uppercase tracking-wider text-slate-400">
+        Panel administrativo
+      </p>
+    </div>
+  </div>
+
+  <div class="flex-1 overflow-y-auto p-3">
+    <nav
+      aria-label="Navegación principal"
+      (click)="onNavigationClick($event)"
+    >
+      <p-panelmenu
+        [model]="items()"
+        [multiple]="true"
+      />
+    </nav>
+  </div>
+
+  @if (showSession()) {
+    <div class="border-t border-slate-200 p-4">
+      <p class="text-sm font-medium">
+        {{ username() || 'Invitado' }}
+      </p>
+
+      <p class="text-xs text-slate-400">
+        {{ roleLabel() }}
+      </p>
+
+      <div class="mt-3 flex items-center justify-between text-xs text-slate-400">
+        <span>{{ permissionCount() }} permisos</span>
+
+        <button
+          pButton
+          type="button"
+          text
+          rounded
+          aria-label="Cerrar sesión"
+          (click)="logoutRequested.emit()"
+        >
+          <i pButtonIcon class="pi pi-sign-out"></i>
+        </button>
+      </div>
+    </div>
+  }
+</div>
+```
+
+### Evidencias
+![alt text](image-30.png)
+![alt text](image-31.png)
+
+## Actializacion del Header
+### contenido del `header.ts`
+```ts
+import { Component, input, output } from '@angular/core';
+import { MenuItem } from 'primeng/api';
+import { AvatarModule } from 'primeng/avatar';
+import { ButtonModule } from 'primeng/button';
+import { MenuModule } from 'primeng/menu';
+import { TagModule } from 'primeng/tag';
+
+@Component({
+  selector: 'app-header',
+  imports: [AvatarModule, ButtonModule, MenuModule, TagModule],
+  templateUrl: './header.html',
+  styleUrl: './header.css',
+  host: {
+    class: 'block',
+  },
+})
+export class Header {
+  readonly appName = input('Movilcare');
+
+  readonly username = input('');
+  readonly initials = input('IN');
+  readonly roleLabel = input('Sin rol');
+  readonly authEnabled = input(true);
+  readonly showSession = input(false);
+  readonly userItems = input<MenuItem[]>([]);
+
+  readonly menuRequested = output<void>();
+}
+```
+### contenido de `header.html`
+```html
+<header
+  class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6"
+>
+  <button
+    pButton
+    type="button"
+    text
+    rounded
+    aria-label="Mostrar u ocultar el menú"
+    (click)="menuRequested.emit()"
+  >
+    <i pButtonIcon class="pi pi-bars"></i>
+  </button>
+
+  <div class="min-w-0 flex-1">
+    <p class="truncate text-sm font-semibold text-slate-900">
+      {{ appName() }}
+    </p>
+
+    <p class="truncate text-xs text-slate-500">
+      Gestión de clientes, productos y ventas
+    </p>
+  </div>
+
+  @if (showSession() && !authEnabled()) {
+    <p-tag
+      value="Fase I · sin auth"
+      severity="warn"
+      [rounded]="true"
+    />
+  }
+
+  @if (username()) {
+    <p-tag
+      [value]="roleLabel()"
+      severity="info"
+      [rounded]="true"
+      class="hidden sm:inline-flex"
+    />
+  }
+
+  @if (showSession()) {
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      outlined
+      (click)="userMenuPanel.toggle($event)"
+      aria-label="Menú de usuario"
+    >
+      <p-avatar
+        [label]="initials()"
+        shape="circle"
+        size="normal"
+      />
+
+      <span class="hidden max-w-32 truncate text-sm font-medium text-slate-700 sm:block">
+        {{ username() }}
+      </span>
+
+      <i class="pi pi-chevron-down pr-1 text-[10px] text-slate-400"></i>
+    </button>
+
+    <p-menu
+      #userMenuPanel
+      [model]="userItems()"
+      [popup]="true"
+      appendTo="body"
+    />
+  }
+</header>
+```
+### Evidencias
+![alt text](image-33.png)
+![alt text](image-32.png)
+
+## Creacion del componente Construir
+
+### scripts
+```bash
+ng generate component features/construir --skip-tests --defaults
+mkdir -p src/app/core/utils
+```
+
+### Contenido de `src/app/core/utils/media-query.ts`
+```ts
+import {
+  DestroyRef,
+  Signal,
+  inject,
+  signal,
+} from '@angular/core';
+
+export function watchMediaQuery(
+  query: string,
+): Signal<boolean> {
+  const destroyRef = inject(DestroyRef);
+
+  const media =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function'
+      ? window.matchMedia(query)
+      : null;
+
+  const matches = signal(media?.matches ?? false);
+
+  if (media) {
+    const listener = (
+      event: MediaQueryListEvent,
+    ): void => {
+      matches.set(event.matches);
+    };
+
+    media.addEventListener('change', listener);
+
+    destroyRef.onDestroy(() => {
+      media.removeEventListener('change', listener);
+    });
+  }
+
+  return matches.asReadonly();
+}
+```
+
+### contenido de construir.ts
+```ts
+import { Component, signal } from '@angular/core';
+import { MenuItem } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { CardModule } from 'primeng/card';
+import { DrawerModule } from 'primeng/drawer';
+
+import { watchMediaQuery } from '../../core/utils/media-query';
+import { Aside } from '../../layout/aside/aside';
+import { Footer } from '../../layout/footer/footer';
+import { Header } from '../../layout/header/header';
+
+@Component({
+  selector: 'app-construir',
+  imports: [
+    Aside,
+    ButtonModule,
+    CardModule,
+    DrawerModule,
+    Footer,
+    Header,
+  ],
+  templateUrl: './construir.html',
+  styleUrl: './construir.css',
+  host: {
+    class: 'block',
+  },
+})
+export class Construir {
+  private readonly isDesktop =
+    watchMediaQuery('(min-width: 1024px)');
+
+  readonly sidebarCollapsed = signal(false);
+  readonly mobileOpen = signal(false);
+  readonly title = signal('Inicio');
+
+  readonly items: MenuItem[] = [
+    {
+      label: 'Inicio',
+      icon: 'pi pi-home',
+      command: () => this.seleccionar('Inicio'),
+    },
+    {
+      label: 'Clientes',
+      icon: 'pi pi-users',
+      command: () => this.seleccionar('Clientes'),
+    },
+    {
+      label: 'Tipos de producto',
+      icon: 'pi pi-tags',
+      command: () => this.seleccionar('Tipos de producto'),
+    },
+    {
+      label: 'Productos',
+      icon: 'pi pi-box',
+      command: () => this.seleccionar('Productos'),
+    },
+    {
+      label: 'Ventas',
+      icon: 'pi pi-shopping-cart',
+      command: () => this.seleccionar('Ventas'),
+    },
+  ];
+
+  protected onMenuToggle(): void {
+    if (this.isDesktop()) {
+      this.sidebarCollapsed.update(
+        (collapsed) => !collapsed,
+      );
+      return;
+    }
+
+    this.mobileOpen.set(true);
+  }
+
+  protected seleccionar(titulo: string): void {
+    this.title.set(titulo);
+    this.mobileOpen.set(false);
+  }
+}
+```
+### Evidencias
+![alt text](image-34.png)
+![alt text](image-35.png)
+![alt text](image-36.png)
+![alt text](image-38.png)
+![alt text](image-39.png)
+
+## Crear punto de entrada del router
+### nuevo contenido de `app.ts`
+```ts
+import { Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+
+@Component({
+  selector: 'app-root',
+  imports: [RouterOutlet],
+  templateUrl: './app.html',
+  styleUrl: './app.css',
+})
+export class App {}
+```
+Se elimina todo de `src/app/app.html` menos `<router-outlet />`
+
+### Contenido de `src/app/app.routes.ts`
+```ts
+import { Routes } from '@angular/router';
+
+export const routes: Routes = [
+  {
+    path: 'construir',
+    loadComponent: () =>
+      import('./features/construir/construir')
+        .then((m) => m.Construir),
+  },
+  {
+    path: '',
+    pathMatch: 'full',
+    redirectTo: 'construir',
+  },
+  {
+    path: '**',
+    redirectTo: 'construir',
+  },
+];
+```
+
+
+### Evidencias
+![alt text](image-40.png)
+![alt text](image-41.png)
