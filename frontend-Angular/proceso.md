@@ -11,6 +11,8 @@ node -v     # v20 o superior
 npm -v      # 10 o superior
 python3 --version   # 3.12 recomendado
 ```
+### Creacion de superusuario administrador
+![alt text](image-16.png)
 
 ### Evidencia
 ![alt text](image.png)
@@ -374,4 +376,167 @@ export class App {}
 ![alt text](image-14.png)
 ![alt text](image-15.png)
 
-# Unidad ISS-02 — 
+# Unidad ISS-01A — Esqueleto Header / Aside / contenido / Footer
+
+## Generar las piezas del `layout/`
+### Comandos
+```bash
+ng generate component layout/header --skip-tests --defaults
+ng generate component layout/aside --skip-tests --defaults
+ng generate component layout/footer --skip-tests --defaults
+```
+### Evidencias
+![alt text](image-17.png)
+![alt text](image-18.png)
+
+### contenido de header.ts
+```ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-header',
+  standalone: true,
+  imports: [],
+  templateUrl: './header.html',
+  styleUrl: './header.css',
+})
+export class Header {
+  readonly title = 'Movilcare';
+}
+```
+### contenido de header.html
+```html
+<header class="flex h-16 items-center border-b border-slate-200 bg-white px-6">
+  <span class="text-xl font-bold text-slate-900">
+    {{ title }}
+  </span>
+</header>
+```
+### Evidencias
+![alt text](image-19.png)
+![alt text](image-20.png)
+
+### contenido de aside.ts
+
+```ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-aside',
+  standalone: true,
+  imports: [],
+  templateUrl: './aside.html',
+  styleUrl: './aside.css',
+})
+export class Aside {}
+```
+### contenido de aside.html
+```html
+<nav
+  aria-label="Navegación principal"
+  class="min-h-full bg-slate-900 p-4 text-white"
+>
+  <h2 class="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+    Menú de Movilcare
+  </h2>
+
+  <p class="text-sm text-slate-300">
+    La navegación se implementará en la siguiente etapa.
+  </p>
+</nav>
+```
+
+### Evidencias
+![alt text](image-21.png)
+![alt text](image-22.png)
+
+### contenido de footer.ts
+```ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-footer',
+  standalone: true,
+  imports: [],
+  templateUrl: './footer.html',
+  styleUrl: './footer.css',
+})
+export class Footer {}
+```
+
+### contenido de footer.html
+```html
+<footer class="border-t border-slate-200 bg-white px-6 py-4 text-sm text-slate-500">
+  StoreLab · Gestión de clientes, productos y ventas.
+</footer>
+```
+
+### Evidencias
+![alt text](image-23.png)
+![alt text](image-24.png)
+
+## Agregar componentes a la App
+
+### Correccion de `app.ts`
+```ts
+import { Component, signal } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+import { Header } from './layout/header/header';
+import { Aside } from './layout/aside/aside';
+import { Footer } from './layout/footer/footer';
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [RouterOutlet, Header, Aside, Footer],
+  templateUrl: './app.html',
+  styleUrl: './app.css',
+})
+export class App {
+  protected readonly title = signal('Inicio');
+}
+```
+### Correccion de `app.html`
+```html
+<div class="flex min-h-screen flex-col bg-slate-100 text-slate-900">
+
+  <app-header />
+
+  <div class="flex flex-1">
+
+    <aside class="w-64 shrink-0">
+      <app-aside />
+    </aside>
+
+    <main id="contenido" class="min-w-0 flex-1 p-6">
+      <h1 class="mb-4 text-2xl font-bold">
+        {{ title }}
+      </h1>
+
+      <p class="text-slate-600">
+        Bienvenido a Movilcare.
+      </p>
+    </main>
+
+  </div>
+
+  <app-footer />
+
+</div>
+```
+
+### Evidencias
+![alt text](image-25.png)
+![alt text](image-26.png)
+![alt text](image-27.png)
+
+## Verificacion
+### scripts
+```bash
+npm test -- --watch=false
+grep -n 'app-ejemplo' src/app/app.html
+Select-String -Path src/app/app.html -Pattern 'app-ejemplo'
+```
+### Evidencias
+![alt text](image-28.png)
+![alt text](image-29.png)

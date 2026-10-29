@@ -1,13 +1,16 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { Ejemplo } from './demo/ejemplo/ejemplo';
+import { Header } from './layout/header/header';
+import { Aside } from './layout/aside/aside';
+import { Footer } from './layout/footer/footer';
 
 @Component({
-  imports: [RouterOutlet, Ejemplo],
   selector: 'app-root',
-  styleUrl: './app.css',
+  standalone: true,
+  imports: [RouterOutlet, Header, Aside, Footer],
   templateUrl: './app.html',
+  styleUrl: './app.css',
 })
 export class App {
-  protected readonly title = signal('frontend');
+  protected readonly title = 'Inicio';
 }

@@ -13,4 +13,8 @@ En esta actividad se realizo la creacion de la base de datas siguiendo el esquem
 Para esta actividad se realizaron una serie de consultas implementando las diferentes herramientas, metodos, modificadores y estructuras que se pueden implementar en el lenguaje Sql para consultar la informacion de una base de datos. Se incluye tambien el tema de auditoria con triggers y procedimientos almacenados contextualizados a posibles casos reales dentro del proyecto.
 
 ## [🔗Creacion del backend - capa business ](./backend-Django/semana7/backend-business.md): 
-Esta actividad agrupa los pasos y ejercicios descritos en la guia de aprendizaje para la creacion de backend con la libreria Django desde el ISS-00 hasta el ISS-13.
+Esta actividad agrupa los pasos y ejercicios descritos en la guia de aprendizaje para la creacion de backend con la libreria Django desde el ISS-00 hasta el ISS-25.
+
+
+## [🔗Creacion del frontend - capa business ](./frontend-Angular/proceso.md): 
+Esta actividad agrupa los pasos y ejercicios descritos en la guia de aprendizaje para la creacion del frontend con la libreria Angular desde el ISS-00 hasta el ISS-08.

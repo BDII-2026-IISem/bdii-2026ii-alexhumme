@@ -1849,9 +1849,8 @@ class AvailableProductListAPIView(ListAPIView):
     serializer_class = ProductSerializer
 
     def get_queryset(self):
-        return Product.objects.select_related("product_type").filter(
+        return Product.objects.filter(
             status=RecordStatus.ACTIVE,
-            product_type__status=RecordStatus.ACTIVE,
         )
 ```
 

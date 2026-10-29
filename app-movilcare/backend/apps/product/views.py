@@ -1,7 +1,7 @@
 from rest_framework.generics import ListAPIView
 from rest_framework import viewsets
 from rest_framework.generics import get_object_or_404
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from apps.common.status import RecordStatus
 from apps.product.models import Product, SerializedUnit
@@ -33,6 +33,15 @@ class ProductViewSet(CatalogViewSet):
 class SerializedUnitViewSet(CatalogViewSet):
     queryset = SerializedUnit.objects.all()
     serializer_class = SerializedUnitSerializer
+
+class AvailableProductListAPIView(ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = ProductSerializer
+
+    def get_queryset(self):
+        return Product.objects.filter(
+            status=RecordStatus.ACTIVE,
+        )
 
 class ProductUnitsListAPIView(ListAPIView):
     """Lista las unidades serializadas de un producto concreto.
