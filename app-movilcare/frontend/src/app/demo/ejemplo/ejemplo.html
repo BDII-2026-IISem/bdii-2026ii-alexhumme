@@ -1,0 +1,73 @@
+<p-card header="Objeto producto">
+  <div class="flex flex-col gap-4">
+
+    <div>
+      <label for="nombre" class="block mb-2 font-medium">
+        Nombre del producto
+      </label>
+
+      <input
+        id="nombre"
+        type="text"
+        class="w-full rounded-lg border border-slate-300 p-2"
+        [value]="producto().nombre"
+        (input)="cambiarNombre($any($event.target).value)"
+      />
+
+      <p class="mt-2 text-sm text-slate-500">
+        Vista previa: {{ producto().nombre }}
+      </p>
+    </div>
+
+    <div class="rounded-lg bg-slate-50 p-4">
+      <p class="text-sm text-slate-500">Precio base</p>
+      <p class="text-2xl font-semibold">
+        {{ producto().precio }}
+      </p>
+
+      <p class="mt-2 text-sm text-slate-500">IVA (19 %)</p>
+      <p>{{ iva() }}</p>
+
+      <p class="mt-2 text-sm text-slate-500">Precio con IVA</p>
+      <p class="text-xl font-semibold">{{ precioFinal() }}</p>
+
+      <div class="mt-3">
+        <p-tag
+          [value]="estadoTexto()"
+          [severity]="producto().activo ? 'success' : 'danger'"
+        />
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
+      <p-button
+        label="+1000"
+        icon="pi pi-plus"
+        (onClick)="variarPrecio()"
+      />
+
+      <p-button
+        label="Cambiar estado"
+        severity="secondary"
+        (onClick)="cambiarEstado()"
+      />
+
+      <p-button
+        label="Reiniciar"
+        severity="contrast"
+        (onClick)="reiniciar()"
+      />
+    </div>
+
+    @if (producto().activo) {
+      <p class="text-sm text-green-700">
+        El producto está activo y disponible.
+      </p>
+    } @else {
+      <p class="text-sm text-red-700">
+        Producto inactivo. Se simula un borrado lógico.
+      </p>
+    }
+
+  </div>
+</p-card>

@@ -1,0 +1,12 @@
+/* You can add global styles to this file, and also import other style files */
+@layer theme, base, primeng, utilities;
+@import "tailwindcss";
+@import "primeicons/primeicons.css";
+
+@layer base {
+  html, body { height: 100%; }
+  body {
+    @apply bg-slate-100 text-slate-800 antialiased;
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  }
+}
