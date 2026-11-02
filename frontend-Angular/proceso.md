@@ -3149,9 +3149,9 @@ Conservé el servicio `serialized-unit-api.ts` existente (creado en el ISS-02) p
 
 ### Evidencia
 
-- Captura de `ls src/app/features/serialized-units`.
-- Captura de la salida de los dos comandos `ng generate component`.
-- Captura de la estructura resultante del explorador de archivos.
+![alt text](image-94.png)
+![alt text](image-95.png)
+![alt text](image-96.png)
 
 ## 04.2. Recorrido por incrementos
 
@@ -3169,10 +3169,6 @@ Desarrollé el CRUD de manera incremental para comprobar el funcionamiento de ca
 | 8 | Baja mediante `DELETE` | Verifiqué la respuesta del servidor y el estado de la unidad. |
 
 Este procedimiento me permitió identificar los errores por etapas y conservar el funcionamiento de los componentes que ya estaban implementados.
-
-### Evidencia
-
-- Captura de la lista con datos locales antes de conectar la API.
 
 ## 04.3. Modelo y servicio de unidades serializadas
 
@@ -3271,9 +3267,8 @@ export class SerializedUnitApi {
 
 ### Evidencia
 
-- Captura del archivo `serialized-unit.model.ts`.
-- Captura del archivo `serialized-unit-api.ts`.
-- Captura de la respuesta JSON de `GET /api/serialized-units/?status=active` (opción A o B) o del `401` (opción C).
+![alt text](image-98.png)
+![alt text](image-97.png)
 
 ## 04.4. Filtro local reutilizable
 
@@ -3295,7 +3290,7 @@ Reutilicé esta función desde el componente de lista para buscar unidades por n
 
 ### Evidencia
 
-- Captura de `src/app/core/utils/filter-rows.ts` sin cambios respecto del ISS-03.
+![alt text](image-99.png)
 
 ## 04.5. Componente `SerializedUnitList`: gestión del estado
 
@@ -3479,7 +3474,7 @@ El componente concentra las operaciones del CRUD, mientras que el formulario se 
 
 ### Evidencia
 
-- Captura del archivo `serialized-unit-list.ts`.
+![alt text](image-100.png)
 
 ## 04.6. Plantilla de la lista de unidades serializadas
 
@@ -3640,8 +3635,7 @@ La plantilla presenta los resultados de `visibleRows()` con las columnas nombre,
 
 ### Evidencia
 
-- Captura del archivo `serialized-unit-list.html`.
-- Captura de la lista renderizada con las cinco columnas.
+![alt text](image-101.png)
 
 ## 04.7. Componente `SerializedUnitForm` con `input()` y `output()`
 
@@ -3817,7 +3811,7 @@ El componente no realiza peticiones de escritura: solo consulta el catálogo de 
 
 ### Evidencia
 
-- Captura del archivo `serialized-unit-form.ts`.
+![alt text](image-102.png)
 
 ## 04.8. Plantilla del formulario
 
@@ -3958,9 +3952,7 @@ El formulario presenta los mensajes de validación cuando los controles han sido
 
 ### Evidencia
 
-- Captura del formulario de creación.
-- Captura de los mensajes de validación (sin producto y con nombre corto).
-- Captura del formulario de edición con el producto precargado.
+![alt text](image-103.png)
 
 ## 04.9. Configurar la ruta y el menú
 
@@ -3993,10 +3985,9 @@ También conservé la opción de unidades serializadas en el menú lateral, que 
 De esta forma, el usuario puede acceder al CRUD desde el menú lateral y la navegación continúa utilizando el layout existente de MovilCare.
 
 ### Evidencia
-
-- Captura de la configuración de `app.routes.ts`.
-- Captura de la opción de unidades serializadas en el menú lateral.
-- Captura del CRUD abierto en `/unidades-serializadas` dentro del layout de MovilCare.
+![alt text](image-106.png)
+![alt text](image-104.png)
+![alt text](image-105.png)
 
 ## 04.10. Pruebas
 
@@ -4129,11 +4120,6 @@ También revisé que las pruebas existentes (`core/services/notification.spec.ts
 
 Cuando la API devuelve una colección vacía, la tabla debe presentar el estado vacío. Cuando la petición falla, debe mostrar el mensaje de error correspondiente.
 
-### Evidencia
-
-- Captura de la ejecución de las pruebas.
-- Captura del resultado de las pruebas del servicio, de la lista y del formulario.
-
 ## 04.11. Arranque y verificación del CRUD
 
 Inicié el servidor de desarrollo de Angular mediante:
@@ -4168,14 +4154,6 @@ ng build
 ```
 
 La compilación se considera satisfactoria cuando finaliza con código de salida `0` y no presenta errores (se conserva el aviso de presupuesto del bundle inicial, que ya existía desde el ISS-03).
-
-### Evidencia
-
-- Captura de la pantalla de unidades funcionando.
-- Captura de una búsqueda realizada.
-- Captura del formulario de creación y edición.
-- Captura de la operación de baja.
-- Captura de `ng build` finalizado correctamente.
 
 ## Cómo probarlo
 

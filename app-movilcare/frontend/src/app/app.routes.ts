@@ -37,7 +37,9 @@ export const routes: Routes = [
       {
         path: 'unidades-serializadas',
         title: 'Unidades serializadas · MovilCare',
-        loadComponent: provisional,
+        loadComponent: () =>
+          import('./features/serialized-units/serialized-unit-list/serialized-unit-list')
+            .then((module) => module.SerializedUnitList),
       },
       {
         path: 'ventas',

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { Status } from '../../core/models/api.model';
 import {
   SerializedUnit,
   SerializedUnitPayload,
@@ -12,8 +13,10 @@ export class SerializedUnitApi {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/serialized-units`;
 
-  list(): Observable<SerializedUnit[]> {
-    return this.http.get<SerializedUnit[]>(`${this.base}/`);
+  list(status?: Status): Observable<SerializedUnit[]> {
+    return this.http.get<SerializedUnit[]>(`${this.base}/`, {
+      params: status ? { status } : undefined,
+    });
   }
 
   get(id: number): Observable<SerializedUnit> {

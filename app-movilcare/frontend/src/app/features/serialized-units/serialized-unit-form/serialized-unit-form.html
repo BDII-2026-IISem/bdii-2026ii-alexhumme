@@ -1,0 +1,70 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="grid gap-4">
+    <div class="flex flex-col gap-2">
+        <label for="unit-product">
+            Producto <span class="text-red-500">*</span>
+        </label>
+
+        <p-select inputId="unit-product" ariaLabel="Producto" formControlName="product" [options]="productOptions()"
+            optionLabel="name" optionValue="id" placeholder="Selecciona un producto" [filter]="true" class="w-full" />
+
+        @if (
+        form.controls.product.touched &&
+        form.controls.product.invalid
+        ) {
+        <p-message severity="error" size="small" variant="simple">
+            Selecciona el producto al que pertenece la unidad.
+        </p-message>
+        }
+
+        @if (productsLoaded() && productOptions().length === 0) {
+        <p-message severity="warn" size="small" variant="simple">
+            No hay productos activos: registra un producto antes de crear una unidad.
+        </p-message>
+        }
+    </div>
+
+    <div class="flex flex-col gap-2">
+        <label for="unit-name">
+            Nombre <span class="text-red-500">*</span>
+        </label>
+
+        <input id="unit-name" pInputText formControlName="name" class="w-full" placeholder="Nombre de la unidad"
+            autocomplete="off" />
+
+        @if (
+        form.controls.name.touched &&
+        form.controls.name.invalid
+        ) {
+        <p-message severity="error" size="small" variant="simple">
+            El nombre es obligatorio y debe tener entre 2 y 150 caracteres.
+        </p-message>
+        }
+    </div>
+
+    <div class="flex flex-col gap-2">
+        <label for="unit-description">Descripción</label>
+
+        <textarea id="unit-description" pTextarea formControlName="description" rows="3" class="w-full"
+            placeholder="Descripción de la unidad (opcional)"></textarea>
+
+        @if (
+        form.controls.description.touched &&
+        form.controls.description.invalid
+        ) {
+        <p-message severity="error" size="small" variant="simple">
+            La descripción no puede superar los 255 caracteres.
+        </p-message>
+        }
+    </div>
+
+    <div class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+        <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+            <span pButtonLabel>Cancelar</span>
+        </button>
+
+        <button pButton type="submit" [loading]="saving()" [disabled]="saving() || productOptions().length === 0">
+            <i pButtonIcon class="pi pi-check"></i>
+            <span pButtonLabel>Guardar</span>
+        </button>
+    </div>
+</form>
