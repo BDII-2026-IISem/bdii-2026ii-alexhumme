@@ -21,19 +21,23 @@ import {
 
 import { Notification } from '../../../core/services/notification';
 import { filterRows } from '../../../core/utils/filter-rows';
+import { toApiMessage } from '../../../core/utils/to-api-message';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
 import { CustomerApi } from '../customer-api';
 import { CustomerForm } from '../customer-form/customer-form';
-
-// Reutilizar aquí los componentes compartidos que ya existan
-// en el proyecto, como PageHeader, EmptyState y StatusTag.
 
 @Component({
   selector: 'app-customer-list',
   imports: [
     ButtonModule,
     DialogModule,
+    EmptyState,
     InputTextModule,
     MessageModule,
+    PageHeader,
+    StatusTag,
     TableModule,
     TagModule,
     TooltipModule,
@@ -68,6 +72,7 @@ export class CustomerList {
         customer.name,
         customer.email,
         customer.phone,
+        customer.documentNumber,
       ],
     ),
   );
@@ -85,11 +90,9 @@ export class CustomerList {
         this.rows.set(rows);
         this.loading.set(false);
       },
-      error: () => {
+      error: (error) => {
         this.rows.set([]);
-        this.error.set(
-          'No fue posible cargar los clientes. Verifica la conexión con el servidor.',
-        );
+        this.error.set(toApiMessage(error));
         this.loading.set(false);
       },
     });
@@ -123,20 +126,14 @@ export class CustomerList {
       next: () => {
         this.saving.set(false);
         this.dialogVisible.set(false);
-
-        if (current) {
-          this.notify.success('Cliente actualizado');
-        } else {
-          this.notify.success('Cliente creado');
-        }
-
+        this.notify.success(
+          current ? 'Cliente actualizado' : 'Cliente creado',
+        );
         this.load();
       },
-      error: () => {
+      error: (error) => {
         this.saving.set(false);
-        this.notify.error(
-          'No fue posible guardar el cliente',
-        );
+        this.notify.error(toApiMessage(error));
       },
     });
   }
@@ -155,10 +152,8 @@ export class CustomerList {
             this.notify.warn('Cliente dado de baja');
             this.load();
           },
-          error: () => {
-            this.notify.error(
-              'No fue posible dar de baja al cliente',
-            );
+          error: (error) => {
+            this.notify.error(toApiMessage(error));
           },
         });
       },
