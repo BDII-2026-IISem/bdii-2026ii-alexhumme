@@ -10,7 +10,7 @@ export interface SerializedUnit extends Timestamps {
   status: Status;
 }
 
-export type SerializedUnitPayload = Pick<
+export type SerializedUnitPayload = Omit<
   SerializedUnit,
-  'product' | 'name' | 'description'
+  'id' | 'productId' | 'productName' | 'createdAt' | 'updatedAt'
 >;
