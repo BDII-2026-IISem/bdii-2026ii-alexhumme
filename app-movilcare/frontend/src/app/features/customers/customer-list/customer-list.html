@@ -1,0 +1,151 @@
+<div class="space-y-6">
+  <div
+    class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+  >
+    <div>
+      <h1 class="text-2xl font-semibold text-slate-900">
+        Clientes
+      </h1>
+
+      <p class="mt-1 text-sm text-slate-500">
+        Consulta y administra los clientes registrados.
+      </p>
+    </div>
+
+    <button
+      pButton
+      type="button"
+      (click)="openCreate()"
+    >
+      <i pButtonIcon class="pi pi-plus"></i>
+      <span pButtonLabel>Nuevo cliente</span>
+    </button>
+  </div>
+
+  @if (error()) {
+    <p-message
+      severity="error"
+      styleClass="mb-4 w-full"
+    >
+      {{ error() }}
+    </p-message>
+  }
+
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    dataKey="id"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    [rowHover]="true"
+  >
+    <ng-template #caption>
+      <input
+        pInputText
+        type="search"
+        class="w-full"
+        aria-label="Buscar clientes"
+        placeholder="Buscar por nombre, correo o teléfono..."
+        [value]="filter()"
+        (input)="filter.set($any($event.target).value)"
+      />
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th>Nombre</th>
+        <th>Correo electrónico</th>
+        <th>Teléfono</th>
+        <th>Estado</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-customer>
+      <tr>
+        <td>{{ customer.name }}</td>
+        <td>{{ customer.email || '—' }}</td>
+        <td>{{ customer.phone || '—' }}</td>
+
+        <td>
+          <p-tag
+            [value]="customer.status === 'active' ? 'Activo' : 'Inactivo'"
+            [severity]="customer.status === 'active' ? 'success' : 'secondary'"
+            [rounded]="true"
+          />
+        </td>
+
+        <td class="text-right">
+          <button
+            pButton
+            type="button"
+            text
+            rounded
+            severity="secondary"
+            aria-label="Editar cliente"
+            pTooltip="Editar"
+            (click)="openEdit(customer)"
+          >
+            <i pButtonIcon class="pi pi-pencil"></i>
+          </button>
+
+          <button
+            pButton
+            type="button"
+            text
+            rounded
+            severity="danger"
+            aria-label="Dar de baja al cliente"
+            pTooltip="Dar de baja"
+            [disabled]="customer.status === 'inactive'"
+            (click)="remove(customer)"
+          >
+            <i pButtonIcon class="pi pi-trash"></i>
+          </button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="5" class="py-8 text-center">
+          @if (filter()) {
+            <p class="font-medium text-slate-700">
+              Sin coincidencias
+            </p>
+
+            <p class="mt-1 text-sm text-slate-500">
+              No se encontraron clientes con ese término.
+            </p>
+          } @else {
+            <p class="font-medium text-slate-700">
+              Sin clientes registrados
+            </p>
+
+            <p class="mt-1 text-sm text-slate-500">
+              Puedes registrar el primer cliente utilizando el botón superior.
+            </p>
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <p-dialog
+    [visible]="dialogVisible()"
+    (visibleChange)="dialogVisible.set($event)"
+    [header]="editing() ? 'Editar cliente' : 'Nuevo cliente'"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <app-customer-form
+      [customer]="editing()"
+      [saving]="saving()"
+      [resetKey]="resetKey()"
+      (saved)="save($event)"
+      (cancelled)="dialogVisible.set(false)"
+    />
+  </p-dialog>
+</div>

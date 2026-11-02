@@ -26,7 +26,7 @@ source .venv/bin/activate
 
 ### Evidencia
 
-![Evidencia de creación y activación del entorno virtual](image.png)
+![Evidencia de creación y activación del entorno virtual](./evidencias/image.png)
 
 ## 2. Instalación del framework
 
@@ -43,8 +43,8 @@ El comando `freeze` vuelca la lista exacta de paquetes instalados con sus versio
 
 ### Evidencias
 
-![Evidencia de instalación de Django](image-1.png)
-![Evidencia del contenido de requirements.txt](image-2.png)
+![Evidencia de instalación de Django](./evidencias/image-1.png)
+![Evidencia del contenido de requirements.txt](./evidencias/image-2.png)
 
 ## 3. Creación del proyecto
 
@@ -60,8 +60,8 @@ El punto final indica que el proyecto se genera en el directorio actual, y `conf
 
 ### Evidencias
 
-![Evidencia de la generación del proyecto](image-3.png)
-![Evidencia de la estructura de archivos generada](image-4.png)
+![Evidencia de la generación del proyecto](./evidencias/image-3.png)
+![Evidencia de la estructura de archivos generada](./evidencias/image-4.png)
 
 ## 4. Protección del repositorio
 
@@ -87,7 +87,7 @@ htmlcov/
 
 ### Evidencia
 
-![Evidencia del archivo .gitignore](image-5.png)
+![Evidencia del archivo .gitignore](./evidencias/image-5.png)
 
 ## 5. Verificación
 
@@ -109,7 +109,7 @@ tree
 
 ### Evidencia
 
-![Evidencia de la verificación de versión, chequeo y árbol de archivos](image-6.png)
+![Evidencia de la verificación de versión, chequeo y árbol de archivos](./evidencias/image-6.png)
 
 ---
 
@@ -138,8 +138,8 @@ El comando `which python` se ejecuta antes de instalar para confirmar de forma e
 
 ### Evidencias
 
-![Evidencia de la instalación de los controladores de base de datos](image-7.png)
-![Evidencia del requirements.txt actualizado](image-8.png)
+![Evidencia de la instalación de los controladores de base de datos](./evidencias/image-7.png)
+![Evidencia del requirements.txt actualizado](./evidencias/image-8.png)
 
 ## Transformación de la estructura de archivos
 
@@ -149,7 +149,7 @@ Adicionalmente se crean tres ficheros de apoyo: `.env.example`, que documenta la
 
 ### Evidencia
 
-![Evidencia de la reestructuración de la configuración](image-9.png)
+![Evidencia de la reestructuración de la configuración](./evidencias/image-9.png)
 
 ## Definición de las variables de entorno
 
@@ -164,7 +164,7 @@ CORS_ALLOW_ALL_ORIGINS=True
 
 ### Evidencia
 
-![Evidencia del contenido de las variables de entorno](image-10.png)
+![Evidencia del contenido de las variables de entorno](./evidencias/image-10.png)
 
 ## Módulo de selección de base de datos
 
@@ -268,7 +268,7 @@ def _oracle(env):
 
 ### Evidencias
 
-![Evidencia del módulo de selección de base de datos](image-11.png)
+![Evidencia del módulo de selección de base de datos](./evidencias/image-11.png)
 
 ## Paquete de configuración
 
@@ -361,7 +361,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 ### Evidencia
 
-![Evidencia del paquete de configuración](image-12.png)
+![Evidencia del paquete de configuración](./evidencias/image-12.png)
 
 ## Reejecución del intérprete
 
@@ -399,7 +399,7 @@ def use_project_python():
 
 ### Evidencia
 
-![Evidencia del módulo de reejecución del intérprete](image-13.png)
+![Evidencia del módulo de reejecución del intérprete](./evidencias/image-13.png)
 
 ## Parches en los puntos de entrada del sistema
 
@@ -407,11 +407,11 @@ Una vez creado `project_python.py` se invoca desde los puntos de entrada del pro
 
 ### Evidencias
 
-![Evidencia del parche en manage.py](image-14.png)
-![Evidencia del parche en wsgi.py](image-15.png)
-![Evidencia del parche en asgi.py](image-16.png)
+![Evidencia del parche en manage.py](./evidencias/image-14.png)
+![Evidencia del parche en wsgi.py](./evidencias/image-15.png)
+![Evidencia del parche en asgi.py](./evidencias/image-16.png)
 ---
-![Evidencia de la comprobación tras los parches](image-17.png)
+![Evidencia de la comprobación tras los parches](./evidencias/image-17.png)
 
 ---
 
@@ -434,8 +434,8 @@ python manage.py startapp sale apps/sale
 
 ### Evidencias
 
-![Evidencia de la creación de las aplicaciones](image-18.png)
-![Evidencia de la estructura de carpetas resultante](image-19.png)
+![Evidencia de la creación de las aplicaciones](./evidencias/image-18.png)
+![Evidencia de la estructura de carpetas resultante](./evidencias/image-19.png)
 
 ## Creación de `apps/__init__.py`
 
@@ -451,8 +451,8 @@ EOF
 
 ### Evidencias
 
-![Evidencia de la creación del paquete apps](image-20.png)
-![Evidencia del contenido del fichero __init__.py](image-21.png)
+![Evidencia de la creación del paquete apps](./evidencias/image-20.png)
+![Evidencia del contenido del fichero __init__.py](./evidencias/image-21.png)
 
 ## Corrección del nombre de la aplicación de clientes
 
@@ -462,8 +462,8 @@ Esta discrepancia de nombres se detectó al contrastar el esquema propuesto con 
 
 ### Evidencias
 
-![Evidencia de la eliminación de la app client](image-22.png)
-![Evidencia de la creación de la app customer](image-23.png)
+![Evidencia de la eliminación de la app client](./evidencias/image-22.png)
+![Evidencia de la creación de la app customer](./evidencias/image-23.png)
 
 ## Parche del atributo `name` en las apps
 
@@ -484,7 +484,7 @@ REEMPLAZAR POR:
 
 ### Evidencia
 
-![Evidencia del parche en apps/customer/apps.py](image-24.png)
+![Evidencia del parche en apps/customer/apps.py](./evidencias/image-24.png)
 
 ### Parche en `product`
 
@@ -501,7 +501,7 @@ REEMPLAZAR POR:
 
 ### Evidencia
 
-![Evidencia del parche en apps/product/apps.py](image-25.png)
+![Evidencia del parche en apps/product/apps.py](./evidencias/image-25.png)
 
 ### Parche en `sale`
 
@@ -518,7 +518,7 @@ REEMPLAZAR POR:
 
 ### Evidencia
 
-![Evidencia del parche en apps/sale/apps.py](image-26.png)
+![Evidencia del parche en apps/sale/apps.py](./evidencias/image-26.png)
 
 ## Agregación de las apps a `settings/__init__.py`
 
@@ -540,7 +540,7 @@ AGREGAR:
 
 ### Evidencia
 
-![Evidencia del alta de las apps en INSTALLED_APPS](image-27.png)
+![Evidencia del alta de las apps en INSTALLED_APPS](./evidencias/image-27.png)
 
 ## Prueba de aceptación
 
@@ -554,7 +554,7 @@ python manage.py check
 
 ### Evidencia
 
-![Evidencia del resultado del check de aceptación](image-28.png)
+![Evidencia del resultado del check de aceptación](./evidencias/image-28.png)
 
 ---
 
@@ -568,8 +568,8 @@ Se crean dos nuevas carpetas. `apps/common` alojará elementos compartidos por t
 
 ### Evidencias
 
-![Evidencia de la creación de la carpeta common](image-29.png)
-![Evidencia de la creación de la carpeta security](image-30.png)
+![Evidencia de la creación de la carpeta common](./evidencias/image-29.png)
+![Evidencia de la creación de la carpeta security](./evidencias/image-30.png)
 
 ### Parche en el `name` de `security`
 
@@ -577,7 +577,7 @@ Al igual que en las aplicaciones anteriores, hay que ajustar el atributo `name` 
 
 ### Evidencia
 
-![Evidencia del parche en apps/security/apps.py](image-31.png)
+![Evidencia del parche en apps/security/apps.py](./evidencias/image-31.png)
 
 ### Contenido de `security/models.py`
 
@@ -638,7 +638,7 @@ La particularidad de este modelo es el sobrescrito de `save`: deriva `is_active`
 
 ### Evidencia
 
-![Evidencia del modelo de usuario personalizado](image-32.png)
+![Evidencia del modelo de usuario personalizado](./evidencias/image-32.png)
 
 ## Parche en `settings/__init__.py`
 
@@ -665,7 +665,7 @@ AUTH_USER_MODEL = "security.User"
 
 ### Evidencia
 
-![Evidencia de la configuración de AUTH_USER_MODEL](image-33.png)
+![Evidencia de la configuración de AUTH_USER_MODEL](./evidencias/image-33.png)
 
 ## Test del motor de selección
 
@@ -738,7 +738,7 @@ class DatabaseSelectionTests(SimpleTestCase):
 
 ### Evidencia
 
-![Evidencia de las pruebas del motor de selección](image-34.png)
+![Evidencia de las pruebas del motor de selección](./evidencias/image-34.png)
 
 ## Migración
 
@@ -754,9 +754,9 @@ python manage.py test apps.security.tests.DatabaseSelectionTests
 
 ### Evidencias
 
-![Evidencia de la generación de migraciones](image-35.png)
-![Evidencia de la aplicación de las migraciones](image-36.png)
-![Evidencia de la ejecución de las pruebas](image-37.png)
+![Evidencia de la generación de migraciones](./evidencias/image-35.png)
+![Evidencia de la aplicación de las migraciones](./evidencias/image-36.png)
+![Evidencia de la ejecución de las pruebas](./evidencias/image-37.png)
 
 ---
 
@@ -808,7 +808,7 @@ class StoreLabModel(TimeStampedModel):
 
 ### Evidencia
 
-![Evidencia de los modelos abstractos comunes](image-38.png)
+![Evidencia de los modelos abstractos comunes](./evidencias/image-38.png)
 
 ## Creación del modelo de cliente
 
@@ -859,11 +859,11 @@ python manage.py migrate
 
 ### Evidencias
 
-![Evidencia de la migración del modelo de cliente](image-39.png)
-![Evidencia de la aplicación de la migración](image-40.png)
-![Evidencia de la estructura de la tabla creada](image-41.png)
-![Evidencia de la tabla en la base de datos](image-42.png)
-![Evidencia de la comprobación del modelo](image-43.png)
+![Evidencia de la migración del modelo de cliente](./evidencias/image-39.png)
+![Evidencia de la aplicación de la migración](./evidencias/image-40.png)
+![Evidencia de la estructura de la tabla creada](./evidencias/image-41.png)
+![Evidencia de la tabla en la base de datos](./evidencias/image-42.png)
+![Evidencia de la comprobación del modelo](./evidencias/image-43.png)
 
 ---
 
@@ -946,9 +946,9 @@ python manage.py migrate
 
 ### Evidencias
 
-![Evidencia de la migración de los modelos de producto](image-45.png)
-![Evidencia de la aplicación de la migración](image-46.png)
-![Evidencia de las tablas creadas](image-47.png)
+![Evidencia de la migración de los modelos de producto](./evidencias/image-45.png)
+![Evidencia de la aplicación de la migración](./evidencias/image-46.png)
+![Evidencia de las tablas creadas](./evidencias/image-47.png)
 
 ---
 
@@ -974,7 +974,7 @@ class SaleManager(models.Manager.from_queryset(SaleQuerySet)):
 
 ### Evidencia
 
-![Evidencia del módulo de gestores de venta](image-48.png)
+![Evidencia del módulo de gestores de venta](./evidencias/image-48.png)
 
 ## Definición de los modelos de Sale
 
@@ -1092,9 +1092,9 @@ python manage.py migrate
 
 ### Evidencias
 
-![Evidencia de la migración de los modelos de venta](image-49.png)
-![Evidencia de la aplicación de la migración](image-50.png)
-![Evidencia de las tablas de venta creadas](image-51.png)
+![Evidencia de la migración de los modelos de venta](./evidencias/image-49.png)
+![Evidencia de la aplicación de la migración](./evidencias/image-50.png)
+![Evidencia de las tablas de venta creadas](./evidencias/image-51.png)
 
 ---
 
@@ -1115,8 +1115,8 @@ python -m pip freeze > requirements.txt
 
 ### Evidencias
 
-![Evidencia de la instalación de los paquetes REST](image-52.png)
-![Evidencia del requirements.txt actualizado](image-53.png)
+![Evidencia de la instalación de los paquetes REST](./evidencias/image-52.png)
+![Evidencia del requirements.txt actualizado](./evidencias/image-53.png)
 
 ## Ajustes en `config/settings/__init__.py`
 
@@ -1188,7 +1188,7 @@ REST_FRAMEWORK = {
 
 ### Evidencia
 
-![Evidencia de la configuración de REST Framework y CORS](image-54.png)
+![Evidencia de la configuración de REST Framework y CORS](./evidencias/image-54.png)
 
 ## Creación de los serializers
 
@@ -1352,9 +1352,9 @@ class SaleSerializer(serializers.ModelSerializer):
 
 ### Evidencias
 
-![Evidencia del serializer de cliente](image-55.png)
-![Evidencia de los serializers de producto](image-57.png)
-![Evidencia del serializer de venta](image-58.png)
+![Evidencia del serializer de cliente](./evidencias/image-55.png)
+![Evidencia de los serializers de producto](./evidencias/image-57.png)
+![Evidencia del serializer de venta](./evidencias/image-58.png)
 
 ---
 
@@ -1401,7 +1401,7 @@ class CustomerViewSet(viewsets.ModelViewSet):
 
 ### Evidencia
 
-![Evidencia de la vista de cliente](image-59.png)
+![Evidencia de la vista de cliente](./evidencias/image-59.png)
 
 ## Creación de las pruebas para `customer`
 
@@ -1481,7 +1481,7 @@ class CustomerApiTests(APITestCase):
 
 ### Evidencia
 
-![Evidencia de las pruebas del endpoint de cliente](image-60.png)
+![Evidencia de las pruebas del endpoint de cliente](./evidencias/image-60.png)
 
 ## Enrutamiento de `customer`
 
@@ -1502,7 +1502,7 @@ urlpatterns = router.urls
 
 ### Evidencia
 
-![Evidencia del enrutamiento de cliente](image-61.png)
+![Evidencia del enrutamiento de cliente](./evidencias/image-61.png)
 
 ## Ajustes en la configuración de URLs
 
@@ -1538,7 +1538,7 @@ path("api/", include("apps.customer.urls")),
 
 ### Evidencia
 
-![Evidencia de la configuración de URLs raíz](image-62.png)
+![Evidencia de la configuración de URLs raíz](./evidencias/image-62.png)
 
 ---
 
@@ -1592,7 +1592,7 @@ class SerializedUnitViewSet(CatalogViewSet):
 
 ### Evidencia
 
-![Evidencia de las vistas del catálogo](image-63.png)
+![Evidencia de las vistas del catálogo](./evidencias/image-63.png)
 
 ## Enrutamiento del catálogo
 
@@ -1623,7 +1623,7 @@ urlpatterns = router.urls
 
 ### Evidencia
 
-![Evidencia del enrutamiento del catálogo](image-64.png)
+![Evidencia del enrutamiento del catálogo](./evidencias/image-64.png)
 
 ## Ajuste de `config/urls.py`
 
@@ -1643,7 +1643,7 @@ path("api/", include("apps.product.urls")),
 
 ### Evidencia
 
-![Evidencia del alta del catálogo en las URLs raíz](image-65.png)
+![Evidencia del alta del catálogo en las URLs raíz](./evidencias/image-65.png)
 
 ## Pruebas del catálogo
 
@@ -1762,8 +1762,8 @@ class ProductApiTests(APITestCase):
 
 ### Evidencia y test
 
-![Evidencia de las pruebas del catálogo](image-66.png)
-![Evidencia de la ejecución de las pruebas](image-67.png)
+![Evidencia de las pruebas del catálogo](./evidencias/image-66.png)
+![Evidencia de la ejecución de las pruebas](./evidencias/image-67.png)
 
 ---
 
@@ -1819,7 +1819,7 @@ urlpatterns += router.urls
 
 ### Evidencia
 
-![Evidencia de los ajustes de URL para productos disponibles](image-68.png)
+![Evidencia de los ajustes de URL para productos disponibles](./evidencias/image-68.png)
 
 ## Ajustes a las vistas de producto
 
@@ -1856,7 +1856,7 @@ class AvailableProductListAPIView(ListAPIView):
 
 ### Evidencia
 
-![Evidencia de la vista de productos disponibles](image-69.png)
+![Evidencia de la vista de productos disponibles](./evidencias/image-69.png)
 
 ## Creación de la prueba de productos disponibles
 
@@ -1895,8 +1895,8 @@ python manage.py test apps.product.tests.ProductApiTests.test_product_crud_and_a
 
 ### Evidencia y test
 
-![Evidencia de la prueba de productos disponibles](image-70.png)
-![Evidencia de la ejecución de la prueba](image-71.png)
+![Evidencia de la prueba de productos disponibles](./evidencias/image-70.png)
+![Evidencia de la ejecución de la prueba](./evidencias/image-71.png)
 
 # Unidad ISS-11 - Registro de venta con APIView
 ## Ajuste a `apps/sale/managers.py`
@@ -2076,7 +2076,7 @@ class SaleQuerySet(models.QuerySet):
             return sale
 ```
 ### Evidencia
-![alt text](image-72.png)
+![alt text](./evidencias/image-72.png)
 
 ## Ajuste al `apps/sale/serializers.py`
 ### indicaciones
@@ -2143,7 +2143,7 @@ class SaleRegisterSerializer(serializers.Serializer):
 ```
 
 ### Evidencia
-![alt text](image-73.png)
+![alt text](./evidencias/image-73.png)
 
 ## Creacion de `apps/sale/views.py`
 ```python
@@ -2180,7 +2180,7 @@ class SaleCollectionAPIView(APIView):
 ```
 
 ### Evidencia
-![alt text](image-74.png)
+![alt text](./evidencias/image-74.png)
 
 ## Creacion de `apps/sale/urls.py`
 ```python
@@ -2205,8 +2205,8 @@ urlpatterns = [
 ```
 
 ### Evidencia
-![alt text](image-75.png)
-![alt text](image-76.png)
+![alt text](./evidencias/image-75.png)
+![alt text](./evidencias/image-76.png)
 
 ## Creacion del este de sales
 ### contenido de `apps/sale/tests.py`
@@ -2364,8 +2364,8 @@ class SaleTransactionTests(APITestCase):
 Se adaptaron las pruebas de transacciones de ventas a la estructura actual de MovilCare, reemplazando el modelo `Client` por `Customer` y eliminando las dependencias de `ProductType`, `ProductSale` y `stock`. Se actualizaron los datos de prueba y los campos enviados al endpoint para utilizar `customer_id` y `product_id`. Además, se conservaron las validaciones de subtotal, impuestos (`tax`) y descuentos (`discounts`), y se añadieron pruebas para verificar que los descuentos no superen el subtotal, que los clientes inactivos sean rechazados y que los errores al crear los detalles reviertan la transacción completa, garantizando la integridad de los datos.
 
 ### Evidencia
-![alt text](image-77.png)
-![alt text](image-78.png)
+![alt text](./evidencias/image-77.png)
+![alt text](./evidencias/image-78.png)
 
 ---
 
@@ -2885,27 +2885,27 @@ python manage.py runserver
 
 ## Evidencias
 
-![image-84](image-84.png)
+![image-84](./evidencias/image-84.png)
 
 Home de `/admin/`: **Clientes**, **Productos** y **Unidades serializadas** muestran *Añadir* (escritura), mientras **Ventas** y **Detalles de venta** solo muestran *Modificar* (solo lectura), tal como dejaron los `has_add_permission` / `has_delete_permission`.
 
-![image-85](image-85.png)
+![image-85](./evidencias/image-85.png)
 
 Lista de clientes: columnas `NAME`, `DOCUMENT TYPE`, `DOCUMENT NUMBER`, `EMAIL`, `PHONE`, `STATUS` y `CREATED AT`; filtros laterales por *Estado* y *Tipo de documento*; búsqueda por nombre / documento / email; `STATUS` editable en la lista; botón *AÑADIR CLIENTE*.
 
-![image-86](image-86.png)
+![image-86](./evidencias/image-86.png)
 
 Lista de productos: `SKU`, `NAME`, `PRICE`, `STATUS`; filtro por estado; búsqueda por SKU / nombre; botón *AÑADIR PRODUCTO*.
 
-![image-87](image-87.png)
+![image-87](./evidencias/image-87.png)
 
 Lista de ventas: `ID`, `CUSTOMER`, `TOTAL`, `STATUS`, `CREATED AT`; la navegación por fecha `2026 › 14 de octubre`; búsqueda por cliente. **No hay botón de añadir ni de borrar.**
 
-![image-88](image-88.png)
+![image-88](./evidencias/image-88.png)
 
 Unidades serializadas: `SERIAL NUMBER`, `PRODUCT`, `STATUS`; el producto se elige con el autocompletado (requiere `search_fields` en `ProductAdmin`); botón *AÑADIR UNIDAD SERIALIZADA*.
 
-![image-89](image-89.png)
+![image-89](./evidencias/image-89.png)
 
 Detalle de venta `#2`: cabecera (`Customer`, `Total`, `Status`, `Created at`) como solo lectura y las líneas en línea (`Sale details`) con `PRODUCT`, `UNIT PRICE`, `QUANTITY`, `LINE TOTAL`, `STATUS`; sin acciones de borrado.
 
@@ -3039,7 +3039,7 @@ python manage.py runserver
 
 - **EVI-14-01:** exit code 0 de `--validate` + esquema con campos camelCase.
 
-![image-90](image-90.png)
+![image-90](./evidencias/image-90.png)
 
 Swagger UI en `/api/schema/swagger-ui/`: cabecera **MovilCare API 1.0.0 · OAS 3.0** y la lista de operaciones (`customers` y `products` con GET/POST/PUT/PATCH/DELETE), servidas en acceso abierto sin iniciar sesión.
 
@@ -4300,7 +4300,7 @@ securitySchemes:
 
 **EVI-24-04** — Swagger UI tras la extensión: aparece el botón **Authorize** y los candados en las operaciones con token; login, refresh y logout siguen sin candado. `image-91.png`.
 
-![Swagger con Authorize](image-91.png)
+![Swagger con Authorize](./evidencias/image-91.png)
 
 La suite completa sigue en **63 pruebas OK**.
 

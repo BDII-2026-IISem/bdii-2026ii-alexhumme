@@ -25,7 +25,9 @@ export const routes: Routes = [
       {
         path: 'clientes',
         title: 'Clientes · MovilCare',
-        loadComponent: provisional,
+        loadComponent: () =>
+          import('./features/customers/customer-list/customer-list')
+            .then((module) => module.CustomerList),
       },
       {
         path: 'productos',

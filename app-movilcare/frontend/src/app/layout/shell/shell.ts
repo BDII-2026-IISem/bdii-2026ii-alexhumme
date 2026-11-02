@@ -14,11 +14,20 @@ import { filter } from 'rxjs';
 import { Footer } from '../footer/footer';
 import { Header } from '../header/header';
 import { Aside } from '../aside/aside';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { MenuItem } from 'primeng/api';
+import { ToastModule } from 'primeng/toast';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, Footer, Header, Aside],
+  imports: [
+    RouterOutlet,
+    Footer,
+    Header,
+    Aside,
+    ToastModule,
+    ConfirmDialogModule,
+  ],
   templateUrl: './shell.html',
 })
 export class Shell {

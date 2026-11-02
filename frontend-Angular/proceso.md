@@ -1281,10 +1281,16 @@ Implementé un servicio por recurso, utilizando `HttpClient`, `Observable` y la 
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { environment } from '../../../environments/environment';
-import { Customer, CustomerPayload } from '../../core/models/customer.model';
 
-@Injectable({ providedIn: 'root' })
+import { environment } from '../../../environments/environment';
+import {
+  Customer,
+  CustomerPayload,
+} from '../../core/models/customer.model';
+
+@Injectable({
+  providedIn: 'root',
+})
 export class CustomerApi {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/customers`;
@@ -1293,12 +1299,11 @@ export class CustomerApi {
     return this.http.get<Customer[]>(`${this.base}/`);
   }
 
-  get(id: number): Observable<Customer> {
-    return this.http.get<Customer>(`${this.base}/${id}/`);
-  }
-
   create(payload: CustomerPayload): Observable<Customer> {
-    return this.http.post<Customer>(`${this.base}/`, payload);
+    return this.http.post<Customer>(
+      `${this.base}/`,
+      payload,
+    );
   }
 
   update(
@@ -1312,7 +1317,9 @@ export class CustomerApi {
   }
 
   remove(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.base}/${id}/`);
+    return this.http.delete<void>(
+      `${this.base}/${id}/`,
+    );
   }
 }
 ```
@@ -1501,7 +1508,7 @@ Finalmente, preparé los servicios para que las pantallas pudieran consumir los 
 
 ---
 
-## 02.4. Implementación de `NotificationService`
+## 02.4. Implementación de `Notification`
 
 Implementé un servicio para centralizar las notificaciones de la interfaz mediante `MessageService` de PrimeNG.
 
@@ -1512,11 +1519,11 @@ import { Injectable, inject } from '@angular/core';
 import { MessageService } from 'primeng/api';
 
 @Injectable({ providedIn: 'root' })
-export class NotificationService {
-  private readonly messages = inject(MessageService);
+export class Notification {
+  private readonly messageService = inject(MessageService);
 
   success(summary: string, detail?: string): void {
-    this.messages.add({
+    this.messageService.add({
       severity: 'success',
       summary,
       detail,
@@ -1525,7 +1532,7 @@ export class NotificationService {
   }
 
   info(summary: string, detail?: string): void {
-    this.messages.add({
+    this.messageService.add({
       severity: 'info',
       summary,
       detail,
@@ -1534,7 +1541,7 @@ export class NotificationService {
   }
 
   warn(summary: string, detail?: string): void {
-    this.messages.add({
+    this.messageService.add({
       severity: 'warn',
       summary,
       detail,
@@ -1543,7 +1550,7 @@ export class NotificationService {
   }
 
   error(summary: string, detail?: string): void {
-    this.messages.add({
+    this.messageService.add({
       severity: 'error',
       summary,
       detail,
@@ -1553,7 +1560,7 @@ export class NotificationService {
 }
 ```
 
-Registré `MessageService` en los proveedores de la aplicación y conservé el componente Toast del layout para presentar las notificaciones sin duplicar su implementación en cada pantalla.
+Registré `MessageService` y `ConfirmationService` en los proveedores de la aplicación. El montaje de `<p-toast />` y `<p-confirmdialog />` en el layout quedó pendiente hasta el ISS-03, donde se agregan una sola vez en el shell para presentar las notificaciones y las confirmaciones sin duplicarlos en cada pantalla.
 
 ### Evidencia
 ![alt text](image-65.png)
@@ -1888,3 +1895,1176 @@ Revisé los resultados de la compilación y las pruebas automatizadas. También 
 ## Resultado del issue
 
 Con este issue organicé la estructura central del frontend de MovilCare, incluyendo los entornos, los modelos, los servicios HTTP, las utilidades compartidas, las rutas y los componentes reutilizables. Esta base permite continuar con la implementación de las pantallas funcionales de los módulos en los siguientes issues.
+
+# ISS-03. CRUD de clientes con Angular Signals
+
+## Objetivo
+
+Implementé el módulo de gestión de clientes de MovilCare mediante Angular Signals, PrimeNG y Tailwind CSS. El objetivo fue permitir la consulta, búsqueda, creación, edición y baja de clientes, conectando el frontend con la API desarrollada en Django REST Framework.
+
+Reutilicé la estructura del proyecto creada en los ISS anteriores y mantuve separados los componentes de presentación, el formulario y el servicio encargado de las peticiones HTTP. Antes de empezar, comparé la guía original con el estado actual del proyecto y dejé documentadas las diferencias en la nota de adaptación sobre autenticación.
+
+## Nota de adaptación — autenticación y permisos (diferencia con la guía)
+
+La guía original indica que este módulo se prueba contra el backend de Django en su estado de **ISS-08**, con el negocio abierto, y avisa que contra un backend consolidado —ya con JWT— se verá `401` en el `p-message`: es el comportamiento correcto en esta fase y se resuelve al terminar los ISS-08 e ISS-09 del frontend.
+
+En MovilCare el backend ya está consolidado: desde el **ISS-22 del backend**, `CustomerViewSet` exige `[IsAuthenticated, HasResourceAccess]` y la configuración de DRF define `IsAuthenticated` como permiso por defecto. El frontend, en cambio, está en **Fase I · Business**: todavía no tiene login, interceptor ni guards, y no envía la cabecera `Authorization`. Por lo tanto, tal como está hoy, cualquier llamada a `http://127.0.0.1:8000/api/customers/` responde `401` y la pantalla mostrará el mensaje de error en el `p-message`.
+
+Para verificar el CRUD completo durante este ISS, elegí una de estas opciones (las tres son válidas):
+
+| Opción | Procedimiento | Resultado |
+|---|---|---|
+| **A (recomendada)** | Cambio **temporal y local** en `apps/customer/views.py`: importar `AllowAny` y dejar `permission_classes = [AllowAny]` en `CustomerViewSet` (el permiso de la vista sustituye al de la configuración). Después de tomar las evidencias, restauro el archivo con `git restore app-movilcare/backend/apps/customer/views.py`. **Este cambio no se commitea.** | El CRUD completo funciona contra el contrato actual del backend (JSON en camelCase, sin paginación). |
+| **B** | Ejecutar el backend en el commit `a5d92cd` (ISS 08 del backend), donde `CustomerViewSet` tenía `permission_classes = [AllowAny]` y DRF permitía peticiones anónimas: es exactamente el «estado ISS-08» que menciona la guía. Uso un worktree temporal (`git worktree add <ruta> a5d92cd`) copiando el `.env` del backend y conservando la base de datos actual. | Igual que la opción A, probando el backend en su estado histórico. |
+| **C** | No modificar el backend y capturar el `401` como comportamiento esperado de esta fase. | Las AC que requieren datos reales (AC-03-01 a AC-03-05) se completan al finalizar el ISS-08/ISS-09 del frontend, cuando exista autenticación. |
+
+`ng test` y `ng build` no dependen del backend y se ejecutan igual en las tres opciones. Las capturas de las secciones siguientes que requieren datos del backend asumen la opción **A** (o **B**).
+
+## 03.1. Generar los dos componentes
+
+Primero, verifiqué la estructura existente del módulo de clientes para evitar generar archivos duplicados.
+
+```bash
+ls src/app/features/customers
+```
+
+Después, generé los componentes `CustomerList` y `CustomerForm`, encargados de mostrar la lista de clientes y gestionar el formulario de creación y edición.
+
+```bash
+ng generate component features/customers/customer-list --skip-tests --defaults
+ng generate component features/customers/customer-form --skip-tests --defaults
+```
+
+Estos componentes se crearon como componentes independientes de Angular (*standalone*), siguiendo la estructura utilizada en el proyecto.
+
+La estructura resultante fue:
+
+```text
+src/app/features/customers/
+├── customer-api.ts
+├── customer-list/
+│   ├── customer-list.ts
+│   ├── customer-list.html
+│   └── customer-list.css
+└── customer-form/
+    ├── customer-form.ts
+    ├── customer-form.html
+    └── customer-form.css
+```
+
+Conservé el servicio `customer-api.ts` existente para centralizar las peticiones al backend. Los componentes se generaron con `--skip-tests`; los archivos de pruebas se crean manualmente en la sección 03.10.
+
+### Evidencia
+
+![alt text](image-75.png)
+![alt text](image-76.png)
+
+## 03.2. Recorrido por incrementos
+
+Desarrollé el CRUD de manera incremental para comprobar el funcionamiento de cada parte antes de continuar con la siguiente.
+
+| Incremento | Implementación | Verificación |
+|---|---|---|
+| 1 | Lista con datos locales mediante `signal()` | Comprobé la visualización de registros de prueba. |
+| 2 | Tabla con PrimeNG | Comprobé la presentación de filas y encabezados. |
+| 3 | Consulta mediante `CustomerApi` | Verifiqué la respuesta de la API. |
+| 4 | Búsqueda con `computed()` | Comprobé el filtrado local. |
+| 5 | Formulario reactivo | Verifiqué las validaciones. |
+| 6 | Creación de clientes mediante `POST` | Comprobé el registro de nuevos clientes. |
+| 7 | Edición mediante `PATCH` | Comprobé la actualización de los datos. |
+| 8 | Baja mediante `DELETE` | Verifiqué la respuesta del servidor y el estado del cliente. |
+
+Este procedimiento me permitió identificar los errores por etapas y conservar el funcionamiento de los componentes que ya estaban implementados.
+
+### Evidencia
+![alt text](image-80.png)
+
+## 03.3. Modelo y servicio de clientes
+
+Revisé el modelo `Customer` y el servicio `CustomerApi` existentes (creados en el ISS-02) para adaptarlos al contrato real de la API de MovilCare.
+
+El modelo representa la información que recibe el frontend desde Django REST Framework. Utilicé los campos `name`, `documentType`, `documentNumber`, `phone`, `email` y `status`, que coinciden con el serializador del backend gracias al renderizador y al parser en camelCase configurados en DRF: aunque internamente Django usa snake_case (`document_type`, `document_number`, `created_at`), el JSON que se intercambia está en camelCase. `id`, `createdAt` y `updatedAt` son de solo lectura en el backend y no se envían en las peticiones de escritura.
+
+El archivo de referencia fue:
+
+`src/app/core/models/customer.model.ts`
+
+```typescript
+import { Status, Timestamps } from './api.model';
+
+export interface Customer extends Timestamps {
+  id: number;
+  documentType: string;
+  documentNumber: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  status: Status;
+}
+
+export type CustomerPayload = Omit<
+  Customer,
+  'id' | 'createdAt' | 'updatedAt'
+>;
+```
+
+Conservé los nombres de las propiedades del JSON y evité utilizar directamente los nombres internos de la base de datos.
+
+A continuación, revisé el servicio ubicado en:
+
+`src/app/features/customers/customer-api.ts`
+
+El servicio centraliza las operaciones HTTP y utiliza la URL base configurada en `environment.apiUrl` (`http://127.0.0.1:8000/api`, sin barra final; cada método añade la suya).
+
+```typescript
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Observable } from 'rxjs';
+
+import { environment } from '../../../environments/environment';
+import {
+  Customer,
+  CustomerPayload,
+} from '../../core/models/customer.model';
+
+@Injectable({
+  providedIn: 'root',
+})
+export class CustomerApi {
+  private readonly http = inject(HttpClient);
+  private readonly base = `${environment.apiUrl}/customers`;
+
+  list(): Observable<Customer[]> {
+    return this.http.get<Customer[]>(`${this.base}/`);
+  }
+
+  create(payload: CustomerPayload): Observable<Customer> {
+    return this.http.post<Customer>(
+      `${this.base}/`,
+      payload,
+    );
+  }
+
+  update(
+    id: number,
+    payload: Partial<CustomerPayload>,
+  ): Observable<Customer> {
+    return this.http.patch<Customer>(
+      `${this.base}/${id}/`,
+      payload,
+    );
+  }
+
+  remove(id: number): Observable<void> {
+    return this.http.delete<void>(
+      `${this.base}/${id}/`,
+    );
+  }
+}
+```
+
+**Cómo se divide el estado:**
+
+- `list()` → `GET /api/customers/`: arreglo plano, sin envoltura JSON y sin paginación (así lo configura el backend).
+- `create()` → `POST /api/customers/` con `CustomerPayload` completo, incluido `status`.
+- `update()` → `PATCH /api/customers/{id}/` con un cuerpo parcial: la edición **no** envía `status`.
+- `remove()` → `DELETE /api/customers/{id}/`: baja lógica; el backend responde `204` y la fila queda en `status: "inactive"`.
+- El alta envía `status: "active"` porque el backend crea los clientes como `inactive` por defecto.
+
+`CustomerPayload` incluye `status` porque el backend lo usa en el alta, pero el formulario no lo pide: el formulario emite `Omit<CustomerPayload, 'status'>` y `CustomerList` agrega `status: 'active'` solo cuando crea un registro, siguiendo el patrón de la guía.
+
+**Nota de adaptación:** conservé el servicio existente y verifiqué que `environment.apiUrl` no incluyera una barra final y que los endpoints, campos y métodos coincidieran con el backend de MovilCare. La barra final no es un detalle: Django responde `301` a un `GET` sin barra y rechaza un `POST`.
+
+**Nota de autenticación:** con el backend en su estado consolidado, estas llamadas responden `401` hasta que el frontend tenga autenticación (ver la nota de adaptación al inicio de esta unidad).
+
+### Evidencia
+
+![alt text](image-77.png)
+![alt text](image-78.png)
+
+- Captura de la respuesta JSON del endpoint de clientes.
+
+## 03.4. Filtro local reutilizable
+
+Implementé el filtrado local mediante una función reutilizable que permite buscar registros sin realizar una nueva petición al servidor.
+
+El archivo utilizado fue:
+
+`src/app/core/utils/filter-rows.ts`
+
+```typescript
+export function filterRows<T>(
+  rows: readonly T[],
+  query: string,
+  pick: (
+    row: T,
+  ) => Array<string | number | null | undefined>,
+): T[] {
+  const term = query.trim().toLowerCase();
+
+  if (!term) {
+    return [...rows];
+  }
+
+  return rows.filter((row) =>
+    pick(row).some((value) =>
+      (value ?? '')
+        .toString()
+        .toLowerCase()
+        .includes(term),
+    ),
+  );
+}
+```
+
+La función normaliza el texto de búsqueda, admite valores nulos y devuelve los registros que coinciden con el término introducido.
+
+Reutilicé esta función desde el componente de lista para buscar clientes por nombre, correo electrónico, teléfono o número de documento (`name`, `email`, `phone` y `documentNumber`).
+
+### Evidencia
+
+![alt text](image-81.png)
+
+## 03.5. Componente `CustomerList`: gestión del estado
+
+Configuré el componente `CustomerList` para administrar los registros, los estados de carga, los errores, el buscador y el diálogo del formulario.
+
+El componente utiliza Angular Signals para almacenar el estado y `computed()` para obtener los resultados filtrados.
+
+Archivo:
+
+`src/app/features/customers/customer-list/customer-list.ts`
+
+```typescript
+import {
+  Component,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
+
+import { ConfirmationService } from 'primeng/api';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+import { TableModule } from 'primeng/table';
+import { TagModule } from 'primeng/tag';
+import { TooltipModule } from 'primeng/tooltip';
+
+import {
+  Customer,
+  CustomerPayload,
+} from '../../../core/models/customer.model';
+
+import { Notification } from '../../../core/services/notification';
+import { filterRows } from '../../../core/utils/filter-rows';
+import { toApiMessage } from '../../../core/utils/to-api-message';
+import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
+import { PageHeader } from '../../../shared/ui/page-header/page-header';
+import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
+import { CustomerApi } from '../customer-api';
+import { CustomerForm } from '../customer-form/customer-form';
+
+@Component({
+  selector: 'app-customer-list',
+  imports: [
+    ButtonModule,
+    DialogModule,
+    EmptyState,
+    InputTextModule,
+    MessageModule,
+    PageHeader,
+    StatusTag,
+    TableModule,
+    TagModule,
+    TooltipModule,
+    CustomerForm,
+  ],
+  templateUrl: './customer-list.html',
+  styleUrl: './customer-list.css',
+  host: {
+    class: 'block',
+  },
+})
+export class CustomerList {
+  private readonly api = inject(CustomerApi);
+  private readonly notify = inject(Notification);
+  private readonly confirmation = inject(ConfirmationService);
+
+  readonly rows = signal<Customer[]>([]);
+  readonly loading = signal(true);
+  readonly saving = signal(false);
+  readonly error = signal<string | null>(null);
+
+  readonly filter = signal('');
+  readonly dialogVisible = signal(false);
+  readonly editing = signal<Customer | null>(null);
+  readonly resetKey = signal(0);
+
+  readonly visibleRows = computed(() =>
+    filterRows(
+      this.rows(),
+      this.filter(),
+      (customer) => [
+        customer.name,
+        customer.email,
+        customer.phone,
+        customer.documentNumber,
+      ],
+    ),
+  );
+
+  constructor() {
+    this.load();
+  }
+
+  load(): void {
+    this.loading.set(true);
+    this.error.set(null);
+
+    this.api.list().subscribe({
+      next: (rows) => {
+        this.rows.set(rows);
+        this.loading.set(false);
+      },
+      error: (error) => {
+        this.rows.set([]);
+        this.error.set(toApiMessage(error));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  openCreate(): void {
+    this.editing.set(null);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  openEdit(customer: Customer): void {
+    this.editing.set(customer);
+    this.resetKey.update((key) => key + 1);
+    this.dialogVisible.set(true);
+  }
+
+  save(payload: Omit<CustomerPayload, 'status'>): void {
+    const current = this.editing();
+
+    this.saving.set(true);
+
+    const request = current
+      ? this.api.update(current.id, payload)
+      : this.api.create({
+          ...payload,
+          status: 'active',
+        });
+
+    request.subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.dialogVisible.set(false);
+        this.notify.success(
+          current ? 'Cliente actualizado' : 'Cliente creado',
+        );
+        this.load();
+      },
+      error: (error) => {
+        this.saving.set(false);
+        this.notify.error(toApiMessage(error));
+      },
+    });
+  }
+
+  remove(customer: Customer): void {
+    this.confirmation.confirm({
+      header: 'Dar de baja',
+      message: `¿Deseas dar de baja a ${customer.name}?`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Dar de baja',
+      rejectLabel: 'Cancelar',
+
+      accept: () => {
+        this.api.remove(customer.id).subscribe({
+          next: () => {
+            this.notify.warn('Cliente dado de baja');
+            this.load();
+          },
+          error: (error) => {
+            this.notify.error(toApiMessage(error));
+          },
+        });
+      },
+    });
+  }
+}
+```
+
+El componente concentra las operaciones del CRUD, mientras que el formulario se encarga de validar y emitir los datos. El fallo de **carga** se muestra en el `p-message` persistente de la plantilla; los fallos de **operación** (guardar o dar de baja) y los mensajes de éxito van al toast.
+
+`visibleRows` combina `filterRows` con los campos `name`, `email`, `phone` y `documentNumber`, de modo que la búsqueda también encuentra un cliente por su número de documento, igual que en el modelo `Customer` y en el serializador del backend.
+
+También reutilicé el servicio de notificaciones existente, exportado como `Notification` en `src/app/core/services/notification.ts`, y la utilidad `toApiMessage` creada en el ISS-02 (`src/app/core/utils/to-api-message.ts`) para convertir cada error de la API en un mensaje comprensible. No creé servicios duplicados.
+
+Importé `PageHeader`, `EmptyState` y `StatusTag` desde `src/app/shared/ui/` (creados en el ISS-02) y los utilicé en la plantilla de la sección 03.6; no generé componentes duplicados.
+
+### Preparación del layout: toast y confirmación
+
+La guía indica que `<p-toast />` y `<p-confirmdialog />` se montan una sola vez en el shell, no en cada pantalla. El layout de MovilCare todavía no los incluía, por lo que los agregué para que las notificaciones y la confirmación de la baja funcionen:
+
+```typescript
+// src/app/layout/shell/shell.ts — imports del componente
+imports: [
+  RouterOutlet,
+  Header,
+  Footer,
+  Aside,
+  ToastModule,          // nuevo
+  ConfirmDialogModule,  // nuevo
+],
+```
+
+```html
+<!-- src/app/layout/shell/shell.html: al final del elemento raíz -->
+    </div>
+  </div>
+
+  <p-toast />
+  <p-confirm-dialog />
+</div>
+```
+
+`MessageService` y `ConfirmationService` ya estaban registrados en `app.config.ts` desde los ISS anteriores, por lo que no hizo falta tocar los proveedores.
+
+### Evidencia
+
+![alt text](image-82.png)
+
+## 03.6. Plantilla de la lista de clientes
+
+Construí la interfaz de la lista utilizando `p-table` de PrimeNG y las clases de Tailwind CSS, reutilizando los componentes compartidos del ISS-02.
+
+La plantilla incluye el encabezado de la página (`PageHeader` con el contador de registros y el botón de alta), el mensaje de error, el buscador, la tabla de resultados (con la columna **Documento** que muestra tipo y número de identificación), la etiqueta de estado (`StatusTag`), el estado vacío (`EmptyState`) y el diálogo con el formulario.
+
+Archivo:
+
+`src/app/features/customers/customer-list/customer-list.html`
+
+```html
+<div class="space-y-6">
+  <app-page-header
+    title="Clientes"
+    subtitle="Consulta y administra los clientes registrados."
+  >
+    <p-tag
+      [value]="rows().length + ' registros'"
+      severity="info"
+      [rounded]="true"
+    />
+
+    <button
+      pButton
+      type="button"
+      (click)="openCreate()"
+    >
+      <i pButtonIcon class="pi pi-plus"></i>
+      <span pButtonLabel>Nuevo cliente</span>
+    </button>
+  </app-page-header>
+
+  @if (error()) {
+    <p-message
+      severity="error"
+      styleClass="mb-4 w-full"
+    >
+      {{ error() }}
+    </p-message>
+  }
+
+  <p-table
+    [value]="visibleRows()"
+    [loading]="loading()"
+    dataKey="id"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    [rowHover]="true"
+  >
+    <ng-template #caption>
+      <input
+        pInputText
+        type="search"
+        class="w-full"
+        aria-label="Buscar clientes"
+        placeholder="Buscar por nombre, correo o número de documento..."
+        [value]="filter()"
+        (input)="filter.set($any($event.target).value)"
+      />
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th>Nombre</th>
+        <th>Documento</th>
+        <th>Correo electrónico</th>
+        <th>Teléfono</th>
+        <th>Estado</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-customer>
+      <tr>
+        <td>{{ customer.name }}</td>
+        <td>
+          {{ customer.documentType }} {{ customer.documentNumber }}
+        </td>
+        <td>{{ customer.email || '—' }}</td>
+        <td>{{ customer.phone || '—' }}</td>
+
+        <td>
+          <app-status-tag [status]="customer.status" />
+        </td>
+
+        <td class="text-right">
+          <button
+            pButton
+            type="button"
+            text
+            rounded
+            severity="secondary"
+            aria-label="Editar cliente"
+            pTooltip="Editar"
+            (click)="openEdit(customer)"
+          >
+            <i pButtonIcon class="pi pi-pencil"></i>
+          </button>
+
+          <button
+            pButton
+            type="button"
+            text
+            rounded
+            severity="danger"
+            aria-label="Dar de baja al cliente"
+            pTooltip="Dar de baja"
+            [disabled]="customer.status === 'inactive'"
+            (click)="remove(customer)"
+          >
+            <i pButtonIcon class="pi pi-trash"></i>
+          </button>
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="6">
+          @if (filter()) {
+            <app-empty-state
+              icon="pi pi-search"
+              title="Sin coincidencias"
+              message="Ningún cliente coincide. Borra el filtro para ver todos."
+            />
+          } @else {
+            <app-empty-state
+              icon="pi pi-users"
+              title="Sin clientes registrados"
+              message="Registra el primer cliente con el botón «Nuevo cliente»."
+            />
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <p-dialog
+    [visible]="dialogVisible()"
+    (visibleChange)="dialogVisible.set($event)"
+    [header]="editing() ? 'Editar cliente' : 'Nuevo cliente'"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <app-customer-form
+      [customer]="editing()"
+      [saving]="saving()"
+      [resetKey]="resetKey()"
+      (saved)="save($event)"
+      (cancelled)="dialogVisible.set(false)"
+    />
+  </p-dialog>
+</div>
+```
+
+La plantilla presenta los resultados de `visibleRows()` con las columnas nombre, documento, correo, teléfono, estado y acciones, y distingue entre una lista vacía y una búsqueda sin coincidencias mediante `EmptyState`. También deshabilita la acción de baja para los clientes que ya están inactivos. La columna **Documento** muestra `documentType` y `documentNumber`, los mismos campos que el modelo `Customer`, el serializador del backend y la tabla `customer` de la base de datos.
+
+**Nota (PrimeNG 22):** las plantillas de `p-table` usan las variables `#caption`, `#header`, `#body` y `#emptymessage`. Con la sintaxis antigua `pTemplate="body"` la compilación pasa, pero la tabla se pinta vacía sin ningún error.
+
+### Evidencia
+
+![alt text](image-83.png)
+
+## 03.7. Componente `CustomerForm` con `input()` y `output()`
+
+Implementé un único formulario para registrar y editar clientes.
+
+Utilicé `input()` para recibir el cliente seleccionado, el estado de guardado y la clave de reinicio. Utilicé `output()` para emitir los datos validados y comunicar la cancelación.
+
+**Adaptación al modelo de MovilCare:** la guía original trabaja con un campo `address` que no existe en el modelo `Customer` de MovilCare. En su lugar, este formulario recoge los campos de identificación `documentType` y `documentNumber`, que el serializador del backend valida entre 2 y 30 caracteres (tipo) y entre 5 y 11 (número). Son opcionales en el backend, pero este formulario los exige porque son los datos de identificación del cliente.
+
+Archivo:
+
+`src/app/features/customers/customer-form/customer-form.ts`
+
+```typescript
+import {
+  Component,
+  effect,
+  inject,
+  input,
+  output,
+} from '@angular/core';
+
+import {
+  NonNullableFormBuilder,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
+
+import { ButtonModule } from 'primeng/button';
+import { InputTextModule } from 'primeng/inputtext';
+import { MessageModule } from 'primeng/message';
+
+import {
+  Customer,
+  CustomerPayload,
+} from '../../../core/models/customer.model';
+
+/** Cuerpo de escritura sin `status`: el alta lo agrega `CustomerList`. */
+type CustomerDraft = Omit<CustomerPayload, 'status'>;
+
+@Component({
+  selector: 'app-customer-form',
+  imports: [
+    ButtonModule,
+    InputTextModule,
+    MessageModule,
+    ReactiveFormsModule,
+  ],
+  templateUrl: './customer-form.html',
+  styleUrl: './customer-form.css',
+  host: {
+    class: 'block',
+  },
+})
+export class CustomerForm {
+  readonly customer = input<Customer | null>(null);
+  readonly resetKey = input(0);
+  readonly saving = input(false);
+
+  readonly saved = output<CustomerDraft>();
+  readonly cancelled = output<void>();
+
+  private readonly fb = inject(NonNullableFormBuilder);
+
+  readonly form = this.fb.group({
+    name: [
+      '',
+      [
+        Validators.required,
+        Validators.minLength(2),
+        Validators.maxLength(150),
+      ],
+    ],
+    documentType: [
+      '',
+      [
+        Validators.required,
+        Validators.minLength(2),
+        Validators.maxLength(30),
+      ],
+    ],
+    documentNumber: [
+      '',
+      [
+        Validators.required,
+        Validators.minLength(5),
+        Validators.maxLength(11),
+      ],
+    ],
+    phone: [
+      '',
+      [
+        Validators.pattern(/^[0-9+()\s-]{7,30}$/),
+      ],
+    ],
+    email: [
+      '',
+      [
+        Validators.email,
+        Validators.maxLength(150),
+      ],
+    ],
+  });
+
+  constructor() {
+    effect(() => {
+      const current = this.customer();
+
+      this.resetKey();
+
+      this.form.reset({
+        name: current?.name ?? '',
+        documentType: current?.documentType ?? '',
+        documentNumber: current?.documentNumber ?? '',
+        phone: current?.phone ?? '',
+        email: current?.email ?? '',
+      });
+    });
+  }
+
+  submit(): void {
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const value = this.form.getRawValue();
+
+    this.saved.emit({
+      name: value.name.trim(),
+      documentType: value.documentType.trim(),
+      documentNumber: value.documentNumber.trim(),
+      phone: value.phone.trim() || null,
+      email: value.email.trim() || null,
+    });
+  }
+}
+```
+
+El formulario se reinicia al abrirse y carga los datos cuando recibe un cliente para editar. Cuando se envía, valida los campos, normaliza los valores (recorta los espacios y convierte teléfono o correo vacíos en `null`) y emite el resultado mediante `saved`, sin `status`: ese valor lo decide `CustomerList`.
+
+El componente no realiza peticiones HTTP. La selección entre creación y edición queda a cargo de `CustomerList`.
+
+**Nota:** el patrón del teléfono usa `\s` para admitir espacios (un solo backslash en la expresión regular).
+
+### Evidencia
+
+![alt text](image-88.png)
+![alt text](image-87.png)
+
+## 03.8. Plantilla del formulario
+
+Construí la plantilla del formulario con controles reactivos y componentes de PrimeNG. La plantilla refleja los cinco controles del formulario: nombre, tipo y número de documento, teléfono y correo.
+
+Archivo:
+
+`src/app/features/customers/customer-form/customer-form.html`
+
+```html
+<form
+  [formGroup]="form"
+  (ngSubmit)="submit()"
+  class="grid gap-4"
+>
+  <div class="flex flex-col gap-2">
+    <label for="customer-name">
+      Nombre <span class="text-red-500">*</span>
+    </label>
+
+    <input
+      id="customer-name"
+      pInputText
+      formControlName="name"
+      class="w-full"
+      placeholder="Nombre del cliente"
+      autocomplete="name"
+    />
+
+    @if (
+      form.controls.name.touched &&
+      form.controls.name.invalid
+    ) {
+      <p-message
+        severity="error"
+        size="small"
+        variant="simple"
+      >
+        El nombre es obligatorio y debe tener al menos dos caracteres.
+      </p-message>
+    }
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="flex flex-col gap-2">
+      <label for="customer-document-type">
+        Tipo de documento <span class="text-red-500">*</span>
+      </label>
+
+      <input
+        id="customer-document-type"
+        pInputText
+        formControlName="documentType"
+        class="w-full"
+        placeholder="CC, NIT, TI..."
+        autocomplete="off"
+      />
+
+      @if (
+        form.controls.documentType.touched &&
+        form.controls.documentType.invalid
+      ) {
+        <p-message
+          severity="error"
+          size="small"
+          variant="simple"
+        >
+          El tipo de documento es obligatorio (entre 2 y 30 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="customer-document-number">
+        Número de documento <span class="text-red-500">*</span>
+      </label>
+
+      <input
+        id="customer-document-number"
+        pInputText
+        formControlName="documentNumber"
+        class="w-full"
+        placeholder="Número de documento"
+        inputmode="numeric"
+      />
+
+      @if (
+        form.controls.documentNumber.touched &&
+        form.controls.documentNumber.invalid
+      ) {
+        <p-message
+          severity="error"
+          size="small"
+          variant="simple"
+        >
+          El número de documento es obligatorio (entre 5 y 11 caracteres).
+        </p-message>
+      }
+    </div>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="flex flex-col gap-2">
+      <label for="customer-phone">Teléfono</label>
+
+      <input
+        id="customer-phone"
+        pInputText
+        formControlName="phone"
+        class="w-full"
+        placeholder="Teléfono del cliente"
+        autocomplete="tel"
+      />
+
+      @if (
+        form.controls.phone.touched &&
+        form.controls.phone.invalid
+      ) {
+        <p-message
+          severity="error"
+          size="small"
+          variant="simple"
+        >
+          Introduce un teléfono válido.
+        </p-message>
+      }
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="customer-email">Correo electrónico</label>
+
+      <input
+        id="customer-email"
+        type="email"
+        pInputText
+        formControlName="email"
+        class="w-full"
+        placeholder="cliente@correo.com"
+        autocomplete="email"
+      />
+
+      @if (
+        form.controls.email.touched &&
+        form.controls.email.invalid
+      ) {
+        <p-message
+          severity="error"
+          size="small"
+          variant="simple"
+        >
+          Introduce un correo electrónico válido.
+        </p-message>
+      }
+    </div>
+  </div>
+
+  <div
+    class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"
+  >
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      outlined
+      (click)="cancelled.emit()"
+    >
+      <span pButtonLabel>Cancelar</span>
+    </button>
+
+    <button
+      pButton
+      type="submit"
+      [loading]="saving()"
+      [disabled]="saving()"
+    >
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>
+```
+
+El formulario presenta los mensajes de validación cuando los controles han sido tocados y contienen datos inválidos. Además, el botón de guardado refleja el estado de la operación para evitar envíos repetidos.
+
+### Evidencia
+
+![alt text](image-89.png)
+
+## 03.9. Configurar la ruta y el menú
+
+Integré el componente `CustomerList` en la ruta `/clientes`, sustituyendo el componente provisional que se utilizaba durante el ISS-02.
+
+En `src/app/app.routes.ts`, conservé la estructura de rutas existente e incorporé la carga del componente de clientes (el título sigue el mismo patrón `Módulo · MovilCare` de las rutas creadas en el ISS-02):
+
+```typescript
+{
+  path: 'clientes',
+  title: 'Clientes · MovilCare',
+  loadComponent: () =>
+    import('./features/customers/customer-list/customer-list')
+      .then((module) => module.CustomerList),
+}
+```
+
+Adapté este fragmento a la configuración actual de rutas, sin duplicar la ruta de clientes ni modificar innecesariamente el `Shell`.
+
+También conservé la opción de clientes en el menú lateral, que ya existía desde el ISS-02. La lista vive en la propiedad `menuItems` de `Shell`, `shell.html` la pasa al `Aside` mediante `[items]="menuItems"` y el `Aside` la recibe a través de su input `items`. La opción correspondiente es:
+
+```typescript
+{
+  label: 'Clientes',
+  icon: 'pi pi-users',
+  routerLink: '/clientes',
+}
+```
+
+De esta forma, el usuario puede acceder al CRUD desde el menú lateral y la navegación continúa utilizando el layout existente de MovilCare.
+
+### Evidencia
+
+![alt text](image-90.png)
+
+## 03.10. Pruebas
+
+Preparé las pruebas para comprobar las operaciones principales del CRUD y el comportamiento de los componentes. Como los componentes se generaron con `--skip-tests`, creé manualmente los archivos `*.spec.ts` junto a cada pieza:
+
+- `src/app/features/customers/customer-api.spec.ts`
+- `src/app/features/customers/customer-list/customer-list.spec.ts`
+- `src/app/features/customers/customer-form/customer-form.spec.ts`
+
+Las pruebas se centraron en tres aspectos:
+
+1. Verificar que `CustomerApi` construya correctamente las URL de la API.
+2. Verificar que `CustomerList` muestre los clientes recibidos del servicio.
+3. Verificar que `CustomerForm` emita los datos normalizados y no envíe información inválida.
+
+```typescript
+// customer-api.spec.ts: la URL lleva barra final
+it('should call /api/customers/ with trailing slash', () => {
+  api.list().subscribe();
+  http.expectOne('http://127.0.0.1:8000/api/customers/').flush([]);
+  api.remove(1).subscribe();
+  http
+    .expectOne('http://127.0.0.1:8000/api/customers/1/')
+    .flush(null, { status: 204, statusText: 'No Content' });
+});
+```
+
+```typescript
+// customer-list.spec.ts: una fila por cliente del servicio simulado
+const CUSTOMER: Customer = {
+  id: 1,
+  documentType: 'CC',
+  documentNumber: '1098765432',
+  name: 'Ana Torres',
+  phone: '3001234567',
+  email: 'ana@movilcare.test',
+  status: 'active',
+};
+
+it('should render one row per customer', async () => {
+  await TestBed.configureTestingModule({
+    imports: [CustomerList],
+    providers: [
+      ConfirmationService,
+      { provide: CustomerApi, useValue: { list: () => of([CUSTOMER]) } },
+      {
+        provide: Notification,
+        useValue: { success() {}, warn() {}, error() {} },
+      },
+    ],
+  }).compileComponents();
+
+  const fixture = TestBed.createComponent(CustomerList);
+  await fixture.whenStable();
+
+  const element = fixture.nativeElement as HTMLElement;
+
+  expect(element.querySelectorAll('tbody tr').length).toBe(1);
+  expect(element.textContent).toContain('CC 1098765432');
+});
+```
+
+```typescript
+// customer-form.spec.ts: emite `saved` con el cuerpo normalizado
+it('should emit saved with the trimmed body', async () => {
+  await TestBed.configureTestingModule({
+    imports: [CustomerForm],
+  }).compileComponents();
+
+  const fixture = TestBed.createComponent(CustomerForm);
+  await fixture.whenStable();
+
+  let body: Omit<CustomerPayload, 'status'> | undefined;
+  fixture.componentInstance.saved.subscribe((payload) => (body = payload));
+
+  fixture.componentInstance.form.setValue({
+    name: ' Ana ',
+    documentType: ' CC ',
+    documentNumber: ' 1098765432',
+    phone: '',
+    email: '',
+  });
+  fixture.componentInstance.submit();
+
+  expect(body).toEqual({
+    name: 'Ana',
+    documentType: 'CC',
+    documentNumber: '1098765432',
+    phone: null,
+    email: null,
+  });
+});
+```
+
+Los bloques omiten los imports de cada archivo y el `beforeEach` con `provideHttpClientTesting()` necesario en el spec del servicio. La URL `http://127.0.0.1:8000/api/customers/` proviene de `environment.apiUrl`, igual en los entornos `production` y `development`.
+
+En el spec del formulario, `documentNumber` se envuelve con un solo espacio (`' 1098765432'`) porque `Validators.maxLength(11)` se aplica al valor **sin** recortar: con un espacio a cada lado el control llegaría a 12 caracteres, el formulario se marcaría inválido y `saved` no se emitiría.
+
+Para ejecutar las pruebas, utilicé:
+
+```bash
+ng test --watch=false
+```
+
+También revisé que las pruebas existentes (`core/services/notification.spec.ts` y `demo/ejemplo/ejemplo.spec.ts`) continuaran funcionando y que los servicios de PrimeNG necesarios estuvieran disponibles en el entorno de pruebas.
+
+Cuando la API devuelve una colección vacía, la tabla debe presentar el estado vacío. Cuando la petición falla, debe mostrar el mensaje de error correspondiente.
+
+### Evidencia
+
+- Captura de la ejecución de las pruebas.
+- Captura del resultado de las pruebas del servicio.
+- Captura del resultado de las pruebas de la lista y del formulario.
+
+## 03.11. Arranque y verificación del CRUD
+
+Inicié el servidor de desarrollo de Angular mediante:
+
+```bash
+ng serve
+```
+
+Después, abrí la siguiente dirección en el navegador:
+
+```text
+http://localhost:4200/clientes
+```
+
+Verifiqué que la pantalla de clientes se integrara con el `Header`, el `Aside` y el `Footer` existentes, manteniendo el comportamiento responsive del layout.
+
+Comprobé el funcionamiento de las operaciones:
+
+- Consultar los clientes registrados.
+- Buscar clientes por nombre, correo electrónico, teléfono o número de documento.
+- Abrir el formulario de creación.
+- Validar los datos antes de guardarlos.
+- Editar un cliente existente.
+- Dar de baja un cliente y comprobar el resultado.
+
+**Nota:** si el backend sigue exigiendo JWT (opción C de la nota de autenticación), la lista mostrará el mensaje de `401` en el `p-message` en lugar de los registros; ese es el comportamiento esperado en esta fase. Con las opciones A o B, las comprobaciones anteriores se realizan contra datos reales.
+
+Finalmente, ejecuté la compilación de producción:
+
+```bash
+ng build
+```
+
+La compilación se considera satisfactoria cuando finaliza con código de salida `0` y no presenta errores.
+
+### Evidencia
+
+![alt text](image-91.png)
+![alt text](image-92.png)
+![alt text](image-93.png)
+
+## Cómo probarlo
+
+Realicé las verificaciones funcionales en el siguiente orden:
+
+1. Consulté la lista de clientes y comprobé en la pestaña Network que `GET /api/customers/` devuelve un arreglo plano en camelCase, sin envoltura (con el backend consolidado sin cambios, este paso muestra el `401` descrito en la nota de autenticación).
+2. Busqué un cliente por nombre y por número de documento y verifiqué que la tabla se filtrara sin generar nuevas peticiones.
+3. Intenté guardar el formulario sin un nombre válido y comprobé que no se enviara ninguna petición y que apareciera el mensaje de validación.
+4. Registré un cliente y comprobé que el `POST` enviara `status: "active"` y que el registro apareciera en la lista.
+5. Edité los datos de un cliente y verifiqué que el `PATCH` **no** enviara `status`.
+6. Di de baja un cliente, comprobé la confirmación y verifiqué que el `DELETE` respondiera `204` y que la fila quedara en estado `Inactivo` con el botón deshabilitado.
+7. Detuve el backend y comprobé que la pantalla mostrara «No se pudo conectar con la API de MovilCare.» con la tabla vacía.
+8. Ejecuté las pruebas automatizadas y la compilación de Angular.
+
+## Criterios de aceptación
+
+| Código | Criterio | Resultado |
+|---|---|---|
+| AC-03-01 | La tabla muestra los clientes recibidos del backend (nombre, documento, correo, teléfono y estado). | Pendiente de verificación |
+| AC-03-02 | El formulario valida y permite crear clientes. | Pendiente de verificación |
+| AC-03-03 | La edición actualiza los datos del cliente. | Pendiente de verificación |
+| AC-03-04 | El buscador filtra sin peticiones adicionales. | Pendiente de verificación |
+| AC-03-05 | La baja ejecuta la operación definida por el backend. | Pendiente de verificación |
+| AC-03-06 | La pantalla muestra correctamente los estados de carga, vacío y error. | Pendiente de verificación |
+| AC-03-07 | Las pruebas automatizadas y `ng build` finalizan correctamente. | Pendiente de verificación |
+| AC-03-08 | El CRUD conserva el layout y el diseño responsive. | Pendiente de verificación |
+
+**Nota sobre las verificaciones:** las AC-03-01 a AC-03-05 requieren que el backend acepte las peticiones (opción A o B de la nota de autenticación); con la opción C se captura el `401` como comportamiento esperado y esas AC quedan pendientes hasta el ISS-08/ISS-09 del frontend. Las AC-03-06, AC-03-07 y AC-03-08 se pueden verificar en cualquier caso.
+
+## Verificación del ISS
+
+Antes de dar por finalizado el ISS-03, comprobaré cada criterio de aceptación y adjuntaré las capturas correspondientes.
+
+El incremento se considerará aprobado cuando todas las verificaciones hayan finalizado correctamente.
+
+```text
+Todos los criterios AC-03 aprobados → avanzar al ISS-04.
+
+Algún criterio AC-03 pendiente o fallido → corregir y repetir la prueba.
+```

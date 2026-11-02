@@ -1,0 +1,170 @@
+<form
+  [formGroup]="form"
+  (ngSubmit)="submit()"
+  class="grid gap-4"
+>
+  <div class="flex flex-col gap-2">
+    <label for="customer-name">
+      Nombre <span class="text-red-500">*</span>
+    </label>
+
+    <input
+      id="customer-name"
+      pInputText
+      formControlName="name"
+      class="w-full"
+      placeholder="Nombre del cliente"
+      autocomplete="name"
+    />
+
+    @if (
+      form.controls.name.touched &&
+      form.controls.name.invalid
+    ) {
+      <p-message
+        severity="error"
+        size="small"
+        variant="simple"
+      >
+        El nombre es obligatorio y debe tener al menos dos caracteres.
+      </p-message>
+    }
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="flex flex-col gap-2">
+      <label for="customer-document-type">
+        Tipo de documento <span class="text-red-500">*</span>
+      </label>
+
+      <input
+        id="customer-document-type"
+        pInputText
+        formControlName="documentType"
+        class="w-full"
+        placeholder="CC, NIT, TI..."
+        autocomplete="off"
+      />
+
+      @if (
+        form.controls.documentType.touched &&
+        form.controls.documentType.invalid
+      ) {
+        <p-message
+          severity="error"
+          size="small"
+          variant="simple"
+        >
+          El tipo de documento es obligatorio (entre 2 y 30 caracteres).
+        </p-message>
+      }
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="customer-document-number">
+        Número de documento <span class="text-red-500">*</span>
+      </label>
+
+      <input
+        id="customer-document-number"
+        pInputText
+        formControlName="documentNumber"
+        class="w-full"
+        placeholder="Número de documento"
+        inputmode="numeric"
+      />
+
+      @if (
+        form.controls.documentNumber.touched &&
+        form.controls.documentNumber.invalid
+      ) {
+        <p-message
+          severity="error"
+          size="small"
+          variant="simple"
+        >
+          El número de documento es obligatorio (entre 5 y 11 caracteres).
+        </p-message>
+      }
+    </div>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="flex flex-col gap-2">
+      <label for="customer-phone">Teléfono</label>
+
+      <input
+        id="customer-phone"
+        pInputText
+        formControlName="phone"
+        class="w-full"
+        placeholder="Teléfono del cliente"
+        autocomplete="tel"
+      />
+
+      @if (
+        form.controls.phone.touched &&
+        form.controls.phone.invalid
+      ) {
+        <p-message
+          severity="error"
+          size="small"
+          variant="simple"
+        >
+          Introduce un teléfono válido.
+        </p-message>
+      }
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="customer-email">Correo electrónico</label>
+
+      <input
+        id="customer-email"
+        type="email"
+        pInputText
+        formControlName="email"
+        class="w-full"
+        placeholder="cliente@correo.com"
+        autocomplete="email"
+      />
+
+      @if (
+        form.controls.email.touched &&
+        form.controls.email.invalid
+      ) {
+        <p-message
+          severity="error"
+          size="small"
+          variant="simple"
+        >
+          Introduce un correo electrónico válido.
+        </p-message>
+      }
+    </div>
+  </div>
+
+  <div
+    class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"
+  >
+    <button
+      pButton
+      type="button"
+      severity="secondary"
+      outlined
+      (click)="cancelled.emit()"
+    >
+      <span pButtonLabel>Cancelar</span>
+    </button>
+
+    <button
+      pButton
+      type="submit"
+      [loading]="saving()"
+      [disabled]="saving()"
+    >
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Guardar</span>
+    </button>
+  </div>
+</form>

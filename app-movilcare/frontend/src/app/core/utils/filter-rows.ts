@@ -13,8 +13,10 @@ export function filterRows<T>(
 
   return rows.filter((row) =>
     pick(row).some((value) =>
-      (value ?? '').toString().toLowerCase().includes(term),
+      (value ?? '')
+        .toString()
+        .toLowerCase()
+        .includes(term),
     ),
   );
 }
-
