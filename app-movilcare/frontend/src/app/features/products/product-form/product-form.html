@@ -1,0 +1,84 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="grid gap-4">
+    <div class="grid gap-4 sm:grid-cols-2">
+        <div class="flex flex-col gap-2">
+            <label for="product-sku">
+                SKU <span class="text-red-500">*</span>
+            </label>
+
+            <input id="product-sku" pInputText formControlName="sku" class="w-full" placeholder="SKU del producto"
+                autocomplete="off" />
+
+            @if (
+            form.controls.sku.touched &&
+            form.controls.sku.invalid
+            ) {
+            <p-message severity="error" size="small" variant="simple">
+                El SKU es obligatorio y debe tener entre 2 y 100 caracteres.
+            </p-message>
+            }
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <label for="product-name">
+                Nombre <span class="text-red-500">*</span>
+            </label>
+
+            <input id="product-name" pInputText formControlName="name" class="w-full" placeholder="Nombre del producto"
+                autocomplete="off" />
+
+            @if (
+            form.controls.name.touched &&
+            form.controls.name.invalid
+            ) {
+            <p-message severity="error" size="small" variant="simple">
+                El nombre es obligatorio y debe tener entre 2 y 120 caracteres.
+            </p-message>
+            }
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-2">
+        <label for="product-description">Descripción</label>
+
+        <textarea id="product-description" pTextarea formControlName="description" rows="3" class="w-full"
+            placeholder="Descripción del producto (opcional)"></textarea>
+
+        @if (
+        form.controls.description.touched &&
+        form.controls.description.invalid
+        ) {
+        <p-message severity="error" size="small" variant="simple">
+            La descripción no puede superar los 255 caracteres.
+        </p-message>
+        }
+    </div>
+
+    <div class="flex flex-col gap-2">
+        <label for="product-price">
+            Precio <span class="text-red-500">*</span>
+        </label>
+
+        <p-inputnumber inputId="product-price" formControlName="price" mode="decimal" [maxFractionDigits]="2"
+            placeholder="0.00" />
+
+        @if (
+        form.controls.price.touched &&
+        form.controls.price.invalid
+        ) {
+        <p-message severity="error" size="small" variant="simple">
+            El precio es obligatorio y debe ser mayor que 0.
+        </p-message>
+        }
+    </div>
+
+    <div class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+        <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+            <span pButtonLabel>Cancelar</span>
+        </button>
+
+        <button pButton type="submit" [loading]="saving()" [disabled]="saving()">
+            <i pButtonIcon class="pi pi-check"></i>
+            <span pButtonLabel>Guardar</span>
+        </button>
+    </div>
+</form>

@@ -32,7 +32,9 @@ export const routes: Routes = [
       {
         path: 'productos',
         title: 'Productos · MovilCare',
-        loadComponent: provisional,
+        loadComponent: () =>
+          import('./features/products/product-list/product-list')
+            .then((m) => m.ProductList),
       },
       {
         path: 'unidades-serializadas',
