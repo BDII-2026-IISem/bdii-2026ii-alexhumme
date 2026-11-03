@@ -1,0 +1,52 @@
+<div class="space-y-6">
+    <app-page-header title="Líneas de venta" subtitle="Todas las líneas de todas las ventas, enlazadas a su detalle.">
+        <p-tag [value]="units() + ' unidades'" severity="info" [rounded]="true" />
+
+        <input pInputText type="search" aria-label="Buscar línea" placeholder="Buscar por venta o producto…"
+            class="w-56" [value]="query()" (input)="query.set($any($event.target).value)" />
+    </app-page-header>
+
+    @if (error()) {
+    <p-message severity="error" styleClass="w-full">
+        {{ error() }}
+    </p-message>
+    }
+
+    <p-table [value]="filtered()" [loading]="loading()" [paginator]="filtered().length > 10" [rows]="10"
+        [rowHover]="true">
+        <ng-template #header>
+            <tr>
+                <th>Venta</th>
+                <th>Producto</th>
+                <th class="text-right">Cantidad</th>
+                <th class="text-right">Precio unitario</th>
+                <th class="text-right">Total</th>
+            </tr>
+        </ng-template>
+
+        <ng-template #body let-row>
+            <tr>
+                <td>
+                    <a [routerLink]="['/ventas', row.saleId]" class="font-medium text-blue-600 hover:underline">
+                        #{{ row.saleId }}
+                    </a>
+                </td>
+                <td>
+                    {{ row.productName || 'Producto #' + row.productId }}
+                </td>
+                <td class="text-right">{{ row.quantity }}</td>
+                <td class="text-right">{{ row.unitPrice | currency }}</td>
+                <td class="text-right">{{ row.lineTotal | currency }}</td>
+            </tr>
+        </ng-template>
+
+        <ng-template #emptymessage>
+            <tr>
+                <td colspan="5">
+                    <app-empty-state icon="pi pi-list" title="Sin líneas de venta"
+                        message="Registra una venta en «Ventas» o ajusta la búsqueda." />
+                </td>
+            </tr>
+        </ng-template>
+    </p-table>
+</div>

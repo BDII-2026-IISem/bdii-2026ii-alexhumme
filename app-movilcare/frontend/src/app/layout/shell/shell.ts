@@ -38,9 +38,14 @@ export class Shell {
   private readonly currentUrl = signal(this.router.url);
 
   readonly menuItems: MenuItem[] = [
-  {
-    label: 'Gestión',
-    items: [
+    {
+      label: 'Gestión',
+      items: [
+        {
+          label: 'Panel',
+          icon: 'pi pi-home',
+          routerLink: '/dashboard',
+        },
         {
           label: 'Clientes',
           icon: 'pi pi-users',
@@ -61,6 +66,11 @@ export class Shell {
           icon: 'pi pi-shopping-cart',
           routerLink: '/ventas',
         },
+        {
+          label: 'Líneas de venta',
+          icon: 'pi pi-list',
+          routerLink: '/detalle-ventas',
+        },
       ],
     },
   ];
@@ -71,11 +81,18 @@ export class Shell {
       .replace(/\/+$/, '');
 
     const titles: Record<string, string> = {
+      '/dashboard': 'Panel',
       '/clientes': 'Clientes',
       '/productos': 'Productos',
       '/unidades-serializadas': 'Unidades serializadas',
       '/ventas': 'Ventas',
+      '/detalle-ventas': 'Líneas de venta',
     };
+
+    // `/ventas/61` no está en el mapa: se resuelve por prefijo.
+    if (url.startsWith('/ventas/')) {
+      return 'Detalle de venta';
+    }
 
     return titles[url] ?? 'MovilCare';
   });

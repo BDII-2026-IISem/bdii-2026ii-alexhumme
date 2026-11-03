@@ -1,0 +1,103 @@
+<div class="space-y-6">
+    @if (error()) {
+    <p-message severity="error" styleClass="w-full">
+        {{ error() }}
+    </p-message>
+    }
+
+    @if (sale(); as current) {
+    <app-page-header [title]="
+        '#' + current.id + ' · ' +
+        (current.saleDate | date: 'dd/MM/yyyy HH:mm')
+    " [subtitle]="customerLabel()">
+        <p-tag [value]="
+        units() + ' unidades en ' + current.lines.length + ' líneas'
+        " severity="info" [rounded]="true" />
+
+        <app-status-tag [status]="current.status" />
+
+        @if (!isVoided()) {
+        <button pButton type="button" severity="danger" outlined [loading]="voiding()" (click)="voidSale()">
+            <i pButtonIcon class="pi pi-ban"></i>
+            <span pButtonLabel>Anular venta</span>
+        </button>
+        }
+
+        <a pButton type="button" severity="secondary" outlined routerLink="/ventas">
+            <span pButtonLabel>Volver a ventas</span>
+        </a>
+    </app-page-header>
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-lg border border-slate-100 p-4">
+            <p class="text-sm text-slate-500">Subtotal</p>
+            <p class="text-lg font-semibold">
+                {{ current.subtotal | currency }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-slate-100 p-4">
+            <p class="text-sm text-slate-500">Impuesto</p>
+            <p class="text-lg font-semibold">
+                {{ current.tax | currency }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-slate-100 p-4">
+            <p class="text-sm text-slate-500">Descuento</p>
+            <p class="text-lg font-semibold">
+                {{ current.discounts | currency }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-slate-100 p-4">
+            <p class="text-sm text-slate-500">Total</p>
+            <p class="text-lg font-semibold">
+                {{ current.total | currency }}
+            </p>
+        </div>
+    </div>
+
+    <section class="rounded-lg border border-slate-100 p-4">
+        <h2 class="mb-3 font-semibold text-slate-900">Líneas</h2>
+
+        <p-table [value]="current.lines.map((line)=>line)">
+            <ng-template #header>
+                <tr>
+                    <th>Producto</th>
+                    <th class="text-right">Cantidad</th>
+                    <th class="text-right">Precio unitario</th>
+                    <th class="text-right">Total</th>
+                </tr>
+            </ng-template>
+
+            <ng-template #body let-line>
+                <tr>
+                    <td>
+                        {{ lineName(line.productId, line.productName) }}
+                    </td>
+                    <td class="text-right">{{ line.quantity }}</td>
+                    <td class="text-right">
+                        {{ line.unitPrice | currency }}
+                    </td>
+                    <td class="text-right">
+                        {{ line.lineTotal | currency }}
+                    </td>
+                </tr>
+            </ng-template>
+
+            <ng-template #emptymessage>
+                <tr>
+                    <td colspan="4">
+                        <app-empty-state icon="pi pi-list" title="Sin líneas en esta venta" />
+                    </td>
+                </tr>
+            </ng-template>
+        </p-table>
+    </section>
+    } @else if (loading()) {
+    <p-message severity="info" styleClass="w-full">
+        Cargando la venta…
+    </p-message>
+    }
+</div>

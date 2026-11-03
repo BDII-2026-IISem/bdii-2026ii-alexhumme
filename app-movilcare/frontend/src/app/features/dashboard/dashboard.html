@@ -1,0 +1,81 @@
+<div class="space-y-6">
+    <app-page-header title="Panel" subtitle="Resumen del día en hora local.">
+        <p-tag [value]="sales().length + ' ventas en total'" severity="info" [rounded]="true" />
+
+        <button pButton type="button" severity="secondary" outlined [loading]="loading()" (click)="load()">
+            <i pButtonIcon class="pi pi-refresh"></i>
+            <span pButtonLabel>Recargar</span>
+        </button>
+    </app-page-header>
+
+    @if (error()) {
+    <p-message severity="error" styleClass="w-full">
+        {{ error() }}
+    </p-message>
+    }
+
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-lg border border-slate-100 p-4">
+            <p class="text-sm text-slate-500">Ventas de hoy</p>
+            <p class="text-2xl font-semibold">
+                {{ todaySales().length }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-slate-100 p-4">
+            <p class="text-sm text-slate-500">Total de hoy</p>
+            <p class="text-2xl font-semibold">
+                {{ todayTotal() | currency }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-slate-100 p-4">
+            <p class="text-sm text-slate-500">Bajo el mínimo</p>
+            <p class="text-2xl font-semibold">
+                {{ lowStock().length }}
+            </p>
+        </div>
+
+        <div class="rounded-lg border border-slate-100 p-4">
+            <p class="text-sm text-slate-500">Clientes activos</p>
+            <p class="text-2xl font-semibold">
+                {{ clients().length }}
+            </p>
+        </div>
+    </div>
+
+    <section class="rounded-lg border border-slate-100 p-4">
+        <h2 class="mb-3 font-semibold text-slate-900">
+            Productos bajo el mínimo
+        </h2>
+
+        <p-table [value]="lowStock()" [loading]="loading()">
+            <ng-template #header>
+                <tr>
+                    <th>Producto</th>
+                    <th>SKU</th>
+                    <th>Existencias</th>
+                </tr>
+            </ng-template>
+
+            <ng-template #body let-product>
+                <tr>
+                    <td>{{ product.name }}</td>
+                    <td>{{ product.sku }}</td>
+                    <td>
+                        <p-tag severity="warn" value="Sin unidades activas" [rounded]="true" />
+                    </td>
+                </tr>
+            </ng-template>
+
+            <ng-template #emptymessage>
+                <tr>
+                    <td colspan="3">
+                        <app-empty-state icon="pi pi-box" title="Ningún producto activo está bajo el mínimo"
+                            message="Todos los productos activos tienen unidades disponibles." />
+                    </td>
+                </tr>
+            </ng-template>
+        </p-table>
+    </section>
+</div>

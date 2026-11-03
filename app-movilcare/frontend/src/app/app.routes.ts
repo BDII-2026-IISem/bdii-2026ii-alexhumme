@@ -44,18 +44,27 @@ export const routes: Routes = [
             .then((module) => module.SerializedUnitList),
       },
       {
-        path: 'ventas',
-        title: 'Ventas · MovilCare',
+        path: 'ventas/:id',
+        title: 'Detalle de venta · MovilCare',
         loadComponent: () =>
-          import('./features/sales/sale-list/sale-list')
-            .then((m) => m.SaleList),
+          import('./features/sales/sale-detail/sale-detail')
+            .then((m) => m.SaleDetail),
       },
       {
-        path: 'ventas/:id',
-        title: 'Venta · MovilCare',
-        loadComponent: provisional,
+        path: 'detalle-ventas',
+        title: 'Líneas de venta · MovilCare',
+        loadComponent: () =>
+          import('./features/sale-details/sale-detail-list/sale-detail-list')
+            .then((m) => m.SaleDetailList),
+      },
+      {
+        path: 'dashboard',
+        title: 'Panel · MovilCare',
+        loadComponent: () =>
+          import('./features/dashboard/dashboard')
+            .then((m) => m.Dashboard),
       },
     ],
   },
-  { path: '**', redirectTo: 'clientes' },
+  { path: '**', redirectTo: 'dashboard' },
 ];
