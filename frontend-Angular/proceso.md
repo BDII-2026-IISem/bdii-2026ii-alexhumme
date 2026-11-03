@@ -6298,3 +6298,4 @@ Todos los criterios AC-06 aprobados → avanzar al ISS-07.
 
 Algún criterio AC-06 pendiente o fallido → corregir y repetir la prueba.
 ```
+
