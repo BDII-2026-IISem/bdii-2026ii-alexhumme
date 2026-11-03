@@ -46,6 +46,13 @@ export const routes: Routes = [
       {
         path: 'ventas',
         title: 'Ventas · MovilCare',
+        loadComponent: () =>
+          import('./features/sales/sale-list/sale-list')
+            .then((m) => m.SaleList),
+      },
+      {
+        path: 'ventas/:id',
+        title: 'Venta · MovilCare',
         loadComponent: provisional,
       },
     ],

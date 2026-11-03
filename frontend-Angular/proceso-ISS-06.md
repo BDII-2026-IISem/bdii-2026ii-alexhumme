@@ -83,7 +83,7 @@ Los componentes se crean *standalone*, con los CSS **sin reglas** (solo el selec
 
 **Escritura (`POST /api/sales/`).** `SaleRegisterSerializer` recibe `customer_id`, `sale_date`, `discounts` (opcional, por defecto `0.00`) e `items: [{ product_id, quantity }]`. El parser camelCase traduce `customerId` y `productId`. El frontend tenía `SaleCreatePayload.lines`, que **no** existe en el backend: un `POST` con `lines` responde `400`.
 
-### Cambio 1 - `core/models/sale.model.ts`
+**Cambio 1 - `core/models/sale.model.ts`**
 
 ```ts
 // antes
@@ -105,7 +105,7 @@ export interface SaleCreatePayload {
 
 `Sale` (interfaz de lectura) **no cambia**: `customerId`, `customerName`, `saleDate`, `subtotal`, `tax`, `discounts`, `total`, `status` y `lines` ya son los campos que devuelve el serializer.
 
-### Cambio 2 - `core/models/sale-detail.model.ts`
+**Cambio 2 - `core/models/sale-detail.model.ts`**
 
 ```ts
 // antes
@@ -128,7 +128,7 @@ export interface SaleDetail {
 
 `SaleDetailInput` (`{ productId, quantity }`) **no cambia**: es el elemento de `items`.
 
-### Cambio 3 - `features/customers/customer-api.ts`
+**Cambio 3 - `features/customers/customer-api.ts`**
 
 Mismo patrón que `ProductApi.list` del ISS-05. Agrega el import:
 
@@ -213,7 +213,7 @@ export function toIsoWithOffset(value: string): string {
 
 El formulario **no usa `ReactiveFormsModule`**: cliente, fecha, descuento, producto, cantidad y líneas son *signals*. Los datos (clientes activos, productos disponibles y el mapa de unidades) llegan como `input()` desde la lista, que es quien hace los `GET`.
 
-### Componente `sale-form.ts`
+**Componente `sale-form.ts`**
 
 ```ts
 import {
@@ -403,7 +403,7 @@ export class SaleForm {
 - `items` se deriva de `lines` mapeando `{ productId, quantity }`: la interfaz de lectura (`lines` de `Sale`) y la de escritura (`items`) **no comparten campos**, como avisa la guía.
 - `error` es una `input()` que la lista llena con `toApiMessage` cuando el `POST` falla: el mensaje **permanece en el diálogo**.
 
-### Plantilla `sale-form.html`
+**Plantilla `sale-form.html`**
 
 ```html
 <form (ngSubmit)="submit()" class="grid gap-4">
@@ -595,7 +595,7 @@ export class SaleForm {
 
 ## 06.4. Lista: `sale-list` y ruta
 
-### Componente `sale-list.ts`
+**Componente `sale-list.ts`**
 
 ```ts
 import {
@@ -773,7 +773,7 @@ export class SaleList {
 - `customerName(sale)` replica la lógica de la guía con los nombres de MovilCare: primero `sale.customerName` (lo trae el serializer), luego el mapa de clientes activos y, si falta, `Cliente #id`.
 - No hay búsqueda ni anulación en este ISS: la columna del número es un enlace y la baja (`DELETE`) llega con el ISS-07.
 
-### Plantilla `sale-list.html`
+**Plantilla `sale-list.html`**
 
 ```html
 <div class="space-y-6">
@@ -886,7 +886,7 @@ export class SaleList {
 </div>
 ```
 
-### Configurar la ruta
+**Configurar la ruta**
 
 En `src/app/app.routes.ts` se reemplaza el `loadComponent` provisional de `/ventas` y se agrega la ruta del detalle (aún placeholder):
 

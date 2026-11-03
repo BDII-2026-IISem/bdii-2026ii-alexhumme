@@ -1,0 +1,64 @@
+<div class="space-y-6">
+    <app-page-header title="Ventas" subtitle="Consulta las ventas y registra una nueva.">
+        <p-tag [value]="sales().length + ' registros'" severity="info" [rounded]="true" />
+
+        <p-tag [value]="availableUnits() + ' unidades disponibles'" severity="success" [rounded]="true" />
+
+        <button pButton type="button" (click)="openCreate()">
+            <i pButtonIcon class="pi pi-plus"></i>
+            <span pButtonLabel>Nueva venta</span>
+        </button>
+    </app-page-header>
+
+    @if (error()) {
+    <p-message severity="error" styleClass="mb-4 w-full">
+        {{ error() }}
+    </p-message>
+    }
+
+    <p-table [value]="sales()" [loading]="loading()" dataKey="id" [paginator]="sales().length > 10" [rows]="10"
+        [rowHover]="true">
+        <ng-template #header>
+            <tr>
+                <th>Número</th>
+                <th>Cliente</th>
+                <th>Fecha</th>
+                <th>Total</th>
+                <th>Estado</th>
+            </tr>
+        </ng-template>
+
+        <ng-template #body let-sale>
+            <tr>
+                <td>
+                    <a [routerLink]="['/ventas', sale.id]" class="font-medium text-blue-600 hover:underline">
+                        #{{ sale.id }}
+                    </a>
+                </td>
+                <td>{{ customerName(sale) }}</td>
+                <td>{{ sale.saleDate | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>{{ sale.total }}</td>
+
+                <td>
+                    <app-status-tag [status]="sale.status" />
+                </td>
+            </tr>
+        </ng-template>
+
+        <ng-template #emptymessage>
+            <tr>
+                <td colspan="5">
+                    <app-empty-state icon="pi pi-shopping-cart" title="Sin ventas registradas"
+                        message="Registra la primera venta con el botón «Nueva venta»." />
+                </td>
+            </tr>
+        </ng-template>
+    </p-table>
+
+    <p-dialog [visible]="dialogVisible()" (visibleChange)="dialogVisible.set($event)" header="Nueva venta"
+        [modal]="true" [draggable]="false" [resizable]="false" styleClass="w-full max-w-3xl mx-4">
+        <app-sale-form [customers]="customers()" [products]="products()" [stock]="stock()" [saving]="saving()"
+            [error]="saleError()" [resetKey]="resetKey()" (saved)="save($event)"
+            (cancelled)="dialogVisible.set(false)" />
+    </p-dialog>
+</div>

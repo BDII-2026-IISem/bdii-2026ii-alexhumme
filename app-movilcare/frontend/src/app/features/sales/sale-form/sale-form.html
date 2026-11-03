@@ -1,0 +1,118 @@
+<form (ngSubmit)="submit()" class="grid gap-4">
+    <div class="grid gap-4 sm:grid-cols-2">
+        <div class="flex flex-col gap-2">
+            <label for="sale-customer">
+                Cliente <span class="text-red-500">*</span>
+            </label>
+
+            <p-select inputId="sale-customer" ariaLabel="Cliente" [options]="customers()" optionLabel="name"
+                optionValue="id" placeholder="Selecciona un cliente" [filter]="true" class="w-full"
+                [ngModel]="customerId()" (ngModelChange)="customerId.set($event)"
+                [ngModelOptions]="{ standalone: true }" />
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <label for="sale-date">
+                Fecha <span class="text-red-500">*</span>
+            </label>
+
+            <input id="sale-date" type="datetime-local" class="w-full" [value]="saleDate()"
+                (input)="saleDate.set($any($event.target).value)" />
+        </div>
+    </div>
+
+    <div class="flex flex-col gap-2">
+        <label for="sale-discounts">Descuento</label>
+
+        <p-inputnumber inputId="sale-discounts" mode="decimal" [maxFractionDigits]="2" [min]="0" placeholder="0.00"
+            [ngModel]="discounts()" (ngModelChange)="discounts.set($event)" [ngModelOptions]="{ standalone: true }" />
+    </div>
+
+    <div class="grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-[1fr_auto_auto]">
+        <div class="flex flex-col gap-2">
+            <label for="sale-product">
+                Producto <span class="text-red-500">*</span>
+            </label>
+
+            <p-select inputId="sale-product" ariaLabel="Producto" [options]="products()" optionLabel="name"
+                optionValue="id" placeholder="Selecciona un producto disponible" [filter]="true" class="w-full"
+                [ngModel]="productId()" (ngModelChange)="productId.set($event)"
+                [ngModelOptions]="{ standalone: true }" />
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <label for="sale-quantity">Cantidad</label>
+
+            <p-inputnumber inputId="sale-quantity" [min]="1" [showButtons]="true" [ngModel]="quantity()"
+                (ngModelChange)="quantity.set($event)" [ngModelOptions]="{ standalone: true }" />
+        </div>
+
+        <div class="flex flex-col justify-end">
+            <button pButton type="button" severity="secondary" outlined (click)="addLine()">
+                <i pButtonIcon class="pi pi-plus"></i>
+                <span pButtonLabel>Agregar línea</span>
+            </button>
+        </div>
+    </div>
+
+    @if (draftError()) {
+    <p-message severity="error" size="small" variant="simple">
+        {{ draftError() }}
+    </p-message>
+    }
+
+    @if (error()) {
+    <p-message severity="error" variant="simple">
+        {{ error() }}
+    </p-message>
+    }
+
+    @if (lines().length > 0) {
+    <table class="w-full text-left text-sm">
+        <thead>
+            <tr class="border-b border-slate-200 text-slate-500">
+                <th class="py-2">Producto</th>
+                <th class="py-2 text-right">Cantidad</th>
+                <th class="py-2 text-right">Precio</th>
+                <th class="py-2 text-right">Total</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @for (line of lines(); track line.productId) {
+            <tr class="border-b border-slate-100">
+                <td class="py-2">{{ productName(line.productId) }}</td>
+                <td class="py-2 text-right">{{ line.quantity }}</td>
+                <td class="py-2 text-right">
+                    {{ productPrice(line.productId) }}
+                </td>
+                <td class="py-2 text-right">{{ lineSubtotal(line) }}</td>
+            </tr>
+            }
+        </tbody>
+    </table>
+
+    <dl class="flex flex-col gap-1 text-sm sm:items-end">
+        <div class="flex gap-4">
+            <dt class="text-slate-500">Subtotal</dt>
+            <dd class="font-medium">{{ subtotal() }}</dd>
+        </div>
+
+        <div class="flex gap-4">
+            <dt class="text-slate-500">Total (con descuento)</dt>
+            <dd class="font-medium">{{ totalPreview() }}</dd>
+        </div>
+    </dl>
+    }
+
+    <div class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+        <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+            <span pButtonLabel>Cancelar</span>
+        </button>
+
+        <button pButton type="submit" [loading]="saving()" [disabled]="saving()">
+            <i pButtonIcon class="pi pi-check"></i>
+            <span pButtonLabel>Registrar venta</span>
+        </button>
+    </div>
+</form>

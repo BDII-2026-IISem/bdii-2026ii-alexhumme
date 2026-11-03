@@ -18,5 +18,5 @@ export interface SaleCreatePayload {
   customerId: number;
   saleDate: string;
   discounts: Money;
-  lines: SaleDetailInput[];
+  items: SaleDetailInput[];
 }

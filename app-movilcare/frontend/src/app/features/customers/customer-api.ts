@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { Status } from '../../core/models/api.model';
 
 import { environment } from '../../../environments/environment';
 import {
@@ -15,8 +16,10 @@ export class CustomerApi {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/customers`;
 
-  list(): Observable<Customer[]> {
-    return this.http.get<Customer[]>(`${this.base}/`);
+  list(status?: Status): Observable<Customer[]> {
+    return this.http.get<Customer[]>(`${this.base}/`, {
+      params: status ? { status } : {},
+    });
   }
 
   create(payload: CustomerPayload): Observable<Customer> {
