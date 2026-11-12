@@ -14,6 +14,7 @@ import { AuthService } from '../../core/services/auth';
 import { Notification } from '../../core/services/notification';
 import { SessionStore } from '../../core/services/session-store';
 
+import { visibleNav } from './nav.config';
 import { Footer } from '../footer/footer';
 import { Header } from '../header/header';
 import { Aside } from '../aside/aside';
@@ -43,43 +44,37 @@ export class Shell {
 
   private readonly currentUrl = signal(this.router.url);
 
-  readonly menuItems: MenuItem[] = [
+  /** El menú se recalcula cuando cambian los permisos: sin recargar. */
+  readonly navGroups = computed<MenuItem[]>(() =>
+    visibleNav((permission) => this.session.canPermission(permission)).map(
+      (group) => ({
+        label: group.label,
+        items: group.items.map<MenuItem>((item) => ({
+          label: item.label,
+          icon: item.icon,
+          routerLink: item.routerLink,
+        })),
+      }),
+    ),
+  );
+
+  readonly userItems = computed<MenuItem[]>(() => [
     {
-      label: 'Gestión',
-      items: [
-        {
-          label: 'Panel',
-          icon: 'pi pi-home',
-          routerLink: '/dashboard',
-        },
-        {
-          label: 'Clientes',
-          icon: 'pi pi-users',
-          routerLink: '/clientes',
-        },
-        {
-          label: 'Productos',
-          icon: 'pi pi-box',
-          routerLink: '/productos',
-        },
-        {
-          label: 'Unidades serializadas',
-          icon: 'pi pi-barcode',
-          routerLink: '/unidades-serializadas',
-        },
-        {
-          label: 'Ventas',
-          icon: 'pi pi-shopping-cart',
-          routerLink: '/ventas',
-        },
-        {
-          label: 'Líneas de venta',
-          icon: 'pi pi-list',
-          routerLink: '/detalle-ventas',
-        },
-      ],
+      label: 'Mi sesión',
+      icon: 'pi pi-user',
+      routerLink: '/perfil',
     },
-  ];
+    {
+      label: 'Actualizar permisos',
+      icon: 'pi pi-refresh',
+      command: () => this.refreshPermissions(),
+    },
+    {
+      label: 'Cerrar sesión',
+      icon: 'pi pi-sign-out',
+      command: () => this.logout(),
+    },
+  ]);
 
   readonly pageTitle = computed(() => {
     const url = this.currentUrl()
@@ -94,6 +89,7 @@ export class Shell {
       '/unidades-serializadas': 'Unidades serializadas',
       '/ventas': 'Ventas',
       '/detalle-ventas': 'Líneas de venta',
+      '/forbidden': 'Acceso denegado',
     };
 
     // `/ventas/61` no está en el mapa: se resuelve por prefijo.
@@ -107,6 +103,12 @@ export class Shell {
   readonly roleLabel = computed(() =>
     this.session.roles().join(', ') || 'Sin rol',
   );
+
+  /** Iniciales del avatar del header: dos letras del usuario. */
+  readonly initials = computed(() => {
+    const name = this.session.user()?.username ?? '';
+    return name.slice(0, 2).toUpperCase() || 'IN';
+  });
 
   constructor() {
     this.router.events
@@ -134,4 +136,19 @@ export class Shell {
     });
   }
 
+  /** GET /profile + /permissions otra vez: el menú se repinta solo. */
+  refreshPermissions(): void {
+    this.auth.me().subscribe({
+      next: () =>
+        this.notify.success(
+          'Permisos actualizados',
+          'Menú y botones leen la matriz otra vez.',
+        ),
+      error: () =>
+        this.notify.error(
+          'No se pudieron actualizar los permisos',
+          'Vuelve a iniciar sesión.',
+        ),
+    });
+  }
 }

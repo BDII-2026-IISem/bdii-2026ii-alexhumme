@@ -3,10 +3,12 @@
         subtitle="Consulta y administra las unidades serializadas registradas.">
         <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
 
-        <button pButton type="button" (click)="openCreate()">
-            <i pButtonIcon class="pi pi-plus"></i>
-            <span pButtonLabel>Nueva unidad</span>
-        </button>
+        <ng-container *appHasPermission="'POST /api/serialized-units'">
+            <button pButton type="button" (click)="openCreate()">
+                <i pButtonIcon class="pi pi-plus"></i>
+                <span pButtonLabel>Nueva unidad</span>
+            </button>
+        </ng-container>
     </app-page-header>
 
     @if (error()) {
@@ -44,15 +46,19 @@
                 </td>
 
                 <td class="text-right">
-                    <button pButton type="button" text rounded severity="secondary" aria-label="Editar unidad"
-                        pTooltip="Editar" (click)="openEdit(unit)">
-                        <i pButtonIcon class="pi pi-pencil"></i>
-                    </button>
+                    <ng-container *appHasPermission="'PATCH /api/serialized-units/:id'">
+                        <button pButton type="button" text rounded severity="secondary" aria-label="Editar unidad"
+                            pTooltip="Editar" (click)="openEdit(unit)">
+                            <i pButtonIcon class="pi pi-pencil"></i>
+                        </button>
+                    </ng-container>
 
-                    <button pButton type="button" text rounded severity="danger" aria-label="Dar de baja a la unidad"
-                        pTooltip="Dar de baja" [disabled]="unit.status === 'inactive'" (click)="remove(unit)">
-                        <i pButtonIcon class="pi pi-trash"></i>
-                    </button>
+                    <ng-container *appHasPermission="'DELETE /api/serialized-units/:id'">
+                        <button pButton type="button" text rounded severity="danger" aria-label="Dar de baja a la unidad"
+                            pTooltip="Dar de baja" [disabled]="unit.status === 'inactive'" (click)="remove(unit)">
+                            <i pButtonIcon class="pi pi-trash"></i>
+                        </button>
+                    </ng-container>
                 </td>
             </tr>
         </ng-template>

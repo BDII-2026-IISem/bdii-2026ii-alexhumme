@@ -1,9 +1,9 @@
 import { Routes } from '@angular/router';
 
-const provisional = () =>
-  import('./features/placeholder/placeholder').then(
-    (m) => m.Placeholder,
-  );
+import { authGuard } from './core/guards/auth-guard';
+import { authOnlyGuard } from './core/guards/auth-only-guard';
+import { guestGuard } from './core/guards/guest-guard';
+import { permissionGuard } from './core/guards/permission-guard';
 
 export const routes: Routes = [
   {
@@ -12,34 +12,41 @@ export const routes: Routes = [
       import('./features/construir/construir')
         .then((m) => m.Construir),
   },
+
+  // Fuera del Shell: guestGuard y authGuard no comparten árbol (evita bucle).
+  {
+    path: 'login',
+    title: 'Iniciar sesión · MovilCare',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./features/auth/login/login').then((m) => m.Login),
+  },
+
   {
     path: '',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./layout/shell/shell').then((m) => m.Shell),
     children: [
-      // antes de la ruta '' que monta Shell (junto a 'construir')
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'login',
+        redirectTo: 'dashboard',
       },
       {
-        path: 'login',
-        title: 'Iniciar sesión · MovilCare',
+        path: 'dashboard',
+        title: 'Panel · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/sales' },
         loadComponent: () =>
-          import('./features/auth/login/login').then((m) => m.Login),
-      },
-
-      // dentro de `children`, después de 'dashboard'
-      {
-        path: 'perfil',
-        title: 'Mi sesión · MovilCare',
-        loadComponent: () =>
-          import('./features/auth/profile/profile').then((m) => m.Profile),
+          import('./features/dashboard/dashboard')
+            .then((m) => m.Dashboard),
       },
       {
         path: 'clientes',
         title: 'Clientes · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/customers' },
         loadComponent: () =>
           import('./features/customers/customer-list/customer-list')
             .then((module) => module.CustomerList),
@@ -47,6 +54,8 @@ export const routes: Routes = [
       {
         path: 'productos',
         title: 'Productos · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/products' },
         loadComponent: () =>
           import('./features/products/product-list/product-list')
             .then((m) => m.ProductList),
@@ -54,6 +63,8 @@ export const routes: Routes = [
       {
         path: 'unidades-serializadas',
         title: 'Unidades serializadas · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/serialized-units' },
         loadComponent: () =>
           import('./features/serialized-units/serialized-unit-list/serialized-unit-list')
             .then((module) => module.SerializedUnitList),
@@ -61,6 +72,8 @@ export const routes: Routes = [
       {
         path: 'ventas',
         title: 'Ventas · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/sales' },
         loadComponent: () =>
           import('./features/sales/sale-list/sale-list')
             .then((m) => m.SaleList),
@@ -68,6 +81,8 @@ export const routes: Routes = [
       {
         path: 'ventas/:id',
         title: 'Detalle de venta · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/sales/:id' },
         loadComponent: () =>
           import('./features/sales/sale-detail/sale-detail')
             .then((m) => m.SaleDetail),
@@ -75,18 +90,29 @@ export const routes: Routes = [
       {
         path: 'detalle-ventas',
         title: 'Líneas de venta · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/sales' },
         loadComponent: () =>
           import('./features/sale-details/sale-detail-list/sale-detail-list')
             .then((m) => m.SaleDetailList),
       },
+      // Sesión y ningún permiso: /perfil no hereda un permissionGuard.
       {
-        path: 'dashboard',
-        title: 'Panel · MovilCare',
+        path: 'perfil',
+        title: 'Mi sesión · MovilCare',
+        canActivate: [authOnlyGuard],
         loadComponent: () =>
-          import('./features/dashboard/dashboard')
-            .then((m) => m.Dashboard),
+          import('./features/auth/profile/profile').then((m) => m.Profile),
+      },
+      // Sin data.permission: el authGuard del Shell ya exige sesión.
+      {
+        path: 'forbidden',
+        title: 'Acceso denegado · MovilCare',
+        loadComponent: () =>
+          import('./features/auth/forbidden/forbidden')
+            .then((m) => m.Forbidden),
       },
     ],
   },
-  { path: '**', redirectTo: 'login' },
+  { path: '**', redirectTo: 'dashboard' },
 ];

@@ -4,10 +4,12 @@
 
         <p-tag [value]="availableUnits() + ' unidades disponibles'" severity="success" [rounded]="true" />
 
-        <button pButton type="button" (click)="openCreate()">
-            <i pButtonIcon class="pi pi-plus"></i>
-            <span pButtonLabel>Nueva venta</span>
-        </button>
+        <ng-container *appHasPermission="'POST /api/sales'">
+            <button pButton type="button" (click)="openCreate()">
+                <i pButtonIcon class="pi pi-plus"></i>
+                <span pButtonLabel>Nueva venta</span>
+            </button>
+        </ng-container>
     </app-page-header>
 
     @if (error()) {

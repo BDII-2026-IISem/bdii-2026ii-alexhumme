@@ -2,10 +2,12 @@
     <app-page-header title="Productos" subtitle="Consulta y administra los productos del catálogo.">
         <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
 
-        <button pButton type="button" (click)="openCreate()">
-            <i pButtonIcon class="pi pi-plus"></i>
-            <span pButtonLabel>Nuevo producto</span>
-        </button>
+        <ng-container *appHasPermission="'POST /api/products'">
+            <button pButton type="button" (click)="openCreate()">
+                <i pButtonIcon class="pi pi-plus"></i>
+                <span pButtonLabel>Nuevo producto</span>
+            </button>
+        </ng-container>
     </app-page-header>
 
     @if (error()) {
@@ -62,15 +64,19 @@
                 </td>
 
                 <td class="text-right">
-                    <button pButton type="button" text rounded severity="secondary" aria-label="Editar producto"
-                        pTooltip="Editar" (click)="openEdit(product)">
-                        <i pButtonIcon class="pi pi-pencil"></i>
-                    </button>
+                    <ng-container *appHasPermission="'PATCH /api/products/:id'">
+                        <button pButton type="button" text rounded severity="secondary" aria-label="Editar producto"
+                            pTooltip="Editar" (click)="openEdit(product)">
+                            <i pButtonIcon class="pi pi-pencil"></i>
+                        </button>
+                    </ng-container>
 
-                    <button pButton type="button" text rounded severity="danger" aria-label="Dar de baja al producto"
-                        pTooltip="Dar de baja" [disabled]="product.status === 'inactive'" (click)="remove(product)">
-                        <i pButtonIcon class="pi pi-trash"></i>
-                    </button>
+                    <ng-container *appHasPermission="'DELETE /api/products/:id'">
+                        <button pButton type="button" text rounded severity="danger" aria-label="Dar de baja al producto"
+                            pTooltip="Dar de baja" [disabled]="product.status === 'inactive'" (click)="remove(product)">
+                            <i pButtonIcon class="pi pi-trash"></i>
+                        </button>
+                    </ng-container>
                 </td>
             </tr>
         </ng-template>

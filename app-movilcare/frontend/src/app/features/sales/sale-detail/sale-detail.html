@@ -17,10 +17,12 @@
         <app-status-tag [status]="current.status" />
 
         @if (!isVoided()) {
-        <button pButton type="button" severity="danger" outlined [loading]="voiding()" (click)="voidSale()">
-            <i pButtonIcon class="pi pi-ban"></i>
-            <span pButtonLabel>Anular venta</span>
-        </button>
+        <ng-container *appHasPermission="'DELETE /api/sales/:id'">
+            <button pButton type="button" severity="danger" outlined [loading]="voiding()" (click)="voidSale()">
+                <i pButtonIcon class="pi pi-ban"></i>
+                <span pButtonLabel>Anular venta</span>
+            </button>
+        </ng-container>
         }
 
         <a pButton type="button" severity="secondary" outlined routerLink="/ventas">

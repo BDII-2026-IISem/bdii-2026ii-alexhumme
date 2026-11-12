@@ -9,14 +9,16 @@
       [rounded]="true"
     />
 
-    <button
-      pButton
-      type="button"
-      (click)="openCreate()"
-    >
-      <i pButtonIcon class="pi pi-plus"></i>
-      <span pButtonLabel>Nuevo cliente</span>
-    </button>
+    <ng-container *appHasPermission="'POST /api/customers'">
+      <button
+        pButton
+        type="button"
+        (click)="openCreate()"
+      >
+        <i pButtonIcon class="pi pi-plus"></i>
+        <span pButtonLabel>Nuevo cliente</span>
+      </button>
+    </ng-container>
   </app-page-header>
 
   @if (error()) {
@@ -73,32 +75,36 @@
         </td>
 
         <td class="text-right">
-          <button
-            pButton
-            type="button"
-            text
-            rounded
-            severity="secondary"
-            aria-label="Editar cliente"
-            pTooltip="Editar"
-            (click)="openEdit(customer)"
-          >
-            <i pButtonIcon class="pi pi-pencil"></i>
-          </button>
+          <ng-container *appHasPermission="'PATCH /api/customers/:id'">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="secondary"
+              aria-label="Editar cliente"
+              pTooltip="Editar"
+              (click)="openEdit(customer)"
+            >
+              <i pButtonIcon class="pi pi-pencil"></i>
+            </button>
+          </ng-container>
 
-          <button
-            pButton
-            type="button"
-            text
-            rounded
-            severity="danger"
-            aria-label="Dar de baja al cliente"
-            pTooltip="Dar de baja"
-            [disabled]="customer.status === 'inactive'"
-            (click)="remove(customer)"
-          >
-            <i pButtonIcon class="pi pi-trash"></i>
-          </button>
+          <ng-container *appHasPermission="'DELETE /api/customers/:id'">
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              aria-label="Dar de baja al cliente"
+              pTooltip="Dar de baja"
+              [disabled]="customer.status === 'inactive'"
+              (click)="remove(customer)"
+            >
+              <i pButtonIcon class="pi pi-trash"></i>
+            </button>
+          </ng-container>
         </td>
       </tr>
     </ng-template>

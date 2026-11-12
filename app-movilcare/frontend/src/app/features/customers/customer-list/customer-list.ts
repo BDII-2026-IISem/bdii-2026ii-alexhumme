@@ -22,6 +22,7 @@ import {
 import { Notification } from '../../../core/services/notification';
 import { filterRows } from '../../../core/utils/filter-rows';
 import { toApiMessage } from '../../../core/utils/to-api-message';
+import { HasPermission } from '../../../shared/directives/has-permission';
 import { EmptyState } from '../../../shared/ui/empty-state/empty-state';
 import { PageHeader } from '../../../shared/ui/page-header/page-header';
 import { StatusTag } from '../../../shared/ui/status-tag/status-tag';
@@ -34,6 +35,7 @@ import { CustomerForm } from '../customer-form/customer-form';
     ButtonModule,
     DialogModule,
     EmptyState,
+    HasPermission,
     InputTextModule,
     MessageModule,
     PageHeader,

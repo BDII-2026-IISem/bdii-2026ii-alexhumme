@@ -1,6 +1,11 @@
 <div class="min-h-screen bg-slate-50 text-slate-900">
   <app-header
     [appName]="'MovilCare'"
+    [showSession]="session.isAuthenticated()"
+    [username]="session.user()?.username ?? ''"
+    [initials]="initials()"
+    [roleLabel]="roleLabel()"
+    [userItems]="userItems()"
     (menuRequested)="toggleMenu()"
   />
 
@@ -21,7 +26,7 @@
     >
       <app-aside
         [appName]="'MovilCare'"
-        [items]="menuItems"
+        [items]="navGroups()"
         [showSession]="session.isAuthenticated()"
         [username]="session.user()?.username ?? ''"
         [roleLabel]="roleLabel()"

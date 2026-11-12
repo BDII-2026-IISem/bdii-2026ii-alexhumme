@@ -1,0 +1,20 @@
+<p-card header="Acceso denegado">
+  <div class="flex flex-col gap-4">
+    <p class="m-0 text-slate-600">
+      Tu sesión no tiene la concesión que exige esta pantalla.
+    </p>
+
+    @if (permission) {
+      <div class="rounded-xl bg-slate-900 px-4 py-3">
+        <p class="m-0 text-[11px] uppercase text-slate-400">
+          Permiso requerido
+        </p>
+        <code class="text-sm text-emerald-300">{{ permission }}</code>
+      </div>
+    }
+
+    <a pButton routerLink="/dashboard">
+      <span pButtonLabel>Ir al panel</span>
+    </a>
+  </div>
+</p-card>
