@@ -9176,3 +9176,471 @@ El incremento se considerará aprobado cuando todas las verificaciones hayan fin
 Todos los criterios AC-08 aprobados → Fase II abierta; avanzar al ISS-09.
 Algún criterio AC-08 pendiente o fallido → corregir y repetir la prueba.
 ```
+
+# ISS-09. Guards y RBAC en la UI
+
+## Objetivo
+
+El ISS-08 dejó la sesión real —login, tokens, perfil y matriz de permisos en `SessionStore`— pero nada la usaba para decidir: cualquiera con la URL entraba a cualquier pantalla. Este ISS convierte esa sesión en autorización visible: se cierra la puerta (`authGuard`), se decide qué se abre (`permissionGuard`), se filtra el menú y se ocultan las acciones que la matriz no concede (`*appHasPermission`).
+
+Conviene repetir la regla que sostiene el bloque: **la UI no es la seguridad**. Django vuelve a validar con `[IsAuthenticated, HasResourceAccess]` y responde `401` sin identidad o `403` con identidad y sin concesión. Un botón oculto no impide un `curl`; el permiso real lo decide el backend.
+
+## Nota de adaptación — MovilCare no tiene `/ventas/nueva`
+
+| Guía (frontend2026) | MovilCare (real) | Tratamiento en este ISS |
+| --- | --- | --- |
+| Rutas `/dashboard`, `/clientes`, `/tipos-producto`, `/productos`, `/ventas` | El negocio real es clientes, unidades serializadas, productos y ventas | Las claves usan el recurso real: `GET /api/customers`, `GET /api/serialized-units`, `GET /api/products`, `GET /api/sales` |
+| `/ventas/nueva` con `POST /api/sales` como ejemplo de ruta protegida por permiso de escritura | En MovilCare la venta se registra en un **diálogo** dentro de `/ventas`; no existe ruta de alta | La escritura se protege con la directiva en la propia lista; la ruta solo declara el permiso de lectura |
+| `/detalle-ventas` con `GET /api/sales` | Existe como pantalla de líneas aplanadas | Conserva `GET /api/sales` |
+| `/ventas/:id` sin mención | El detalle de venta sí es una ruta propia | Se protege con `GET /api/sales/:id`, la misma clave que exige el backend |
+| Tres guards y `/forbidden` fuera del shell | El `authGuard` ya vive en la raíz del shell (ISS-08) | `/login` queda fuera; `/forbidden` dentro del shell, porque ya exige sesión |
+| Usuarios `admin` y `seller` de la guía | MovilCare siembra `admin` (54 concesiones) y `seller` (9 lecturas) con `seed_rbac` | Los recorridos usan esos dos usuarios y sus credenciales reales |
+| `NotificationService` | `Notification` en `core/services/notification.ts` | Mismo uso (`success`, `info`, `warn`, `error`) |
+
+El vendedor de MovilCare tiene **9 lecturas**: clientes, productos, unidades serializadas, ventas y sus `:id`, además de `GET api/products/<int:pk>/units/`. No tiene ninguna escritura, así que el menú de Operación le llega completo y no ve un solo botón de alta, edición o baja.
+
+## 09.1. Los cuatro guards
+
+Se generan con `ng generate guard ... --functional --implements=CanActivate --skip-tests --defaults` y se reemplaza el cuerpo. Los cuatro devuelven `createUrlTree` —nunca `navigate`— para que la redirección se resuelva **antes** de activar el componente.
+
+```typescript
+// src/app/core/guards/auth-guard.ts
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { SessionStore } from '../services/session-store';
+
+/** ¿Quién eres? Sin sesión no hay ruta: a /login con el destino en `returnUrl`. */
+export const authGuard: CanActivateFn = (_route, state) => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+  if (session.isAuthenticated()) return true;
+  return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
+};
+```
+
+```typescript
+// src/app/core/guards/guest-guard.ts
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { SessionStore } from '../services/session-store';
+
+/** Con sesión abierta, /login no tiene nada que ofrecer: al panel. */
+export const guestGuard: CanActivateFn = () => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+  if (!session.isAuthenticated()) return true;
+  return router.createUrlTree(['/dashboard']);
+};
+```
+
+```typescript
+// src/app/core/guards/permission-guard.ts
+import { inject } from '@angular/core';
+import { CanActivateFn, Router } from '@angular/router';
+import { SessionStore } from '../services/session-store';
+
+/** ¿Qué puedes hacer? La ruta lo declara: data: { permission: 'GET /api/customers' }. */
+export const permissionGuard: CanActivateFn = (route) => {
+  const session = inject(SessionStore);
+  const router = inject(Router);
+  const permission = route.data?.['permission'] as string | undefined;
+  if (!permission || session.canPermission(permission)) return true;
+  return router.createUrlTree(['/forbidden'], { queryParams: { permission } });
+};
+```
+
+```typescript
+// src/app/core/guards/auth-only-guard.ts
+import { authGuard } from './auth-guard';
+
+/** Mismo cuerpo, otra intención: /perfil exige sesión y ningún permiso. */
+export const authOnlyGuard = authGuard;
+```
+
+`authOnlyGuard` no duplica el cuerpo: es el mismo guard con un nombre que declara su intención, para que `/perfil` no reciba un `permissionGuard` por inercia. `/forbidden` no lleva guard propio: hereda el `authGuard` del shell porque sin sesión no hay a quién negar nada.
+
+## 09.2. Permisos: de dónde salen y cómo se escribe la clave
+
+La única fuente es `GET /api/auth/permissions/` (endpoint agregado al backend en el ISS-08), que devuelve una fila por concesión activa:
+
+```json
+{ "permissions": [{ "method": "PATCH", "path": "api/customers/<int:pk>/", "roleId": 1, "roleName": "admin" }] }
+```
+
+Esa lista se calcula con la misma consulta que autoriza en Django, así que un permiso listado es uno concedido. `SessionStore` la guarda en `permissions()` y `canPermission()` la recorre.
+
+La clave se escribe `MÉTODO /api/recurso`, sin barra final y con `:id` en el detalle. `canPermission()` reconoce el formato de MovilCare: quita barras iniciales y finales y convierte `<int:pk>` y `:id` en comodín de un segmento, con *deny by default* cuando nada coincide.
+
+**No hay permisos por rol en el cliente.** El nombre del rol no autoriza nada en Django (`ADMIN` sin filas activas en `resource_roles` no habilita nada) ni en Angular: no se escribe `if (role === 'ADMIN')` en ningún sitio. `roleNames()` solo pinta la etiqueta; el permiso se pregunta por su clave.
+
+## 09.3. Rutas con su permiso exacto
+
+| Ruta | `data.permission` | Guard |
+| --- | --- | --- |
+| `/dashboard` | `GET /api/sales` | `permissionGuard` |
+| `/clientes` | `GET /api/customers` | `permissionGuard` |
+| `/unidades-serializadas` | `GET /api/serialized-units` | `permissionGuard` |
+| `/productos` | `GET /api/products` | `permissionGuard` |
+| `/ventas` | `GET /api/sales` | `permissionGuard` |
+| `/ventas/:id` | `GET /api/sales/:id` | `permissionGuard` |
+| `/detalle-ventas` | `GET /api/sales` | `permissionGuard` |
+| `/perfil` | — (sin `data`) | `authOnlyGuard` |
+| `/forbidden` | — (sin `data`) | hereda `authGuard` del shell |
+
+Ni el panel ni el detalle inventan permisos: ambos se protegen con `GET /api/sales`, porque no existe `GET /api/dashboard` y las líneas viajan dentro de cada venta. `/ventas/:id` sí tiene clave propia porque el backend publica `GET api/sales/<int:pk>/`.
+
+`app.routes.ts`:
+
+```typescript
+{
+  path: '',
+  canActivate: [authGuard],
+  loadComponent: () => import('./layout/shell/shell').then((m) => m.Shell),
+  children: [
+    { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+    {
+      path: 'clientes',
+      title: 'Clientes · MovilCare',
+      canActivate: [permissionGuard],
+      data: { permission: 'GET /api/customers' },
+      loadComponent: () =>
+        import('./features/customers/customer-list/customer-list')
+          .then((module) => module.CustomerList),
+    },
+    // … las demás rutas de Operación con su par canActivate + data.permission
+    {
+      path: 'perfil',
+      title: 'Mi sesión · MovilCare',
+      canActivate: [authOnlyGuard],
+      loadComponent: () => import('./features/auth/profile/profile').then((m) => m.Profile),
+    },
+    {
+      path: 'forbidden',
+      title: 'Acceso denegado · MovilCare',
+      loadComponent: () =>
+        import('./features/auth/forbidden/forbidden').then((m) => m.Forbidden),
+    },
+  ],
+},
+{
+  path: 'login',
+  title: 'Iniciar sesión · MovilCare',
+  canActivate: [guestGuard],
+  loadComponent: () => import('./features/auth/login/login').then((m) => m.Login),
+},
+{ path: '**', redirectTo: 'dashboard' },
+```
+
+`login` queda **fuera** del shell: adentro, el `authGuard` y el `guestGuard` compartirían árbol y el rebote sería un bucle. `/ventas/:id` se declara antes que cualquier ruta comodín de ventas: el orden decide la coincidencia.
+
+## 09.4. La directiva `*appHasPermission`
+
+```typescript
+// src/app/shared/directives/has-permission.ts
+import { Directive, TemplateRef, ViewContainerRef, effect, inject, input } from '@angular/core';
+import { SessionStore } from '../../core/services/session-store';
+
+/** Estructural: pinta el bloque solo si la sesión tiene el permiso. */
+@Directive({ selector: '[appHasPermission]' })
+export class HasPermission {
+  private readonly templateRef = inject(TemplateRef<unknown>);
+  private readonly viewContainer = inject(ViewContainerRef);
+  private readonly session = inject(SessionStore);
+  readonly permission = input.required<string>({ alias: 'appHasPermission' });
+  private rendered = false;
+
+  constructor() {
+    effect(() => {
+      const allowed = this.session.canPermission(this.permission());
+      if (allowed && !this.rendered) {
+        this.viewContainer.createEmbeddedView(this.templateRef);
+        this.rendered = true;
+      } else if (!allowed && this.rendered) {
+        this.viewContainer.clear();
+        this.rendered = false;
+      }
+    });
+  }
+}
+```
+
+El `*` la convierte en estructural: Angular envuelve el elemento en un `<ng-template>` y el constructor recibe `TemplateRef`. `rendered` evita crear y destruir la vista en cada lectura; el `effect()` se reejecuta al cambiar `permissions()` —login, logout, refresh y «Actualizar permisos»—, así que el botón aparece o desaparece sin recargar.
+
+## 09.5. Botones de acción de cada pantalla
+
+Se envuelve el botón existente y se agrega `HasPermission` a los `imports`. La clave usa el verbo que la pantalla envía: los formularios editan con `PATCH`, y la baja es lógica con `DELETE`.
+
+| Pantalla | Crear | Editar | Baja lógica |
+| --- | --- | --- | --- |
+| Clientes | `POST /api/customers` | `PATCH /api/customers/:id` | `DELETE /api/customers/:id` |
+| Unidades serializadas | `POST /api/serialized-units` | `PATCH /api/serialized-units/:id` | `DELETE /api/serialized-units/:id` |
+| Productos | `POST /api/products` | `PATCH /api/products/:id` | `DELETE /api/products/:id` |
+| Ventas | `POST /api/sales` | — | `DELETE /api/sales/:id` |
+
+```html
+<ng-container *appHasPermission="'POST /api/customers'">
+  <button pButton type="button" (click)="openCreate()">
+    <span pButtonLabel>Nuevo cliente</span>
+  </button>
+</ng-container>
+<ng-container *appHasPermission="'PATCH /api/customers/:id'">
+  <!-- botón editar -->
+</ng-container>
+<ng-container *appHasPermission="'DELETE /api/customers/:id'">
+  <!-- botón dar de baja -->
+</ng-container>
+```
+
+La pantalla de detalle de venta envuelve su botón «Anular venta» con `DELETE /api/sales/:id`; el panel y `/detalle-ventas` no tienen acciones que ocultar. La lógica de cada pantalla no cambió: solo se envolvieron los botones.
+
+## 09.6. Menú filtrado en el Shell
+
+`nav.config.ts` deja el catálogo y una función pura —sin Angular— para poder probarla:
+
+```typescript
+import { MenuItem } from 'primeng/api';
+
+export interface NavEntryConfig {
+  label: string;
+  icon: string;
+  routerLink: string;
+  permission?: string;
+}
+
+export interface NavGroupConfig {
+  label: string;
+  items: NavEntryConfig[];
+}
+
+/** Catálogo de Operación de MovilCare. Seguridad se agrega en el ISS-10. */
+export const NAV: NavGroupConfig[] = [
+  {
+    label: 'Operación',
+    items: [
+      { label: 'Panel', icon: 'pi pi-home', routerLink: '/dashboard', permission: 'GET /api/sales' },
+      { label: 'Clientes', icon: 'pi pi-users', routerLink: '/clientes', permission: 'GET /api/customers' },
+      { label: 'Unidades serializadas', icon: 'pi pi-tags', routerLink: '/unidades-serializadas', permission: 'GET /api/serialized-units' },
+      { label: 'Productos', icon: 'pi pi-box', routerLink: '/productos', permission: 'GET /api/products' },
+      { label: 'Ventas', icon: 'pi pi-shopping-cart', routerLink: '/ventas', permission: 'GET /api/sales' },
+      { label: 'Detalle de ventas', icon: 'pi pi-list', routerLink: '/detalle-ventas', permission: 'GET /api/sales' },
+    ],
+  },
+];
+
+export function visibleNav(can: (permission: string) => boolean): NavGroupConfig[] {
+  return NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => !item.permission || can(item.permission)),
+  })).filter((group) => group.items.length > 0);
+}
+
+export function toMenuItems(groups: NavGroupConfig[]): MenuItem[] {
+  return groups.map((group) => ({
+    label: group.label,
+    items: group.items.map<MenuItem>((item) => ({
+      label: item.label,
+      icon: item.icon,
+      routerLink: item.routerLink,
+    })),
+  }));
+}
+```
+
+En `shell.ts` el arreglo fijo pasa a `computed` y el popup de usuario declara sus tres acciones:
+
+```typescript
+/** El menú se recalcula cuando cambian los permisos: sin recargar. */
+readonly navGroups = computed<MenuItem[]>(() =>
+  toMenuItems(visibleNav((permission) => this.session.canPermission(permission))),
+);
+
+readonly userItems = computed<MenuItem[]>(() => [
+  { label: 'Mi sesión', icon: 'pi pi-user', routerLink: '/perfil' },
+  { label: 'Actualizar permisos', icon: 'pi pi-refresh', command: () => this.refreshPermissions() },
+  { label: 'Cerrar sesión', icon: 'pi pi-sign-out', command: () => this.logout() },
+]);
+
+/** GET /profile + /permissions otra vez: el menú se repinta solo. */
+refreshPermissions(): void {
+  this.auth.me().subscribe({
+    next: () => this.notify.success('Permisos actualizados', 'Menú y botones leen la matriz otra vez.'),
+    error: () => this.notify.error('No se pudieron actualizar los permisos', 'Vuelve a iniciar sesión.'),
+  });
+}
+```
+
+`AppAside` no conoce permisos: recibe `navGroups()` ya filtrado y solo lo pinta. Si el grupo queda sin entradas, `visibleNav` lo elimina completo.
+
+## 09.7. Página `/forbidden`
+
+```typescript
+import { Component, inject } from '@angular/core';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ButtonModule } from 'primeng/button';
+import { CardModule } from 'primeng/card';
+
+/** Convierte un 403 en una pista: qué permiso falta y a quién pedirlo. */
+@Component({
+  selector: 'app-forbidden',
+  host: { class: 'block' },
+  imports: [ButtonModule, CardModule, RouterLink],
+  templateUrl: './forbidden.html',
+  styleUrl: './forbidden.css',
+})
+export class Forbidden {
+  /** `permissionGuard` lo deja en la URL; el query param llega ya decodificado. */
+  readonly permission = inject(ActivatedRoute).snapshot.queryParamMap.get('permission');
+}
+```
+
+```html
+<p-card header="Acceso denegado">
+  <div class="flex flex-col gap-4">
+    <p class="m-0 text-slate-600">Tu sesión no tiene la concesión que exige esta pantalla.</p>
+    @if (permission) {
+      <div class="rounded-xl bg-slate-900 px-4 py-3">
+        <p class="m-0 text-[11px] uppercase text-slate-400">Permiso requerido</p>
+        <code class="text-sm text-emerald-300">{{ permission }}</code>
+      </div>
+    }
+    <a pButton routerLink="/dashboard"><span pButtonLabel>Ir al panel</span></a>
+  </div>
+</p-card>
+```
+
+La URL `/forbidden?permission=POST%20%2Fapi%2Fsales` llega a `queryParamMap` ya decodificada, así que se muestra la misma clave que el código escribe.
+
+## 09.8. Pruebas
+
+Las siete pruebas se escriben completas (no se generan): tres de guards, dos de la directiva y dos del menú.
+
+**`core/guards/rbac-guards.spec.ts`** — ejecuta cada guard con una sesión simulada y comprueba la decisión:
+
+```typescript
+function run(guard: CanActivateFn, url: string, allowed: boolean, data: Record<string, unknown> = {}) {
+  TestBed.configureTestingModule({
+    providers: [
+      provideRouter([]),
+      { provide: SessionStore, useValue: { isAuthenticated: () => allowed, canPermission: () => allowed } },
+    ],
+  });
+  return TestBed.runInInjectionContext(() =>
+    guard({ data } as unknown as ActivatedRouteSnapshot, { url } as RouterStateSnapshot));
+}
+
+describe('guards de RBAC', () => {
+  it('authGuard manda a /login con returnUrl cuando no hay sesión', () => {
+    const result = run(authGuard, '/clientes', false);
+    expect(result).toBeInstanceOf(UrlTree);
+    expect((result as UrlTree).queryParams['returnUrl']).toBe('/clientes');
+  });
+
+  it('permissionGuard deja pasar con la concesión', () => {
+    expect(run(permissionGuard, '/clientes', true, { permission: 'GET /api/customers' })).toBe(true);
+  });
+
+  it('permissionGuard desvía a /forbidden con el permiso que falta', () => {
+    const result = run(permissionGuard, '/clientes', false, { permission: 'GET /api/customers' });
+    expect(result).toBeInstanceOf(UrlTree);
+    expect((result as UrlTree).queryParams['permission']).toBe('GET /api/customers');
+  });
+});
+```
+
+**`shared/directives/has-permission.spec.ts`** — monta un componente anfitrión y busca el botón en el DOM:
+
+```typescript
+@Component({
+  imports: [HasPermission],
+  template: `<button *appHasPermission="'POST /api/customers'">Nuevo</button>`,
+})
+class Host {}
+
+async function mount(allowed: boolean): Promise<HTMLElement> {
+  await TestBed.configureTestingModule({
+    imports: [Host],
+    providers: [{ provide: SessionStore, useValue: { canPermission: () => allowed } }],
+  }).compileComponents();
+  const fixture = TestBed.createComponent(Host);
+  await fixture.whenStable();
+  return fixture.nativeElement as HTMLElement;
+}
+
+describe('directiva *appHasPermission', () => {
+  it('pinta el botón cuando la sesión tiene el permiso', async () => {
+    expect((await mount(true)).textContent).toContain('Nuevo');
+  });
+
+  it('no pinta nada cuando falta la concesión', async () => {
+    expect((await mount(false)).querySelector('button')).toBeNull();
+  });
+});
+```
+
+**`layout/shell/nav.config.spec.ts`** — prueba la función pura, sin `TestBed`:
+
+```typescript
+import { visibleNav } from './nav.config';
+
+describe('menú filtrado', () => {
+  it('con todos los permisos muestra las seis entradas', () => {
+    expect(visibleNav(() => true).flatMap((group) => group.items)).toHaveLength(6);
+  });
+
+  it('sin concesiones oculta el grupo entero', () => {
+    expect(visibleNav(() => false)).toEqual([]);
+  });
+});
+```
+
+Resultado medido: `npx ng test --watch=false` → **21 archivos, 35 pruebas, código 0**; de ellas, 7 son las nuevas (`rbac-guards` 3, `has-permission` 2, `nav.config` 2). `npx ng build` → código **0**; el aviso de presupuesto de 500 kB (575.04 kB iniciales) sigue ahí y se corrige en el ISS-11 cuando `angular.json` declare el techo de 750 kB.
+
+### Evidencia
+
+![Sin sesión, /clientes redirige a /login con returnUrl](image-168.png)
+
+![Admin ve el menú completo, 54 permisos y el botón «Nuevo cliente»](image-169.png)
+
+![El menú de Operación con las seis entradas](image-171.png)
+
+![El vendedor ve la tabla de clientes y ningún botón de escritura](image-172.png)
+
+![/forbidden muestra el permiso exigido ya decodificado](image-173.png)
+
+## Cómo probarlo
+
+1. Sin sesión, entra a `http://localhost:4200/clientes`: termina en `/login?returnUrl=%2Fclientes` y, tras identificarte, vuelve a `/clientes`.
+2. Login `admin`: el menú despliega Operación con seis entradas y el bloque de sesión dice «54 permisos». En `/clientes` se ven «Nuevo cliente», editar y baja.
+3. Login `seller` (`Seller123!`): el menú sigue completo —sus 9 lecturas cubren las seis entradas— y en `/clientes` no hay ningún botón de escritura.
+4. Escribe `/forbidden?permission=POST%20%2Fapi%2Fsales` con la sesión de `seller`: la tarjeta muestra `POST /api/sales`. Desde el ISS-10, `/admin/usuarios` por URL llevará sola a esta página con `GET /api/users`.
+5. Con `curl` y el token de `seller`, pide un recurso sin concesión (por ejemplo `POST /api/customers/`): el backend responde `403` aunque la UI nunca ofreciera el botón. La UI oculta; Django decide.
+6. Usa el popup del header → «Actualizar permisos» y observa que el menú se repinta sin recargar.
+7. `npx ng test --watch=false` y `npx ng build`.
+
+## Criterios de aceptación
+
+| Código | Criterio | Resultado |
+|---|---|---|
+| AC-09-01 | Los cuatro guards existen como funciones y redirigen con `createUrlTree`, no con `navigate`. | PASS |
+| AC-09-02 | Rutas, menú y botones leen los permisos de `GET /api/auth/permissions/` vía `SessionStore`; no hay permisos por rol en el cliente. | PASS |
+| AC-09-03 | Cada ruta de negocio declara `canActivate: [permissionGuard]` y `data.permission` con la clave exacta `MÉTODO /api/recurso`. | PASS |
+| AC-09-04 | `*appHasPermission="'POST /api/customers'"` crea y destruye su vista embebida con `effect()` y `ViewContainerRef`. | PASS |
+| AC-09-05 | El menú se filtra con un `computed` y las entradas sin concesión desaparecen sin recargar. | PASS |
+| AC-09-06 | `/forbidden` muestra el permiso que falta, leído del query param. | PASS |
+| AC-09-07 | Las pantallas de Fase I conservan su lógica: solo cambian sus rutas y sus botones. | PASS |
+| AC-09-08 | Las siete pruebas pasan y `ng build` termina con código 0. | PASS (21 archivos / 35 pruebas; build en 0 con aviso de presupuesto) |
+
+## Verificación del ISS
+
+Medido el **12-nov-2026** con el backend en `:8000` (`API_ACCESS` por defecto), MySQL migrado y `seed_rbac` aplicado:
+
+- `npx ng test --watch=false`: 21 archivos, 35 pruebas, código 0.
+- `npx ng build`: código 0; inicial 575.04 kB (aviso por el presupuesto por defecto de 500 kB, que el ISS-11 eleva a 750 kB).
+- `admin`: 54 concesiones efectivas; menú con seis entradas; botones de escritura visibles.
+- `seller`: 9 concesiones (todas `GET`); la tabla de clientes se ve completa y sin botones de escritura.
+- `/forbidden` con `POST /api/sales`: muestra la clave decodificada.
+
+```text
+Todos los criterios AC-09 aprobados → RBAC visible cerrado; avanzar al ISS-10.
+Algún criterio AC-09 pendiente o fallido → corregir y repetir la prueba.
+```

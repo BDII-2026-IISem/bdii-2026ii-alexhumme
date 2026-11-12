@@ -14,7 +14,7 @@ import { AuthService } from '../../core/services/auth';
 import { Notification } from '../../core/services/notification';
 import { SessionStore } from '../../core/services/session-store';
 
-import { visibleNav } from './nav.config';
+import { toMenuItems, visibleNav } from './nav.config';
 import { Footer } from '../footer/footer';
 import { Header } from '../header/header';
 import { Aside } from '../aside/aside';
@@ -46,15 +46,8 @@ export class Shell {
 
   /** El menú se recalcula cuando cambian los permisos: sin recargar. */
   readonly navGroups = computed<MenuItem[]>(() =>
-    visibleNav((permission) => this.session.canPermission(permission)).map(
-      (group) => ({
-        label: group.label,
-        items: group.items.map<MenuItem>((item) => ({
-          label: item.label,
-          icon: item.icon,
-          routerLink: item.routerLink,
-        })),
-      }),
+    toMenuItems(
+      visibleNav((permission) => this.session.canPermission(permission)),
     ),
   );
 

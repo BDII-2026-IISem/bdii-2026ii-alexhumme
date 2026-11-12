@@ -1,36 +1,22 @@
-/** Entrada del menú lateral; `permission` opcional la decide la sesión. */
-export interface NavItemConfig {
+import { MenuItem } from 'primeng/api';
+
+/** Entrada del menú con la clave `MÉTODO /api/recurso` que la habilita. */
+export interface NavEntryConfig {
   label: string;
   icon: string;
   routerLink: string;
   permission?: string;
 }
 
-/** Grupo de entradas; desaparece entero si ninguna sobrevive al filtro. */
 export interface NavGroupConfig {
   label: string;
-  items: NavItemConfig[];
+  items: NavEntryConfig[];
 }
 
-/**
- * Filtra el catálogo con el predicado de la sesión; sin Angular, para
- * poder probarlo. Una entrada sin `permission` siempre es visible.
- */
-export function visibleNav(
-  can: (permission: string) => boolean,
-): NavGroupConfig[] {
-  return NAV.map((group) => ({
-    ...group,
-    items: group.items.filter(
-      (item) => !item.permission || can(item.permission),
-    ),
-  })).filter((group) => group.items.length > 0);
-}
-
-/** Catálogo completo: lo pinta quien tiene todos los permisos. */
+/** Catálogo de Operación de MovilCare. Seguridad se agrega en el ISS-10. */
 export const NAV: NavGroupConfig[] = [
   {
-    label: 'Gestión',
+    label: 'Operación',
     items: [
       {
         label: 'Panel',
@@ -45,16 +31,16 @@ export const NAV: NavGroupConfig[] = [
         permission: 'GET /api/customers',
       },
       {
+        label: 'Unidades serializadas',
+        icon: 'pi pi-tags',
+        routerLink: '/unidades-serializadas',
+        permission: 'GET /api/serialized-units',
+      },
+      {
         label: 'Productos',
         icon: 'pi pi-box',
         routerLink: '/productos',
         permission: 'GET /api/products',
-      },
-      {
-        label: 'Unidades serializadas',
-        icon: 'pi pi-barcode',
-        routerLink: '/unidades-serializadas',
-        permission: 'GET /api/serialized-units',
       },
       {
         label: 'Ventas',
@@ -63,7 +49,7 @@ export const NAV: NavGroupConfig[] = [
         permission: 'GET /api/sales',
       },
       {
-        label: 'Líneas de venta',
+        label: 'Detalle de ventas',
         icon: 'pi pi-list',
         routerLink: '/detalle-ventas',
         permission: 'GET /api/sales',
@@ -71,3 +57,27 @@ export const NAV: NavGroupConfig[] = [
     ],
   },
 ];
+
+/** Filtra el catálogo con el predicado de la sesión; sin Angular, para poder probarlo. */
+export function visibleNav(
+  can: (permission: string) => boolean,
+): NavGroupConfig[] {
+  return NAV.map((group) => ({
+    ...group,
+    items: group.items.filter(
+      (item) => !item.permission || can(item.permission),
+    ),
+  })).filter((group) => group.items.length > 0);
+}
+
+/** Convierte el catálogo visible al modelo de PrimeNG. */
+export function toMenuItems(groups: NavGroupConfig[]): MenuItem[] {
+  return groups.map((group) => ({
+    label: group.label,
+    items: group.items.map<MenuItem>((item) => ({
+      label: item.label,
+      icon: item.icon,
+      routerLink: item.routerLink,
+    })),
+  }));
+}
