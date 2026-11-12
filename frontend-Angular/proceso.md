@@ -9644,3 +9644,506 @@ Medido el **12-nov-2026** con el backend en `:8000` (`API_ACCESS` por defecto), 
 Todos los criterios AC-09 aprobados → RBAC visible cerrado; avanzar al ISS-10.
 Algún criterio AC-09 pendiente o fallido → corregir y repetir la prueba.
 ```
+
+# ISS-10. Administración RBAC
+
+## Objetivo
+
+La UI ya obedece la matriz de permisos, pero nadie puede cambiarla desde la aplicación: se administra en `/admin/` de Django. Este ISS construye las cinco pantallas que escriben las tablas de seguridad con la misma API del negocio: usuarios, roles, recursos, asignaciones y concesiones.
+
+La consecuencia es la idea que sostiene el laboratorio: **la pantalla de concesiones es la administración del RBAC**. No hay archivo de permisos, ni condición por rol, ni `if (role === 'ADMIN')`. Conceder `PATCH /api/customers/:id` a `seller` es crear una fila; retirarlo es ponerla en `inactive`.
+
+## Nota de adaptación — el contrato real de MovilCare
+
+| Guía (frontend2026) | MovilCare (real) | Tratamiento en este ISS |
+| --- | --- | --- |
+| `User` con `avatar` | `ProfileSerializer`/`UserSerializer` no tienen avatar; sí `first_name` y `last_name` | El modelo usa `firstName`/`lastName` y el formulario no pide avatar |
+| `UserPayload.password` opcional y `PATCH` sin contraseña | El serializer exigía `password` con `required=True` incluso en el `PATCH` | **Cambio en el backend:** `required=False` y `validate()` la exige solo en el alta (sección 10.2) |
+| `Role.name` en MAYÚSCULAS | MovilCare guarda `admin` y `seller` en minúsculas; el seeder hace `get_or_create(name="admin")` | La UI no fuerza mayúsculas: conserva el nombre escrito (si lo cambiara, el siguiente `seed_rbac` crearía un rol duplicado) |
+| `Resource.path` + `description` | `Resource` tiene `name`, `method` y `route` (la ruta de `resolve()`, sin barra inicial) | El formulario pide método y ruta; `name` se deriva como `MÉTODO ruta` |
+| `RoleUserPayload { userId, roleId }` | El serializer publica las claves del modelo: `user` y `role` | Payload y modelo usan `user`/`role` numéricos |
+| `ResourceRolePayload { roleId, resourceId }` | El serializer publica `resource` y `role` | Payload y modelo usan `resource`/`role` numéricos |
+| `GET /api/users/{id}/permissions/` ya existía | No existía: se agregó como `@action` de `UserViewSet` en el ISS-08 y se sembró `GET api/users/<pk>/permissions/` en `seed_rbac` | «Ver permisos» consume ese endpoint y el administrador tiene la concesión |
+| Cinco tablas con `/{id}/` y baja lógica | Idéntico: `SimpleRouter` con `delete` que deja `status=inactive` | `CrudService` reutiliza `GET/POST/PATCH/DELETE` y baja lógica |
+| Permisos `GET /api/users`, etc. | `seed_rbac` crea los recursos de las cinco entidades y concede todo al rol `admin` | El admin ve las cinco pantallas; el seller recibe `403` |
+
+## 10.1. La cadena que autoriza
+
+```text
+User ──< RoleUser >── Role ──< ResourceRole >── Resource
+        user, role         role, resource      method + route
+        status = active    status = active     status = active
+```
+
+Una persona ejecuta `MÉTODO /ruta` si y solo si los cinco eslabones están `active`; si alguno no lo está, Django responde `403`, y sin identidad `401`. La UI decide con los permisos efectivos de `GET /api/auth/permissions/`, que salen de esa misma consulta.
+
+| Pantalla | Tabla | Qué escribe | Clave de la ruta |
+| --- | --- | --- | --- |
+| `/admin/usuarios` | `users` | quién entra | `GET /api/users` |
+| `/admin/roles` | `roles` | agrupación de concesiones | `GET /api/roles` |
+| `/admin/recursos` | `resources` | operación `MÉTODO ruta` | `GET /api/resources` |
+| `/admin/asignaciones` | `role_users` | a quién se le da un rol | `GET /api/role-users` |
+| `/admin/permisos` | `resource_roles` | qué puede hacer el rol | `GET /api/resource-roles` |
+
+El nombre del rol no autoriza nada. Un `admin` sin filas activas en `resource_roles` no ejecuta ninguna operación, y esta pantalla no lo corrige: administra filas, no jerarquías.
+
+## 10.2. Modelos, `STATUS_OPTIONS` y el cambio de backend
+
+Los cinco modelos viven en `src/app/core/models/` y ningún tipo se llama igual que `SessionUser`. Todos extienden `Timestamps` (`createdAt`/`updatedAt` opcionales) y usan `Status`.
+
+```typescript
+// user.model.ts — /api/users/. La respuesta NUNCA trae `password`.
+export interface User extends Timestamps {
+  id: number; username: string; email: string;
+  firstName: string | null; lastName: string | null; status: Status;
+}
+export interface UserPayload {
+  username: string; email: string;
+  firstName: string | null; lastName: string | null;
+  status: Status; password?: string;
+}
+
+// role.model.ts — /api/roles/. `name` es único; MovilCare lo guarda en minúsculas.
+export interface Role extends Timestamps {
+  id: number; name: string; description: string | null; status: Status;
+}
+export interface RolePayload { name: string; description: string | null; status: Status; }
+
+// resource.model.ts — `route` es la ruta de resolve(): api/customers/<int:pk>/
+export interface Resource extends Timestamps {
+  id: number; name: string; method: HttpMethod; route: string; status: Status;
+}
+export interface ResourcePayload {
+  name: string; method: HttpMethod; route: string; status: Status;
+}
+
+// role-user.model.ts — /api/role-users/. `role` + `user` es único.
+export interface RoleUser extends Timestamps {
+  id: number; role: number; user: number; status: Status;
+}
+export interface RoleUserPayload { role: number; user: number; status: Status; }
+
+// resource-role.model.ts — /api/resource-roles/. ESTA fila es el permiso.
+export interface ResourceRole extends Timestamps {
+  id: number; resource: number; role: number; status: Status;
+}
+export interface ResourceRolePayload { resource: number; role: number; status: Status; }
+```
+
+`core/utils/http-method.ts` — los cinco verbos y su semáforo para el `p-tag`:
+
+```typescript
+export const HTTP_METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
+const SEVERITY: Record<HttpMethod, 'info' | 'success' | 'warn' | 'danger'> =
+  { GET: 'info', POST: 'success', PUT: 'warn', PATCH: 'warn', DELETE: 'danger' };
+/** Lectura informativa, escritura en aviso, borrado en peligro. */
+export const methodSeverity = (method?: HttpMethod) =>
+  method ? SEVERITY[method] : 'secondary';
+```
+
+PARCHE a `api.model.ts` — las cinco pantallas tienen un `p-select` de estado:
+
+```typescript
+/** `optionLabel="label"` y `optionValue="value"`. */
+export const STATUS_OPTIONS: Array<{ label: string; value: Status }> = [
+  { label: 'Activo', value: 'active' },
+  { label: 'Inactivo', value: 'inactive' },
+];
+```
+
+**Cambio de backend en `UserSerializer`.** Sin él, editar un usuario desde la pantalla obligaría a reenviar la contraseña y el `PATCH` la volvería a hashear. La contraseña queda opcional en el serializer y `validate()` la exige solo en el alta:
+
+```python
+password = serializers.CharField(write_only=True, required=False, style={"input_type": "password"})
+
+def validate(self, attrs):
+    if self.instance is None and not attrs.get("password"):
+        raise serializers.ValidationError({"password": ["Este campo es obligatorio en el alta."]})
+    return attrs
+```
+
+Medido con `curl`: `PATCH /api/users/2/` sin `password` → `200`; `POST /api/users/` sin `password` → `400`.
+
+## 10.3. Un cliente HTTP y cinco APIs
+
+Los cinco endpoints publican el mismo CRUD, así que el cliente se escribe una vez en `features/admin/crud.ts`:
+
+```typescript
+export interface CrudApi<T, P> {
+  list(): Observable<T[]>;
+  create(payload: P): Observable<T>;
+  update(id: number, payload: P): Observable<T>;
+  remove(id: number): Observable<void>;
+}
+
+/** `endpoint` va SIN barra final; cada método añade la suya. */
+export abstract class CrudService<T, P> implements CrudApi<T, P> {
+  protected readonly http = inject(HttpClient);
+  protected readonly endpoint: string;
+  constructor(endpoint: string) { this.endpoint = endpoint; }
+
+  list(): Observable<T[]> { return this.http.get<T[]>(`${this.endpoint}/`); }
+  create(payload: P): Observable<T> { return this.http.post<T>(`${this.endpoint}/`, payload); }
+  update(id: number, payload: P): Observable<T> {
+    return this.http.patch<T>(`${this.endpoint}/${id}/`, payload);
+  }
+  /** `DELETE` es baja lógica: 204 y la fila queda `inactive`. */
+  remove(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.endpoint}/${id}/`);
+  }
+}
+```
+
+`users/user-api.ts` añade la única ruta extra del bloque:
+
+```typescript
+@Injectable({ providedIn: 'root' })
+export class UserApi extends CrudService<User, UserPayload> {
+  constructor() { super(`${environment.apiUrl}/users`); }
+
+  /** GET /api/users/{id}/permissions/: el cuerpo llega envuelto en `permissions`. */
+  permissions(id: number): Observable<EffectivePermission[]> {
+    return this.http
+      .get<{ permissions: EffectivePermission[] }>(`${this.endpoint}/${id}/permissions/`)
+      .pipe(map((response) => response.permissions));
+  }
+}
+```
+
+`RoleApi`, `ResourceApi`, `RoleUserApi` y `ResourceRoleApi` son el mismo archivo con otro `endpoint`.
+
+## 10.4. `user-list`: la pantalla que sirve de patrón
+
+Conserva de ISS-03 el `load()`, el `visibleRows` con `filterRows` y la baja con `ConfirmationService`. Lo propio es el formulario —con `password` que solo existe al crear— y el diálogo de permisos:
+
+```typescript
+readonly form = this.fb.group({
+  username: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(150)]],
+  email: ['', [Validators.required, Validators.email]],
+  password: ['', [Validators.required, Validators.minLength(8)]],
+  firstName: ['', [Validators.maxLength(150)]],
+  lastName: ['', [Validators.maxLength(150)]],
+  status: ['active' as Status, [Validators.required]],
+});
+
+readonly visibleRows = computed(() =>
+  filterRows(this.rows(), this.filter(), (row) => [
+    row.username, row.email, row.firstName ?? '', row.lastName ?? '',
+  ]));
+
+/** En edición la contraseña se deshabilita: el `PATCH` no la lleva. */
+private resetForm(row: User | null): void {
+  this.form.reset({
+    username: row?.username ?? '', email: row?.email ?? '', password: '',
+    firstName: row?.firstName ?? '', lastName: row?.lastName ?? '',
+    status: row?.status ?? 'active',
+  });
+  if (row) { this.form.controls.password.disable(); }
+  else { this.form.controls.password.enable(); }
+}
+
+submit(): void {
+  if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+  const value = this.form.getRawValue();
+  const payload: UserPayload = {
+    username: value.username.trim(), email: value.email.trim(),
+    firstName: value.firstName.trim() || null,
+    lastName: value.lastName.trim() || null,
+    status: value.status,
+  };
+  if (!this.editing()) { payload.password = value.password; }
+  this.save(payload);
+}
+
+/** La forma más rápida de diagnosticar un 403: qué filas sostienen a este usuario. */
+openPermissions(row: User): void {
+  this.permissionsUser.set(row);
+  this.permissions.set([]);
+  this.permissionsLoading.set(true);
+  this.api.permissions(row.id).subscribe({
+    next: (rows) => { this.permissions.set(rows); this.permissionsLoading.set(false); },
+    error: (error: unknown) => {
+      this.permissionsLoading.set(false);
+      this.notify.error('No se pudieron leer los permisos', toApiMessage(error));
+    },
+  });
+}
+```
+
+El diálogo de permisos pinta una fila por concesión con las tres columnas del contrato. `data-testid="permisos"` existe para que la prueba cuente esas filas y no las de la tabla de usuarios, que también son `tbody tr`:
+
+```html
+<p-dialog [visible]="!!permissionsUser()" (visibleChange)="permissionsUser.set(null)"
+  [header]="'Permisos de ' + (permissionsUser()?.username ?? '')" [modal]="true">
+  <p-table data-testid="permisos" [value]="permissions()" [loading]="permissionsLoading()">
+    <ng-template #header><tr><th>Método</th><th>Ruta</th><th>Rol</th></tr></ng-template>
+    <ng-template #body let-row><tr>
+      <td><p-tag [value]="row.method" [severity]="methodSeverity(row.method)" [rounded]="true" /></td>
+      <td><code class="text-xs">{{ row.path }}</code></td>
+      <td class="text-sm text-slate-600">{{ row.roleName }}</td>
+    </tr></ng-template>
+  </p-table>
+</p-dialog>
+```
+
+Cada fila inactiva ofrece «Reactivar» (`PATCH` con `status: "active"`) en lugar de la baja: repetir el alta respondería `409` porque el par ya existe.
+
+## 10.5. Las otras cuatro pantallas
+
+| Pantalla | Servicio | Buscador | Formulario | Columnas |
+| --- | --- | --- | --- | --- |
+| `roles/role-list` | `RoleApi` | `name`, `description` | `name`, `description`, `status` | Rol, Descripción, Estado |
+| `resources/resource-list` | `ResourceApi` | `method`, `route`, `name` | `method`, `route`, `status` | Método (`p-tag`), Ruta, Estado |
+| `role-users/role-user-list` | `RoleUserApi` | `userLabel`, `roleLabel` | dos `p-select` | Usuario, Rol, Estado |
+| `resource-roles/resource-role-list` | `ResourceRoleApi` | `roleLabel`, `resourceLabel` | dos `p-select` | Método, Ruta, Rol, Estado |
+
+En `role-user-list` los dos catálogos llegan en paralelo con `forkJoin` y las etiquetas traducen los ids:
+
+```typescript
+private loadCatalogs(): void {
+  forkJoin({ users: this.userApi.list(), roles: this.roleApi.list() }).subscribe({
+    next: ({ users, roles }) => { this.users.set(users); this.roles.set(roles); },
+    error: (error: unknown) =>
+      this.notify.error('No se pudieron cargar los catálogos', toApiMessage(error)),
+  });
+}
+
+userLabel(id: number): string {
+  return this.users().find((row) => row.id === id)?.username ?? `#${id}`;
+}
+roleLabel(id: number): string {
+  return this.roles().find((row) => row.id === id)?.name ?? `#${id}`;
+}
+
+submit(): void {
+  const value = this.form.getRawValue();
+  if (!value.user || !value.role) { this.form.markAllAsTouched(); return; }
+  this.save({ user: value.user, role: value.role, status: 'active' });
+}
+```
+
+`resource-role-list` necesita una etiqueta plana, porque un `Resource` no tiene campo `label`:
+
+```typescript
+/** `MÉTODO ruta` para leer; el valor enviado es el `id`. */
+readonly resourceOptions = computed(() =>
+  this.resources().map((row) => ({ id: row.id, label: `${row.method} ${row.route}` })));
+
+resourceLabel(id: number): string {
+  const row = this.resource(id);
+  return row ? `${row.method} ${row.route}` : `#${id}`;
+}
+
+submit(): void {
+  const value = this.form.getRawValue();
+  if (!value.resource || !value.role) { this.form.markAllAsTouched(); return; }
+  this.save({ resource: value.resource, role: value.role, status: 'active' });
+}
+```
+
+En `resource-list` el `name` no se pide: el backend lo usa como etiqueta y se deriva del verbo y la ruta.
+
+```typescript
+submit(): void {
+  if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+  const value = this.form.getRawValue();
+  const route = value.route.trim();
+  this.save({
+    name: `${value.method} ${route}`,
+    method: value.method,
+    route,
+    status: value.status,
+  });
+}
+```
+
+La ruta se valida con `Validators.pattern(/^api\//)` y el formulario explica el formato: sin barra inicial, con barra final y con el conversor de Django en el detalle (`api/customers/<int:pk>/`). Ese es el valor que compara `HasResourceAccess`; la clave que escribe la UI sigue siendo la de `:id` (`PATCH /api/customers/:id`).
+
+## 10.6. Las dos matrices y `optionValue`
+
+En las dos plantillas los selectores llevan `optionValue="id"` y la tabla muestra etiquetas, no ids:
+
+```html
+<p-select inputId="gr-role" formControlName="role" [options]="roles()"
+  optionLabel="name" optionValue="id" [filter]="true" [fluid]="true" />
+<p-select inputId="gr-resource" formControlName="resource" [options]="resourceOptions()"
+  optionLabel="label" optionValue="id" [filter]="true" [fluid]="true" />
+```
+
+`optionValue="id"` evita el error clásico: sin él, el `p-select` entrega el objeto y el `POST` viaja como `{"resource": {"id": 7, "route": "..."}, …}`. El cuerpo correcto es `{"resource": 7, "role": 2, "status": "active"}`.
+
+Los botones de fila son «Retirar» (`DELETE`) y «Reactivar» (`PATCH` con `status: "active"`); los pares `user + role` y `resource + role` son únicos, así que repetir un alta responde `409` y el camino es reactivar, no insertar otra fila.
+
+## 10.7. Rutas y menú
+
+Las cinco rutas viven dentro del Shell, después de las de negocio, cada una con su clave exacta:
+
+```typescript
+{
+  path: 'admin/usuarios', title: 'Usuarios · MovilCare',
+  canActivate: [permissionGuard], data: { permission: 'GET /api/users' },
+  loadComponent: () => import('./features/admin/users/user-list/user-list').then((m) => m.UserList),
+},
+{
+  path: 'admin/roles', title: 'Roles · MovilCare',
+  canActivate: [permissionGuard], data: { permission: 'GET /api/roles' },
+  loadComponent: () => import('./features/admin/roles/role-list/role-list').then((m) => m.RoleList),
+},
+// … recursos (GET /api/resources), asignaciones (GET /api/role-users)
+// y permisos (GET /api/resource-roles) con el mismo par.
+```
+
+`nav.config.ts` estrena el grupo `Seguridad` al final de `NAV`:
+
+```typescript
+{
+  label: 'Seguridad',
+  items: [
+    { label: 'Usuarios', icon: 'pi pi-user', routerLink: '/admin/usuarios', permission: 'GET /api/users' },
+    { label: 'Roles', icon: 'pi pi-id-card', routerLink: '/admin/roles', permission: 'GET /api/roles' },
+    { label: 'Recursos', icon: 'pi pi-server', routerLink: '/admin/recursos', permission: 'GET /api/resources' },
+    { label: 'Asignaciones', icon: 'pi pi-link', routerLink: '/admin/asignaciones', permission: 'GET /api/role-users' },
+    { label: 'Concesiones', icon: 'pi pi-key', routerLink: '/admin/permisos', permission: 'GET /api/resource-roles' },
+  ],
+},
+```
+
+`visibleNav` no cambia: el grupo aparece completo, filtrado o ausente según los permisos de la sesión. El `pageTitle` del Shell gana las cinco claves.
+
+## 10.8. Pruebas
+
+Cuatro archivos nuevos:
+
+**`users/user-api.spec.ts`** — la lectura no trae contraseña, el `PATCH` no la envía y el diálogo recibe el arreglo del sobre:
+
+```typescript
+it('should read users without a password field', () => {
+  let rows: User[] = [];
+  api.list().subscribe((response) => (rows = response));
+  http.expectOne('http://127.0.0.1:8000/api/users/').flush([USUARIO]);
+  expect(Object.keys(rows[0])).not.toContain('password');
+});
+
+it('should not send password when updating', () => {
+  api.update(1, { username: 'seller', email: 'seller@movilcare.test',
+    firstName: 'Sara', lastName: 'Vega', status: 'active' }).subscribe();
+  const patch = http.expectOne('http://127.0.0.1:8000/api/users/1/');
+  expect(patch.request.method).toBe('PATCH');
+  expect('password' in (patch.request.body as object)).toBe(false);
+  patch.flush(USUARIO);
+});
+
+it('should read the permissions envelope and return its array', () => {
+  let total = -1;
+  api.permissions(2).subscribe((rows) => (total = rows.length));
+  http.expectOne('http://127.0.0.1:8000/api/users/2/permissions/')
+    .flush({ permissions: [{ method: 'GET', path: 'api/customers/', roleId: 2, roleName: 'seller' }] });
+  expect(total).toBe(1);
+});
+```
+
+**`resource-roles/resource-role-api.spec.ts`** — la concesión envía los dos ids numéricos y la baja es un `DELETE`:
+
+```typescript
+it('should POST the grant with numeric role and resource', () => {
+  api.create({ role: 2, resource: 7, status: 'active' }).subscribe();
+  const alta = http.expectOne('http://127.0.0.1:8000/api/resource-roles/');
+  expect(alta.request.method).toBe('POST');
+  expect(alta.request.body).toEqual({ role: 2, resource: 7, status: 'active' });
+  alta.flush({ id: 99, role: 2, resource: 7, status: 'active' });
+});
+```
+
+**`users/user-list/user-list.spec.ts`** — el diálogo de permisos pinta una fila por permiso:
+
+```typescript
+it('should paint one row per permission in the dialog', async () => {
+  const fixture = TestBed.createComponent(UserList);
+  await fixture.whenStable();
+  fixture.componentInstance.openPermissions(USUARIO);
+  await fixture.whenStable();
+  const cells = (fixture.nativeElement as HTMLElement)
+    .querySelectorAll('[data-testid="permisos"] tbody tr');
+  expect(cells.length).toBe(2);
+  expect(cells[0].textContent).toContain('GET');
+  expect(cells[0].textContent).toContain('api/customers/');
+  expect(cells[0].textContent).toContain('seller');
+});
+```
+
+**`layout/shell/nav.config.spec.ts`** (PARCHE) — con Seguridad son 11 entradas y sin `GET /api/resource-roles` desaparece solo «Concesiones»:
+
+```typescript
+it('con todos los permisos muestra las once entradas', () => {
+  expect(visibleNav(() => true).flatMap((group) => group.items)).toHaveLength(11);
+});
+
+it('sin GET /api/resource-roles no queda ninguna entrada de Concesiones', () => {
+  const labels = visibleNav((permission) => permission !== 'GET /api/resource-roles')
+    .flatMap((group) => group.items).map((item) => item.label);
+  expect(labels).not.toContain('Concesiones');
+  expect(labels).toContain('Usuarios');
+  expect(labels).toHaveLength(10);
+});
+```
+
+Resultado medido: `npx ng test --watch=false` → **24 archivos, 42 pruebas, código 0** (7 nuevas). `npx ng build` → código **0**, inicial 576.10 kB (el aviso de 500 kB se corrige en el ISS-11 con el presupuesto de 750 kB).
+
+### Evidencia
+
+![El vendedor no entra a /admin/usuarios: /forbidden con el permiso exigido](image-174.png)
+
+![Usuarios: admin y seller con su estado y acciones](image-175.png)
+
+![«Ver permisos» de seller: una fila por concesión con método, ruta y rol](image-176.png)
+
+![Roles: nombre y descripción, sin forzar mayúsculas](image-177.png)
+
+![Recursos: verbo en p-tag y ruta de Django con su conversor](image-178.png)
+
+![Asignaciones: usuario y rol traducidos a etiquetas](image-179.png)
+
+![Concesiones: la fila que autoriza, con desplazamiento propio a 525 px](image-180.png)
+
+## Cómo probarlo
+
+1. Con `admin`, el menú muestra **Seguridad** con cinco entradas. `/admin/usuarios` lista `admin` y `seller`, ambos Activos.
+2. «Ver permisos» de `seller`: el diálogo trae una fila por concesión con `GET api/customers/`, `GET api/sales/<int:pk>/`, etc., todas con rol `seller`.
+3. `/admin/roles` muestra `admin` y `seller`; `/admin/recursos` lista los 55 recursos del seeder con su verbo; `/admin/asignaciones` tiene 2 filas; `/admin/permisos` tiene 63 (54 del admin y 9 del seller).
+4. Edita un usuario y guarda sin tocar la contraseña: en Network el `PATCH /api/users/{id}/` no lleva `password` y responde `200`.
+5. Con `curl`: `POST /api/users/` sin `password` responde `400`; `PATCH /api/users/2/` sin `password` responde `200`.
+6. Con la sesión de `seller`, `/admin/usuarios` por URL termina en `/forbidden?permission=GET%20%2Fapi%2Fusers`.
+7. `/admin/permisos` → «Conceder permiso» con rol `SELLER` y recurso `POST api/customers/`: el `POST /api/resource-roles/` lleva `{"resource": N, "role": 2, "status": "active"}`. Repetir el alta responde `409`; la salida es reactivar la fila existente.
+8. `npx ng test --watch=false` y `npx ng build`.
+
+## Criterios de aceptación
+
+| Código | Criterio | Resultado |
+|---|---|---|
+| AC-10-01 | Las cinco rutas `/admin/*` exigen sesión y su `data.permission` exacto; sin la concesión terminan en `/forbidden`. | PASS |
+| AC-10-02 | El menú incluye el grupo `Seguridad` con cinco entradas y se filtra como el resto. | PASS (11 entradas con todo; 10 sin concesiones) |
+| AC-10-03 | `users` lista, crea y edita; `password` solo viaja en el alta y el `PATCH` no lo incluye. | PASS (cambio en el serializer; `PATCH` 200 y `POST` sin contraseña 400) |
+| AC-10-04 | «Ver permisos» consulta `GET /api/users/{id}/permissions/` y pinta `(method, path, roleName)`. | PASS |
+| AC-10-05 | `roles` conserva el nombre escrito y `resources` ofrece cinco verbos y acepta `api/customers/<int:pk>/`. | PASS (adaptado: MovilCare guarda minúsculas) |
+| AC-10-06 | Las dos matrices conceden con `resource`/`role` numéricos y retiran con baja lógica. | PASS |
+| AC-10-07 | Ningún componente condiciona por nombre de rol; el permiso se pregunta por su clave. | PASS |
+| AC-10-08 | Las pruebas pasan, `ng test --watch=false` queda en verde y `ng build` da código 0. | PASS (24 archivos / 42 pruebas) |
+
+## Verificación del ISS
+
+Medido el **12-nov-2026** con el backend en `:8000`, MySQL migrado y `seed_rbac` aplicado:
+
+| Ruta | Qué se vio |
+| --- | --- |
+| `/admin/usuarios` | 2 registros; «Ver permisos» de seller con 9 filas |
+| `/admin/roles` | `admin` y `seller`, ambos Activos |
+| `/admin/recursos` | 55 recursos; GET/POST/PUT/PATCH/DELETE con `api/.../<int:pk>/` |
+| `/admin/asignaciones` | 2 filas (seller→seller, admin→admin) |
+| `/admin/permisos` | 63 filas (54 admin + 9 seller) |
+
+`seller` en `/admin/usuarios` → `/forbidden?permission=GET%20%2Fapi%2Fusers`. No se concedió ni retiró ninguna fila del seeder: la matriz quedó como estaba.
+
+```text
+Todos los criterios AC-10 aprobados → administración RBAC cerrada; avanzar al ISS-11.
+Algún criterio AC-10 pendiente o fallido → corregir y repetir la prueba.
+```

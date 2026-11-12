@@ -1,12 +1,15 @@
 from drf_spectacular.utils import extend_schema
+from rest_framework.decorators import action
 from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from apps.common.status import RecordStatus
 from apps.security.models import Resource, ResourceRole, Role, RoleUser, User
 from apps.security.permissions import HasResourceAccess
 from apps.security.serializers import (
+    PermissionsResponseSerializer,
     ProfileSerializer,
     ResourceRoleSerializer,
     ResourceSerializer,
@@ -56,6 +59,44 @@ class UserViewSet(SoftDeleteModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, HasResourceAccess]
+
+    @extend_schema(
+        responses={200: PermissionsResponseSerializer},
+        tags=["security"],
+    )
+    @action(detail=True, methods=["get"], url_path="permissions")
+    def permissions(self, request, pk=None):
+        """Matriz efectiva de otro usuario: la misma consulta de `/auth/permissions/`.
+
+        Sirve al diálogo «Ver permisos» de la administración RBAC. La ruta
+        (`users/<pk>/permissions/`) también pasa por HasResourceAccess.
+        """
+        target = self.get_object()
+        grants = (
+            ResourceRole.objects.filter(
+                status=RecordStatus.ACTIVE,
+                resource__status=RecordStatus.ACTIVE,
+                role__status=RecordStatus.ACTIVE,
+                role__assignments__user=target,
+                role__assignments__status=RecordStatus.ACTIVE,
+            )
+            .select_related("resource", "role")
+            .distinct()
+        )
+        return Response(
+            {
+                "permissions": [
+                    {
+                        "method": grant.resource.method,
+                        "path": grant.resource.route,
+                        "role_id": grant.role_id,
+                        "role_name": grant.role.name,
+                    }
+                    for grant in grants
+                ]
+            },
+            status=200,
+        )
 
 
 class RoleViewSet(SoftDeleteModelViewSet):

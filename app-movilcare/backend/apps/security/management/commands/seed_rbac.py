@@ -36,6 +36,8 @@ SAMPLES = [
     ("POST", "/api/sales/"),
     ("GET", "/api/sales/1/"),
     ("DELETE", "/api/sales/1/"),
+    # Administración: matriz efectiva de un usuario (acción del UserViewSet)
+    ("GET", "/api/users/1/permissions/"),
 ]
 
 MATRIX_ENTITIES = ("users", "roles", "role-users", "resources", "resource-roles")

@@ -82,6 +82,11 @@ export class Shell {
       '/unidades-serializadas': 'Unidades serializadas',
       '/ventas': 'Ventas',
       '/detalle-ventas': 'Líneas de venta',
+      '/admin/usuarios': 'Usuarios',
+      '/admin/roles': 'Roles',
+      '/admin/recursos': 'Recursos',
+      '/admin/asignaciones': 'Asignaciones',
+      '/admin/permisos': 'Concesiones',
       '/forbidden': 'Acceso denegado',
     };
 

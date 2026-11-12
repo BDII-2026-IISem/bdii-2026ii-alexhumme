@@ -9,6 +9,12 @@ export type HttpMethod =
   | 'PATCH'
   | 'DELETE';
 
+/** `optionLabel="label"` y `optionValue="value"` para el `p-select` de estado. */
+export const STATUS_OPTIONS: Array<{ label: string; value: Status }> = [
+  { label: 'Activo', value: 'active' },
+  { label: 'Inactivo', value: 'inactive' },
+];
+
 export interface Timestamps {
   createdAt?: string;
   updatedAt?: string;

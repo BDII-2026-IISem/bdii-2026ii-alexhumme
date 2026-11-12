@@ -1,0 +1,183 @@
+<div class="space-y-6">
+  <app-page-header
+    title="Roles"
+    subtitle="Agrupaciones de concesiones. El nombre no autoriza nada por sí solo."
+  >
+    <p-tag
+      [value]="rows().length + ' registros'"
+      severity="info"
+      [rounded]="true"
+    />
+
+    <button pButton type="button" (click)="openCreate()">
+      <i pButtonIcon class="pi pi-plus"></i>
+      <span pButtonLabel>Nuevo rol</span>
+    </button>
+  </app-page-header>
+
+  @if (error()) {
+    <p-message severity="error" styleClass="mb-4 w-full">
+      {{ error() }}
+    </p-message>
+  }
+
+  <p-table
+    tableStyleClass="min-w-3xl"
+    [value]="visibleRows()"
+    [loading]="loading()"
+    dataKey="id"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    [rowHover]="true"
+  >
+    <ng-template #caption>
+      <input
+        pInputText
+        type="search"
+        class="w-full"
+        aria-label="Buscar roles"
+        placeholder="Buscar por nombre o descripción..."
+        [value]="filter()"
+        (input)="filter.set($any($event.target).value)"
+      />
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th>Rol</th>
+        <th>Descripción</th>
+        <th>Estado</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.name }}</p>
+          <p class="text-xs text-slate-400">#{{ row.id }}</p>
+        </td>
+        <td class="text-sm text-slate-600">{{ row.description || '—' }}</td>
+        <td><app-status-tag [status]="row.status" /></td>
+        <td class="text-right whitespace-nowrap">
+          <button
+            pButton
+            type="button"
+            text
+            rounded
+            severity="secondary"
+            aria-label="Editar rol"
+            pTooltip="Editar"
+            (click)="openEdit(row)"
+          >
+            <i pButtonIcon class="pi pi-pencil"></i>
+          </button>
+
+          @if (row.status === 'inactive') {
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="success"
+              aria-label="Reactivar rol"
+              pTooltip="Reactivar"
+              (click)="reactivate(row)"
+            >
+              <i pButtonIcon class="pi pi-replay"></i>
+            </button>
+          } @else {
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              aria-label="Dar de baja al rol"
+              pTooltip="Dar de baja"
+              (click)="remove(row)"
+            >
+              <i pButtonIcon class="pi pi-trash"></i>
+            </button>
+          }
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="4">
+          <app-empty-state
+            icon="pi pi-id-card"
+            title="Sin roles"
+            message="Crea el primer rol con el botón «Nuevo rol»."
+          />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <p-dialog
+    [visible]="dialogVisible()"
+    (visibleChange)="dialogVisible.set($event)"
+    [header]="editing() ? 'Editar rol' : 'Nuevo rol'"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <form
+      [formGroup]="form"
+      (ngSubmit)="submit()"
+      class="grid gap-4 md:grid-cols-2"
+    >
+      <div class="flex flex-col gap-2">
+        <label for="ro-name">Nombre</label>
+        <input
+          id="ro-name"
+          pInputText
+          formControlName="name"
+          class="w-full"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="ro-status">Estado</label>
+        <p-select
+          inputId="ro-status"
+          formControlName="status"
+          [options]="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+          [fluid]="true"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2 md:col-span-2">
+        <label for="ro-description">Descripción</label>
+        <input
+          id="ro-description"
+          pInputText
+          formControlName="description"
+          class="w-full"
+        />
+      </div>
+
+      <div class="flex items-end justify-end gap-2 md:col-span-2">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          outlined
+          (click)="dialogVisible.set(false)"
+        >
+          <span pButtonLabel>Cancelar</span>
+        </button>
+        <button pButton type="submit" [loading]="saving()">
+          <span pButtonLabel>Guardar</span>
+        </button>
+      </div>
+    </form>
+  </p-dialog>
+</div>

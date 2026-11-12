@@ -27,7 +27,9 @@ class UserSerializer(serializers.ModelSerializer):
     pasan por set_password, así que en users.password queda el hash.
     """
 
-    password = serializers.CharField(write_only=True, required=True, style={"input_type": "password"})
+    # Opcional en el serializer para que el PATCH de edición no la reenvíe;
+    # validate() la exige solo en el alta.
+    password = serializers.CharField(write_only=True, required=False, style={"input_type": "password"})
 
     class Meta:
         model = User
@@ -51,6 +53,13 @@ class UserSerializer(serializers.ModelSerializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError(exc.messages)
         return value
+
+    def validate(self, attrs):
+        if self.instance is None and not attrs.get("password"):
+            raise serializers.ValidationError(
+                {"password": ["Este campo es obligatorio en el alta."]}
+            )
+        return attrs
 
     def create(self, validated_data):
         password = validated_data.pop("password", None)

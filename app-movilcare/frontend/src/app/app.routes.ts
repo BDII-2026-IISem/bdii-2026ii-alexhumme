@@ -96,6 +96,52 @@ export const routes: Routes = [
           import('./features/sale-details/sale-detail-list/sale-detail-list')
             .then((m) => m.SaleDetailList),
       },
+      // Administración de la matriz RBAC: cinco tablas, cinco permisos.
+      {
+        path: 'admin/usuarios',
+        title: 'Usuarios · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/users' },
+        loadComponent: () =>
+          import('./features/admin/users/user-list/user-list')
+            .then((m) => m.UserList),
+      },
+      {
+        path: 'admin/roles',
+        title: 'Roles · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/roles' },
+        loadComponent: () =>
+          import('./features/admin/roles/role-list/role-list')
+            .then((m) => m.RoleList),
+      },
+      {
+        path: 'admin/recursos',
+        title: 'Recursos · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/resources' },
+        loadComponent: () =>
+          import('./features/admin/resources/resource-list/resource-list')
+            .then((m) => m.ResourceList),
+      },
+      {
+        path: 'admin/asignaciones',
+        title: 'Asignaciones · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/role-users' },
+        loadComponent: () =>
+          import('./features/admin/role-users/role-user-list/role-user-list')
+            .then((m) => m.RoleUserList),
+      },
+      {
+        path: 'admin/permisos',
+        title: 'Concesiones · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/resource-roles' },
+        loadComponent: () =>
+          import('./features/admin/resource-roles/resource-role-list/resource-role-list')
+            .then((m) => m.ResourceRoleList),
+      },
       // Sesión y ningún permiso: /perfil no hereda un permissionGuard.
       {
         path: 'perfil',

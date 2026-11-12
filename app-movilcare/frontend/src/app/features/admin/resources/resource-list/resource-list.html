@@ -1,0 +1,201 @@
+<div class="space-y-6">
+  <app-page-header
+    title="Recursos"
+    subtitle="La operación que un rol puede ejecutar: método y ruta de Django."
+  >
+    <p-tag
+      [value]="rows().length + ' registros'"
+      severity="info"
+      [rounded]="true"
+    />
+
+    <button pButton type="button" (click)="openCreate()">
+      <i pButtonIcon class="pi pi-plus"></i>
+      <span pButtonLabel>Nuevo recurso</span>
+    </button>
+  </app-page-header>
+
+  @if (error()) {
+    <p-message severity="error" styleClass="mb-4 w-full">
+      {{ error() }}
+    </p-message>
+  }
+
+  <p-table
+    tableStyleClass="min-w-3xl"
+    [value]="visibleRows()"
+    [loading]="loading()"
+    dataKey="id"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    [rowHover]="true"
+  >
+    <ng-template #caption>
+      <input
+        pInputText
+        type="search"
+        class="w-full"
+        aria-label="Buscar recursos"
+        placeholder="Buscar por método, ruta o nombre..."
+        [value]="filter()"
+        (input)="filter.set($any($event.target).value)"
+      />
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th>Método</th>
+        <th>Ruta</th>
+        <th>Estado</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p-tag
+            [value]="row.method"
+            [severity]="methodSeverity(row.method)"
+            [rounded]="true"
+          />
+        </td>
+        <td>
+          <code class="text-xs text-slate-700">{{ row.route }}</code>
+          <p class="text-xs text-slate-400">#{{ row.id }}</p>
+        </td>
+        <td><app-status-tag [status]="row.status" /></td>
+        <td class="text-right whitespace-nowrap">
+          <button
+            pButton
+            type="button"
+            text
+            rounded
+            severity="secondary"
+            aria-label="Editar recurso"
+            pTooltip="Editar"
+            (click)="openEdit(row)"
+          >
+            <i pButtonIcon class="pi pi-pencil"></i>
+          </button>
+
+          @if (row.status === 'inactive') {
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="success"
+              aria-label="Reactivar recurso"
+              pTooltip="Reactivar"
+              (click)="reactivate(row)"
+            >
+              <i pButtonIcon class="pi pi-replay"></i>
+            </button>
+          } @else {
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              aria-label="Dar de baja al recurso"
+              pTooltip="Dar de baja"
+              (click)="remove(row)"
+            >
+              <i pButtonIcon class="pi pi-trash"></i>
+            </button>
+          }
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="4">
+          <app-empty-state
+            icon="pi pi-server"
+            title="Sin recursos"
+            message="Crea el primer recurso con el botón «Nuevo recurso»."
+          />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <p-dialog
+    [visible]="dialogVisible()"
+    (visibleChange)="dialogVisible.set($event)"
+    [header]="editing() ? 'Editar recurso' : 'Nuevo recurso'"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <form
+      [formGroup]="form"
+      (ngSubmit)="submit()"
+      class="grid gap-4 md:grid-cols-2"
+    >
+      <div class="flex flex-col gap-2">
+        <label for="re-method">Método</label>
+        <p-select
+          inputId="re-method"
+          formControlName="method"
+          [options]="methods"
+          [fluid]="true"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="re-status">Estado</label>
+        <p-select
+          inputId="re-status"
+          formControlName="status"
+          [options]="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+          [fluid]="true"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2 md:col-span-2">
+        <label for="re-route">Ruta de Django</label>
+        <input
+          id="re-route"
+          pInputText
+          formControlName="route"
+          class="w-full"
+          placeholder="api/customers/<int:pk>/"
+          autocomplete="off"
+        />
+        <p class="m-0 text-xs text-slate-500">
+          Sin barra inicial y con la barra final. Para el detalle se usa el
+          conversor de Django, por ejemplo
+          <code>api/customers/&lt;int:pk&gt;/</code>.
+        </p>
+      </div>
+
+      @if (form.controls.route.touched && form.controls.route.invalid) {
+        <p-message severity="error" styleClass="md:col-span-2">
+          La ruta debe empezar por <code>api/</code>.
+        </p-message>
+      }
+
+      <div class="flex items-end justify-end gap-2 md:col-span-2">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          outlined
+          (click)="dialogVisible.set(false)"
+        >
+          <span pButtonLabel>Cancelar</span>
+        </button>
+        <button pButton type="submit" [loading]="saving()">
+          <span pButtonLabel>Guardar</span>
+        </button>
+      </div>
+    </form>
+  </p-dialog>
+</div>

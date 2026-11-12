@@ -13,7 +13,7 @@ export interface NavGroupConfig {
   items: NavEntryConfig[];
 }
 
-/** Catálogo de Operación de MovilCare. Seguridad se agrega en el ISS-10. */
+/** Catálogo de MovilCare: Operación (negocio) y Seguridad (matriz RBAC). */
 export const NAV: NavGroupConfig[] = [
   {
     label: 'Operación',
@@ -53,6 +53,41 @@ export const NAV: NavGroupConfig[] = [
         icon: 'pi pi-list',
         routerLink: '/detalle-ventas',
         permission: 'GET /api/sales',
+      },
+    ],
+  },
+  {
+    label: 'Seguridad',
+    items: [
+      {
+        label: 'Usuarios',
+        icon: 'pi pi-user',
+        routerLink: '/admin/usuarios',
+        permission: 'GET /api/users',
+      },
+      {
+        label: 'Roles',
+        icon: 'pi pi-id-card',
+        routerLink: '/admin/roles',
+        permission: 'GET /api/roles',
+      },
+      {
+        label: 'Recursos',
+        icon: 'pi pi-server',
+        routerLink: '/admin/recursos',
+        permission: 'GET /api/resources',
+      },
+      {
+        label: 'Asignaciones',
+        icon: 'pi pi-link',
+        routerLink: '/admin/asignaciones',
+        permission: 'GET /api/role-users',
+      },
+      {
+        label: 'Concesiones',
+        icon: 'pi pi-key',
+        routerLink: '/admin/permisos',
+        permission: 'GET /api/resource-roles',
       },
     ],
   },

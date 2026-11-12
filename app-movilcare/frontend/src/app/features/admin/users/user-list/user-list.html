@@ -1,0 +1,291 @@
+<div class="space-y-6">
+  <app-page-header
+    title="Usuarios"
+    subtitle="Quién entra y qué filas de la matriz lo sostienen."
+  >
+    <p-tag
+      [value]="rows().length + ' registros'"
+      severity="info"
+      [rounded]="true"
+    />
+
+    <button pButton type="button" (click)="openCreate()">
+      <i pButtonIcon class="pi pi-plus"></i>
+      <span pButtonLabel>Nuevo usuario</span>
+    </button>
+  </app-page-header>
+
+  @if (error()) {
+    <p-message severity="error" styleClass="mb-4 w-full">
+      {{ error() }}
+    </p-message>
+  }
+
+  <p-table
+    tableStyleClass="min-w-3xl"
+    [value]="visibleRows()"
+    [loading]="loading()"
+    dataKey="id"
+    [paginator]="visibleRows().length > 10"
+    [rows]="10"
+    [rowHover]="true"
+  >
+    <ng-template #caption>
+      <input
+        pInputText
+        type="search"
+        class="w-full"
+        aria-label="Buscar usuarios"
+        placeholder="Buscar por usuario, correo o nombre..."
+        [value]="filter()"
+        (input)="filter.set($any($event.target).value)"
+      />
+    </ng-template>
+
+    <ng-template #header>
+      <tr>
+        <th>Usuario</th>
+        <th>Nombre</th>
+        <th>Estado</th>
+        <th class="text-right">Acciones</th>
+      </tr>
+    </ng-template>
+
+    <ng-template #body let-row>
+      <tr>
+        <td>
+          <p class="font-medium text-slate-800">{{ row.username }}</p>
+          <p class="text-xs text-slate-400">#{{ row.id }} · {{ row.email }}</p>
+        </td>
+        <td class="text-sm text-slate-600">
+          {{ row.firstName || '' }} {{ row.lastName || '' }}
+          @if (!row.firstName && !row.lastName) {
+            <span class="text-slate-400">—</span>
+          }
+        </td>
+        <td><app-status-tag [status]="row.status" /></td>
+        <td class="text-right whitespace-nowrap">
+          <button
+            pButton
+            type="button"
+            text
+            rounded
+            severity="secondary"
+            aria-label="Ver permisos"
+            pTooltip="Ver permisos"
+            (click)="openPermissions(row)"
+          >
+            <i pButtonIcon class="pi pi-key"></i>
+          </button>
+
+          <button
+            pButton
+            type="button"
+            text
+            rounded
+            severity="secondary"
+            aria-label="Editar usuario"
+            pTooltip="Editar"
+            (click)="openEdit(row)"
+          >
+            <i pButtonIcon class="pi pi-pencil"></i>
+          </button>
+
+          @if (row.status === 'inactive') {
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="success"
+              aria-label="Reactivar usuario"
+              pTooltip="Reactivar"
+              (click)="reactivate(row)"
+            >
+              <i pButtonIcon class="pi pi-replay"></i>
+            </button>
+          } @else {
+            <button
+              pButton
+              type="button"
+              text
+              rounded
+              severity="danger"
+              aria-label="Dar de baja al usuario"
+              pTooltip="Dar de baja"
+              (click)="remove(row)"
+            >
+              <i pButtonIcon class="pi pi-trash"></i>
+            </button>
+          }
+        </td>
+      </tr>
+    </ng-template>
+
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="4">
+          <app-empty-state
+            icon="pi pi-user"
+            title="Sin usuarios"
+            message="Crea el primer usuario con el botón «Nuevo usuario»."
+          />
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <p-dialog
+    [visible]="dialogVisible()"
+    (visibleChange)="dialogVisible.set($event)"
+    [header]="editing() ? 'Editar usuario' : 'Nuevo usuario'"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <form
+      [formGroup]="form"
+      (ngSubmit)="submit()"
+      class="grid gap-4 md:grid-cols-2"
+    >
+      <div class="flex flex-col gap-2">
+        <label for="u-name">Usuario</label>
+        <input
+          id="u-name"
+          pInputText
+          formControlName="username"
+          class="w-full"
+          autocomplete="off"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="u-mail">Email</label>
+        <input
+          id="u-mail"
+          type="email"
+          pInputText
+          formControlName="email"
+          class="w-full"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="u-first">Nombre</label>
+        <input
+          id="u-first"
+          pInputText
+          formControlName="firstName"
+          class="w-full"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="u-last">Apellido</label>
+        <input
+          id="u-last"
+          pInputText
+          formControlName="lastName"
+          class="w-full"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="u-pass">
+          Contraseña {{ editing() ? '(sin cambios)' : '' }}
+        </label>
+        <p-password
+          inputId="u-pass"
+          formControlName="password"
+          [feedback]="false"
+          [fluid]="true"
+          autocomplete="new-password"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="u-status">Estado</label>
+        <p-select
+          inputId="u-status"
+          formControlName="status"
+          [options]="statusOptions"
+          optionLabel="label"
+          optionValue="value"
+          [fluid]="true"
+        />
+      </div>
+
+      @if (form.controls.password.touched && form.controls.password.invalid) {
+        <p-message severity="error" styleClass="md:col-span-2">
+          La contraseña es obligatoria y debe tener al menos 8 caracteres.
+        </p-message>
+      }
+
+      <div class="flex items-end justify-end gap-2 md:col-span-2">
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          outlined
+          (click)="dialogVisible.set(false)"
+        >
+          <span pButtonLabel>Cancelar</span>
+        </button>
+        <button pButton type="submit" [loading]="saving()">
+          <span pButtonLabel>Guardar</span>
+        </button>
+      </div>
+    </form>
+  </p-dialog>
+
+  <p-dialog
+    [visible]="!!permissionsUser()"
+    (visibleChange)="permissionsUser.set(null)"
+    [header]="'Permisos de ' + (permissionsUser()?.username ?? '')"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <p-table
+      data-testid="permisos"
+      [value]="permissions()"
+      [loading]="permissionsLoading()"
+    >
+      <ng-template #header>
+        <tr>
+          <th>Método</th>
+          <th>Ruta</th>
+          <th>Rol</th>
+        </tr>
+      </ng-template>
+
+      <ng-template #body let-row>
+        <tr>
+          <td>
+            <p-tag
+              [value]="row.method"
+              [severity]="methodSeverity(row.method)"
+              [rounded]="true"
+            />
+          </td>
+          <td><code class="text-xs">{{ row.path }}</code></td>
+          <td class="text-sm text-slate-600">{{ row.roleName }}</td>
+        </tr>
+      </ng-template>
+
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="3">
+            <app-empty-state
+              icon="pi pi-key"
+              title="Sin permisos"
+              message="Toda llamada le responderá 403."
+            />
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </p-dialog>
+</div>
