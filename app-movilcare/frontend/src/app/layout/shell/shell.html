@@ -19,11 +19,16 @@
       [class.-translate-x-full]="!menuOpen()"
       [class.translate-x-0]="menuOpen()"
     >
-    <app-aside
-    [appName]="'MovilCare'"
-    [items]="menuItems"
-    (navigated)="closeMenu()"
-    />
+      <app-aside
+        [appName]="'MovilCare'"
+        [items]="menuItems"
+        [showSession]="session.isAuthenticated()"
+        [username]="session.user()?.username ?? ''"
+        [roleLabel]="roleLabel()"
+        [permissionCount]="session.permissionCount()"
+        (navigated)="closeMenu()"
+        (logoutRequested)="logout()"
+      />
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col">

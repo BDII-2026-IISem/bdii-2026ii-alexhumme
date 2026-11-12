@@ -10,6 +10,9 @@ import {
   RouterOutlet,
 } from '@angular/router';
 import { filter } from 'rxjs';
+import { AuthService } from '../../core/services/auth';
+import { Notification } from '../../core/services/notification';
+import { SessionStore } from '../../core/services/session-store';
 
 import { Footer } from '../footer/footer';
 import { Header } from '../header/header';
@@ -32,6 +35,9 @@ import { ToastModule } from 'primeng/toast';
 })
 export class Shell {
   private readonly router = inject(Router);
+  readonly session = inject(SessionStore);
+  private readonly auth = inject(AuthService);
+  private readonly notify = inject(Notification);
 
   readonly menuOpen = signal(false);
 
@@ -82,6 +88,7 @@ export class Shell {
 
     const titles: Record<string, string> = {
       '/dashboard': 'Panel',
+      '/perfil': 'Mi sesion',
       '/clientes': 'Clientes',
       '/productos': 'Productos',
       '/unidades-serializadas': 'Unidades serializadas',
@@ -96,6 +103,10 @@ export class Shell {
 
     return titles[url] ?? 'MovilCare';
   });
+
+  readonly roleLabel = computed(() =>
+    this.session.roles().join(', ') || 'Sin rol',
+  );
 
   constructor() {
     this.router.events
@@ -113,4 +124,14 @@ export class Shell {
   closeMenu(): void {
     this.menuOpen.set(false);
   }
+
+  logout(): void {
+    this.auth.logout().subscribe({
+      next: () => {
+        this.notify.info('Sesión cerrada');
+        void this.router.navigate(['/login']);
+      },
+    });
+  }
+
 }

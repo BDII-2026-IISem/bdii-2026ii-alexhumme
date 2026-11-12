@@ -124,3 +124,13 @@ class TokenPairSerializer(serializers.Serializer):
     refresh = serializers.CharField()
     token_type = serializers.CharField()
     access_expires_in = serializers.IntegerField()
+
+class EffectivePermissionSerializer(serializers.Serializer):
+    method = serializers.CharField()
+    path = serializers.CharField()
+    role_id = serializers.IntegerField()
+    role_name = serializers.CharField()
+
+
+class PermissionsResponseSerializer(serializers.Serializer):
+    permissions = EffectivePermissionSerializer(many=True)

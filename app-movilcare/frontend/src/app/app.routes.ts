@@ -17,10 +17,25 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./layout/shell/shell').then((m) => m.Shell),
     children: [
+      // antes de la ruta '' que monta Shell (junto a 'construir')
       {
         path: '',
         pathMatch: 'full',
-        redirectTo: 'clientes',
+        redirectTo: 'login',
+      },
+      {
+        path: 'login',
+        title: 'Iniciar sesión · MovilCare',
+        loadComponent: () =>
+          import('./features/auth/login/login').then((m) => m.Login),
+      },
+
+      // dentro de `children`, después de 'dashboard'
+      {
+        path: 'perfil',
+        title: 'Mi sesión · MovilCare',
+        loadComponent: () =>
+          import('./features/auth/profile/profile').then((m) => m.Profile),
       },
       {
         path: 'clientes',
@@ -42,6 +57,13 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/serialized-units/serialized-unit-list/serialized-unit-list')
             .then((module) => module.SerializedUnitList),
+      },
+      {
+        path: 'ventas',
+        title: 'Ventas · MovilCare',
+        loadComponent: () =>
+          import('./features/sales/sale-list/sale-list')
+            .then((m) => m.SaleList),
       },
       {
         path: 'ventas/:id',
@@ -66,5 +88,5 @@ export const routes: Routes = [
       },
     ],
   },
-  { path: '**', redirectTo: 'dashboard' },
+  { path: '**', redirectTo: 'login' },
 ];

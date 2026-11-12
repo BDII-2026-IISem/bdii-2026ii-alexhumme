@@ -6,16 +6,17 @@ from django.db import models, transaction
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.common.status import RecordStatus
-from apps.security.models import RefreshToken
+from apps.security.models import RefreshToken, ResourceRole
 from apps.security.serializers import (
     LoginSerializer,
     LogoutSerializer,
+    PermissionsResponseSerializer,
     RefreshSerializer,
     TokenPairSerializer,
 )
@@ -180,3 +181,44 @@ class LoginAPIView(APIView):
             return invalid
         _stored, raw_refresh = issue_refresh(user)
         return Response(token_payload(user, raw_refresh), status=status.HTTP_200_OK)
+
+class PermissionsAPIView(APIView):
+    """Matriz efectiva del usuario autenticado.
+
+    Repite los criterios de HasResourceAccess (concesión activa, recurso
+    activo, rol activo y asignación activa) para que el frontend muestre
+    exactamente lo que el backend va a autorizar.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={200: PermissionsResponseSerializer},
+        tags=["auth"],
+    )
+    def get(self, request):
+        grants = (
+            ResourceRole.objects.filter(
+                status=RecordStatus.ACTIVE,
+                resource__status=RecordStatus.ACTIVE,
+                role__status=RecordStatus.ACTIVE,
+                role__assignments__user=request.user,
+                role__assignments__status=RecordStatus.ACTIVE,
+            )
+            .select_related("resource", "role")
+            .distinct()
+        )
+        return Response(
+            {
+                "permissions": [
+                    {
+                        "method": grant.resource.method,
+                        "path": grant.resource.route,
+                        "role_id": grant.role_id,
+                        "role_name": grant.role.name,
+                    }
+                    for grant in grants
+                ]
+            },
+            status=status.HTTP_200_OK,
+        )

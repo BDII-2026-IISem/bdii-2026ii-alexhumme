@@ -1,0 +1,55 @@
+<app-page-header title="Mi sesión" [subtitle]="session.user()?.username ?? ''">
+    <button pButton severity="secondary" outlined [loading]="refreshing()" (click)="refresh()">
+        <i pButtonIcon class="pi pi-refresh"></i>
+        <span pButtonLabel>Refrescar desde el backend</span>
+    </button>
+
+    <button pButton severity="danger" outlined (click)="logout()">
+        <i pButtonIcon class="pi pi-sign-out"></i>
+        <span pButtonLabel>Salir</span>
+    </button>
+</app-page-header>
+
+<div class="mt-6 grid gap-4 md:grid-cols-2">
+    <p-card header="Usuario">
+        <dl class="flex flex-col gap-3 text-sm">
+            <div class="flex items-center justify-between gap-4">
+                <dt class="text-slate-500">Usuario</dt>
+                <dd class="font-medium">{{ session.user()?.username }}</dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+                <dt class="text-slate-500">Correo</dt>
+                <dd class="font-medium">{{ session.user()?.email }}</dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+                <dt class="text-slate-500">Nombre</dt>
+                <dd class="font-medium">
+                    {{ session.user()?.firstName }}
+                    {{ session.user()?.lastName }}
+                </dd>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+                <dt class="text-slate-500">Estado</dt>
+                <dd>
+                    @if (session.user(); as user) {
+                    <app-status-tag [status]="user.status" />
+                    }
+                </dd>
+            </div>
+        </dl>
+    </p-card>
+
+    <p-card header="Roles y permisos">
+        <p class="m-0 text-sm text-slate-500">
+            {{ session.permissionCount() }} permisos efectivos
+        </p>
+
+        <div class="mt-3 flex flex-wrap gap-2">
+            @for (role of session.roles(); track role) {
+            <p-tag [value]="role" severity="info" [rounded]="true" />
+            } @empty {
+            <p-tag value="Sin rol" severity="secondary" [rounded]="true" />
+            }
+        </div>
+    </p-card>
+</div>
