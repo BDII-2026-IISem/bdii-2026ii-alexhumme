@@ -46,6 +46,7 @@
       <tr>
         <th>Usuario</th>
         <th>Nombre</th>
+        <th>Roles</th>
         <th>Estado</th>
         <th class="text-right">Acciones</th>
       </tr>
@@ -62,6 +63,15 @@
           @if (!row.firstName && !row.lastName) {
             <span class="text-slate-400">—</span>
           }
+        </td>
+        <td>
+          <div class="flex flex-wrap gap-1">
+            @for (name of roleNames(row.id); track name) {
+              <p-tag [value]="name" severity="info" [rounded]="true" />
+            } @empty {
+              <span class="text-slate-400">—</span>
+            }
+          </div>
         </td>
         <td><app-status-tag [status]="row.status" /></td>
         <td class="text-right whitespace-nowrap">
@@ -124,7 +134,7 @@
 
     <ng-template #emptymessage>
       <tr>
-        <td colspan="4">
+        <td colspan="5">
           <app-empty-state
             icon="pi pi-user"
             title="Sin usuarios"
@@ -216,9 +226,35 @@
         />
       </div>
 
+      <div class="flex flex-col gap-2 md:col-span-2">
+        <label for="u-roles">Roles</label>
+        <p-multiselect
+          inputId="u-roles"
+          formControlName="roles"
+          [options]="roles()"
+          optionLabel="name"
+          optionValue="id"
+          [filter]="true"
+          [showClear]="true"
+          placeholder="Selecciona uno o varios roles"
+          [fluid]="true"
+          styleClass="w-full"
+        />
+        <span class="text-xs text-slate-400">
+          Un usuario puede tener varios roles; al guardar se dan de alta o de
+          baja las filas de <code>role_users</code>.
+        </span>
+      </div>
+
       @if (form.controls.password.touched && form.controls.password.invalid) {
         <p-message severity="error" styleClass="md:col-span-2">
           La contraseña es obligatoria y debe tener al menos 8 caracteres.
+        </p-message>
+      }
+
+      @if (form.controls.roles.touched && form.controls.roles.invalid) {
+        <p-message severity="error" styleClass="md:col-span-2">
+          Selecciona al menos un rol: sin roles el usuario no puede operar.
         </p-message>
       }
 

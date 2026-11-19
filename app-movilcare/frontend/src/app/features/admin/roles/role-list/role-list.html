@@ -1,18 +1,13 @@
 <div class="space-y-6">
   <app-page-header
     title="Roles"
-    subtitle="Agrupaciones de concesiones. El nombre no autoriza nada por sí solo."
+    subtitle="Selecciona un rol para ver y editar sus usuarios y permisos."
   >
     <p-tag
-      [value]="rows().length + ' registros'"
+      [value]="roles().length + ' registros'"
       severity="info"
       [rounded]="true"
     />
-
-    <button pButton type="button" (click)="openCreate()">
-      <i pButtonIcon class="pi pi-plus"></i>
-      <span pButtonLabel>Nuevo rol</span>
-    </button>
   </app-page-header>
 
   @if (error()) {
@@ -21,163 +16,446 @@
     </p-message>
   }
 
-  <p-table
-    tableStyleClass="min-w-3xl"
-    [value]="visibleRows()"
-    [loading]="loading()"
-    dataKey="id"
-    [paginator]="visibleRows().length > 10"
-    [rows]="10"
-    [rowHover]="true"
-  >
-    <ng-template #caption>
-      <input
-        pInputText
-        type="search"
-        class="w-full"
-        aria-label="Buscar roles"
-        placeholder="Buscar por nombre o descripción..."
-        [value]="filter()"
-        (input)="filter.set($any($event.target).value)"
-      />
-    </ng-template>
-
-    <ng-template #header>
-      <tr>
-        <th>Rol</th>
-        <th>Descripción</th>
-        <th>Estado</th>
-        <th class="text-right">Acciones</th>
-      </tr>
-    </ng-template>
-
-    <ng-template #body let-row>
-      <tr>
-        <td>
-          <p class="font-medium text-slate-800">{{ row.name }}</p>
-          <p class="text-xs text-slate-400">#{{ row.id }}</p>
-        </td>
-        <td class="text-sm text-slate-600">{{ row.description || '—' }}</td>
-        <td><app-status-tag [status]="row.status" /></td>
-        <td class="text-right whitespace-nowrap">
-          <button
-            pButton
-            type="button"
-            text
-            rounded
-            severity="secondary"
-            aria-label="Editar rol"
-            pTooltip="Editar"
-            (click)="openEdit(row)"
-          >
-            <i pButtonIcon class="pi pi-pencil"></i>
-          </button>
-
-          @if (row.status === 'inactive') {
-            <button
-              pButton
-              type="button"
-              text
-              rounded
-              severity="success"
-              aria-label="Reactivar rol"
-              pTooltip="Reactivar"
-              (click)="reactivate(row)"
-            >
-              <i pButtonIcon class="pi pi-replay"></i>
-            </button>
-          } @else {
-            <button
-              pButton
-              type="button"
-              text
-              rounded
-              severity="danger"
-              aria-label="Dar de baja al rol"
-              pTooltip="Dar de baja"
-              (click)="remove(row)"
-            >
-              <i pButtonIcon class="pi pi-trash"></i>
-            </button>
-          }
-        </td>
-      </tr>
-    </ng-template>
-
-    <ng-template #emptymessage>
-      <tr>
-        <td colspan="4">
-          <app-empty-state
-            icon="pi pi-id-card"
-            title="Sin roles"
-            message="Crea el primer rol con el botón «Nuevo rol»."
-          />
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
-
-  <p-dialog
-    [visible]="dialogVisible()"
-    (visibleChange)="dialogVisible.set($event)"
-    [header]="editing() ? 'Editar rol' : 'Nuevo rol'"
-    [modal]="true"
-    [draggable]="false"
-    [resizable]="false"
-    styleClass="w-full max-w-2xl mx-4"
-  >
-    <form
-      [formGroup]="form"
-      (ngSubmit)="submit()"
-      class="grid gap-4 md:grid-cols-2"
+  <div class="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
+    <!-- Columna izquierda: listado de roles -->
+    <section
+      aria-label="Listado de roles"
+      class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
     >
-      <div class="flex flex-col gap-2">
-        <label for="ro-name">Nombre</label>
+      <div class="relative">
+        <i
+          class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          aria-hidden="true"
+        ></i>
         <input
-          id="ro-name"
           pInputText
-          formControlName="name"
-          class="w-full"
-          autocomplete="off"
+          type="search"
+          class="w-full pl-9"
+          aria-label="Buscar roles"
+          placeholder="Buscar por nombre o descripción..."
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
         />
       </div>
 
-      <div class="flex flex-col gap-2">
-        <label for="ro-status">Estado</label>
-        <p-select
-          inputId="ro-status"
-          formControlName="status"
-          [options]="statusOptions"
-          optionLabel="label"
-          optionValue="value"
-          [fluid]="true"
-        />
-      </div>
+      <p-select
+        [options]="statusFilterOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="statusFilter.set($any($event))"
+        [ngModelOptions]="{ standalone: true }"
+        [fluid]="true"
+        styleClass="w-full"
+        aria-label="Filtrar por estado"
+      />
 
-      <div class="flex flex-col gap-2 md:col-span-2">
-        <label for="ro-description">Descripción</label>
-        <input
-          id="ro-description"
-          pInputText
-          formControlName="description"
-          class="w-full"
-        />
-      </div>
+      <button
+        pButton
+        type="button"
+        class="w-full"
+        aria-label="Crear nuevo rol"
+        (click)="openCreate()"
+      >
+        <i pButtonIcon class="pi pi-plus"></i>
+        <span pButtonLabel>Nuevo rol</span>
+      </button>
 
-      <div class="flex items-end justify-end gap-2 md:col-span-2">
-        <button
-          pButton
-          type="button"
-          severity="secondary"
-          outlined
-          (click)="dialogVisible.set(false)"
+      @if (loading()) {
+        <p class="text-sm text-slate-500">Cargando roles...</p>
+      } @else {
+        <ul class="flex max-h-[34rem] flex-col gap-2 overflow-y-auto pr-1">
+          @for (role of visibleRoles(); track role.id) {
+            <li>
+              <button
+                type="button"
+                class="w-full rounded-lg border p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
+                [class.border-emerald-500]="isSelected(role)"
+                [class.bg-emerald-50]="isSelected(role)"
+                [class.ring-2]="isSelected(role)"
+                [class.ring-emerald-200]="isSelected(role)"
+                [attr.aria-current]="isSelected(role) ? 'true' : null"
+                (click)="select(role)"
+              >
+                <span class="flex items-center justify-between gap-2">
+                  <span class="truncate font-medium text-slate-800">
+                    {{ role.name }}
+                  </span>
+                  <app-status-tag [status]="role.status" />
+                </span>
+                <span class="mt-1 block truncate text-xs text-slate-400">
+                  {{ role.description || 'Sin descripción' }}
+                </span>
+              </button>
+            </li>
+          } @empty {
+            <li>
+              <app-empty-state
+                icon="pi pi-id-card"
+                title="Sin roles"
+                message="Crea el primer rol con «Nuevo rol»."
+              />
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- Columna derecha: detalle del rol seleccionado -->
+    <section
+      aria-label="Detalle del rol"
+      class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      @if (hasDetail()) {
+        @if (loadingDetail()) {
+          <p class="mb-3 text-sm text-slate-400">Cargando detalle del rol...</p>
+        }
+
+        <form
+          [formGroup]="form"
+          (ngSubmit)="save()"
+          class="flex flex-col gap-6"
         >
-          <span pButtonLabel>Cancelar</span>
-        </button>
-        <button pButton type="submit" [loading]="saving()">
-          <span pButtonLabel>Guardar</span>
-        </button>
-      </div>
-    </form>
-  </p-dialog>
+          <header
+            class="flex flex-col gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-center md:justify-between"
+          >
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <h2 class="text-lg font-semibold text-slate-900">
+                  {{ detailTitle() }}
+                </h2>
+                @if (!creating()) {
+                  <app-status-tag [status]="detailStatus()" />
+                }
+              </div>
+              <p class="text-sm text-slate-500">
+                Datos del rol en la cabecera; usuarios y permisos en las
+                pestañas.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              @if (creating()) {
+                <button
+                  pButton
+                  type="button"
+                  severity="secondary"
+                  outlined
+                  aria-label="Cancelar"
+                  (click)="cancelCreate()"
+                >
+                  <i pButtonIcon class="pi pi-times"></i>
+                  <span pButtonLabel>Cancelar</span>
+                </button>
+              }
+              @if (!creating()) {
+                <button
+                  pButton
+                  type="button"
+                  severity="danger"
+                  outlined
+                  aria-label="Eliminar rol"
+                  (click)="removeSelected()"
+                >
+                  <i pButtonIcon class="pi pi-trash"></i>
+                  <span pButtonLabel>Eliminar rol</span>
+                </button>
+              }
+              <button
+                pButton
+                type="submit"
+                [loading]="saving()"
+                [disabled]="loadingDetail()"
+                [attr.aria-label]="creating() ? 'Crear rol' : 'Guardar cambios'"
+              >
+                <i pButtonIcon class="pi pi-save"></i>
+                <span pButtonLabel>
+                  {{ creating() ? 'Crear rol' : 'Guardar cambios' }}
+                </span>
+              </button>
+            </div>
+          </header>
+
+          <div class="flex flex-col gap-3">
+            <h3
+              class="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500"
+            >
+              <i class="pi pi-pencil" aria-hidden="true"></i>
+              Datos del rol
+            </h3>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <div class="flex flex-col gap-2">
+                <label for="ro-name">Nombre</label>
+                <input
+                  id="ro-name"
+                  pInputText
+                  formControlName="name"
+                  class="w-full"
+                  autocomplete="off"
+                />
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <label for="ro-status">Estado</label>
+                <p-select
+                  inputId="ro-status"
+                  formControlName="status"
+                  [options]="statusOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  [fluid]="true"
+                />
+              </div>
+
+              <div class="flex flex-col gap-2 md:col-span-2">
+                <label for="ro-description">Descripción</label>
+                <input
+                  id="ro-description"
+                  pInputText
+                  formControlName="description"
+                  class="w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          @if (!creating()) {
+            <!-- Usuarios y permisos del rol en pestañas -->
+            <p-tabs
+              [value]="detailTab()"
+              (valueChange)="detailTab.set($any($event))"
+            >
+              <p-tablist aria-label="Secciones del rol">
+                <p-tab value="usuarios">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-users" aria-hidden="true"></i>
+                    Usuarios con el rol
+                    <p-tag
+                      [value]="memberIds().length + ''"
+                      severity="info"
+                      [rounded]="true"
+                    />
+                  </span>
+                </p-tab>
+                <p-tab value="permisos">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-key" aria-hidden="true"></i>
+                    Permisos y recursos
+                    <p-tag
+                      [value]="grantIds().length + ''"
+                      severity="success"
+                      [rounded]="true"
+                    />
+                  </span>
+                </p-tab>
+              </p-tablist>
+
+              <p-tabpanels>
+                <p-tabpanel value="usuarios">
+                  <section
+                    aria-label="Usuarios con el rol"
+                    class="flex flex-col gap-3"
+                  >
+                    <div class="flex flex-wrap items-end gap-2">
+                      <label class="flex min-w-52 flex-1 flex-col gap-1 text-sm">
+                        <span class="text-slate-500">Usuario</span>
+                        <p-select
+                          [options]="userOptions()"
+                          optionLabel="label"
+                          optionValue="value"
+                          [filter]="true"
+                          placeholder="Selecciona un usuario"
+                          [fluid]="true"
+                          [ngModel]="newMember()"
+                          (ngModelChange)="newMember.set($any($event))"
+                          [ngModelOptions]="{ standalone: true }"
+                          styleClass="w-full"
+                        />
+                      </label>
+                      <button
+                        pButton
+                        type="button"
+                        severity="secondary"
+                        [disabled]="!newMember()"
+                        (click)="addMember()"
+                      >
+                        <i pButtonIcon class="pi pi-plus"></i>
+                        <span pButtonLabel>Asignar</span>
+                      </button>
+                    </div>
+
+                    <p-table
+                      data-testid="usuarios-rol"
+                      [value]="memberView()"
+                      dataKey="id"
+                      [rowHover]="true"
+                      [paginator]="true"
+                      [rows]="5"
+                      [first]="memberFirst()"
+                      (firstChange)="memberFirst.set($any($event))"
+                    >
+                      <ng-template #header>
+                        <tr>
+                          <th>Usuario</th>
+                          <th>Correo</th>
+                          <th class="text-right">Acciones</th>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #body let-user>
+                        <tr>
+                          <td>
+                            <p class="font-medium text-slate-800">
+                              {{ user.username }}
+                            </p>
+                            <p class="text-xs text-slate-400">
+                              {{ user.firstName || '' }} {{ user.lastName || '' }}
+                            </p>
+                          </td>
+                          <td class="text-sm text-slate-600">
+                            {{ user.email }}
+                          </td>
+                          <td class="text-right">
+                            <button
+                              pButton
+                              type="button"
+                              text
+                              rounded
+                              severity="danger"
+                              aria-label="Retirar del rol"
+                              pTooltip="Retirar del rol"
+                              (click)="removeMember(user.id)"
+                            >
+                              <i pButtonIcon class="pi pi-user-minus"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #emptymessage>
+                        <tr>
+                          <td colspan="3">
+                            <app-empty-state
+                              icon="pi pi-users"
+                              title="Sin usuarios"
+                              message="Asigna un usuario con el selector superior."
+                            />
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </section>
+                </p-tabpanel>
+
+                <p-tabpanel value="permisos">
+                  <section
+                    aria-label="Permisos del rol"
+                    class="flex flex-col gap-3"
+                  >
+                    <div class="flex flex-wrap items-end gap-2">
+                      <label class="flex min-w-52 flex-1 flex-col gap-1 text-sm">
+                        <span class="text-slate-500">Recurso</span>
+                        <p-select
+                          [options]="resourceOptions()"
+                          optionLabel="label"
+                          optionValue="value"
+                          [filter]="true"
+                          placeholder="Selecciona un recurso"
+                          [fluid]="true"
+                          [ngModel]="newResource()"
+                          (ngModelChange)="newResource.set($any($event))"
+                          [ngModelOptions]="{ standalone: true }"
+                          styleClass="w-full"
+                        />
+                      </label>
+                      <button
+                        pButton
+                        type="button"
+                        severity="secondary"
+                        [disabled]="!newResource()"
+                        (click)="addGrant()"
+                      >
+                        <i pButtonIcon class="pi pi-plus"></i>
+                        <span pButtonLabel>Conceder</span>
+                      </button>
+                    </div>
+
+                    <p-table
+                      data-testid="permisos-rol"
+                      [value]="grantView()"
+                      dataKey="id"
+                      [rowHover]="true"
+                      [paginator]="true"
+                      [rows]="5"
+                      [first]="grantFirst()"
+                      (firstChange)="grantFirst.set($any($event))"
+                    >
+                      <ng-template #header>
+                        <tr>
+                          <th>Método</th>
+                          <th>Recurso</th>
+                          <th class="text-right">Acciones</th>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #body let-resource>
+                        <tr>
+                          <td>
+                            <p-tag
+                              [value]="resource.method"
+                              [severity]="methodSeverity(resource.method)"
+                              [rounded]="true"
+                            />
+                          </td>
+                          <td>
+                            <code class="text-xs">{{ resource.route }}</code>
+                            <p class="text-xs text-slate-400">
+                              {{ resource.name }}
+                            </p>
+                          </td>
+                          <td class="text-right">
+                            <button
+                              pButton
+                              type="button"
+                              text
+                              rounded
+                              severity="danger"
+                              aria-label="Retirar recurso"
+                              pTooltip="Retirar recurso"
+                              (click)="removeGrant(resource.id)"
+                            >
+                              <i pButtonIcon class="pi pi-minus-circle"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #emptymessage>
+                        <tr>
+                          <td colspan="3">
+                            <app-empty-state
+                              icon="pi pi-key"
+                              title="Sin concesiones"
+                              message="Este rol no puede ejecutar ninguna operación. Concede un recurso con el selector superior."
+                            />
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </section>
+                </p-tabpanel>
+              </p-tabpanels>
+            </p-tabs>
+          }
+        </form>
+      } @else {
+        <app-empty-state
+          icon="pi pi-id-card"
+          title="Selecciona un rol"
+          message="Elige un rol del listado para ver y editar sus usuarios y permisos."
+        />
+      }
+    </section>
+  </div>
 </div>
