@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "rest_framework_simplejwt",
     "corsheaders",
+    "apps.common",
     "apps.security.apps.SecurityConfig",
     "apps.customer.apps.CustomerConfig",
     "apps.product.apps.ProductConfig",
