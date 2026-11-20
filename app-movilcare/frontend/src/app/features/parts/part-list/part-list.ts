@@ -172,7 +172,14 @@ export class PartList {
           const wanted = this.selectedPart()?.id || parts[0]?.id;
           const target = parts.find((row) => row.id === wanted);
           if (target) {
-            this.selectedPart.set(target);
+            if (this.selectedPart()?.id !== target.id) {
+              // Autoselección: `select` también resetea la ficha y carga
+              // los consumos del repuesto.
+              this.select(target);
+            } else {
+              // Misma fila con datos frescos (tras guardar o eliminar otra).
+              this.selectedPart.set(target);
+            }
           }
         }
       },
