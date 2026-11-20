@@ -1,11 +1,10 @@
 from decimal import Decimal
 
-from django.test import TestCase
 from rest_framework.test import APITestCase
 
 from apps.common.status import RecordStatus
 from apps.common.testing import create_active_user, grant, grant_crud
-from apps.product.models import Product, SerializedUnit
+from apps.product.models import Part, Product, SerializedUnit
 
 
 class ProductApiTests(APITestCase):
@@ -13,6 +12,7 @@ class ProductApiTests(APITestCase):
         self.user = create_active_user(username="nora", email="nora@movilcare.test")
         grant_crud(self.user, "/api/products/", "/api/products/1/")
         grant_crud(self.user, "/api/serialized-units/", "/api/serialized-units/1/")
+        grant_crud(self.user, "/api/parts/", "/api/parts/1/")
         grant(self.user, "GET", "/api/products/1/units/")
         self.client.force_authenticate(user=self.user)
         self.product = Product.objects.create(
@@ -88,17 +88,15 @@ class ProductApiTests(APITestCase):
             "/api/serialized-units/",
             {
                 "product": self.product.id,
-                "name": "Unidad de leche 001",
-                "description": "Unidad física de prueba",
+                "serial": "SN-LEC-001",
             },
             format="json",
         )
 
         self.assertEqual(created.status_code, 201)
 
-        # El nombre debe persistirse: "name" estaba fuera de Meta.fields y DRF
-        # lo descartaba, guardando '' y rompiendo la unicidad en el 2º POST.
-        self.assertEqual(created.data["name"], "Unidad de leche 001")
+        # El serial (UQ en modelo.md) debe persistirse en la respuesta.
+        self.assertEqual(created.data["serial"], "SN-LEC-001")
 
         unit_id = created.data["id"]
 
@@ -113,6 +111,66 @@ class ProductApiTests(APITestCase):
 
         unit.refresh_from_db()
         self.assertEqual(unit.status, RecordStatus.INACTIVE)
+
+    def test_serialized_unit_duplicate_serial_is_rejected(self):
+        SerializedUnit.objects.create(
+            product=self.product, serial="SN-DUP-01", status=RecordStatus.ACTIVE
+        )
+
+        response = self.client.post(
+            "/api/serialized-units/",
+            {"product": self.product.id, "serial": "SN-DUP-01"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_part_crud_and_stock(self):
+        created = self.client.post(
+            "/api/parts/",
+            {
+                "name": "Pantalla",
+                "description": "Pantalla LCD",
+                "price": "55.00",
+                "stock": 4,
+            },
+            format="json",
+        )
+
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertEqual(created.data["status"], RecordStatus.INACTIVE)
+        self.assertEqual(created.data["stock"], 4)
+
+        pk = created.data["id"]
+
+        updated = self.client.patch(
+            f"/api/parts/{pk}/",
+            {"status": "active", "stock": 10},
+            format="json",
+        )
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["status"], RecordStatus.ACTIVE)
+        self.assertEqual(updated.data["stock"], 10)
+
+        listed = self.client.get("/api/parts/")
+        self.assertEqual(listed.status_code, 200)
+        self.assertTrue(any(row["id"] == pk for row in listed.data))
+
+        deleted = self.client.delete(f"/api/parts/{pk}/")
+        self.assertEqual(deleted.status_code, 204)
+        self.assertEqual(
+            Part.objects.get(pk=pk).status, RecordStatus.INACTIVE
+        )
+
+    def test_part_negative_price_is_rejected(self):
+        response = self.client.post(
+            "/api/parts/",
+            {"name": "Batería", "price": "-1.00", "stock": 1},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Part.objects.count(), 0)
 
     def test_product_crud_and_available_filter(self):
         """CRUD de producto + listado y filtrado de sus unidades serializadas."""
@@ -144,13 +202,13 @@ class ProductApiTests(APITestCase):
             status=RecordStatus.ACTIVE,
         )
         SerializedUnit.objects.create(
-            product=self.product, name="U-Leche-01", status=RecordStatus.ACTIVE
+            product=self.product, serial="U-Leche-01", status=RecordStatus.ACTIVE
         )
         SerializedUnit.objects.create(
-            product=self.product, name="U-Leche-02", status=RecordStatus.INACTIVE
+            product=self.product, serial="U-Leche-02", status=RecordStatus.INACTIVE
         )
         SerializedUnit.objects.create(
-            product=other, name="U-Pan-01", status=RecordStatus.ACTIVE
+            product=other, serial="U-Pan-01", status=RecordStatus.ACTIVE
         )
 
         units_url = f"/api/products/{self.product.id}/units/"
@@ -159,7 +217,7 @@ class ProductApiTests(APITestCase):
         all_units = self.client.get(units_url)
         self.assertEqual(all_units.status_code, 200)
         self.assertEqual(
-            {u["name"] for u in all_units.data},
+            {u["serial"] for u in all_units.data},
             {"U-Leche-01", "U-Leche-02"},
         )
         for unit in all_units.data:
@@ -169,11 +227,11 @@ class ProductApiTests(APITestCase):
         # El filtro ?status sí reduce el conjunto.
         active = self.client.get(units_url, {"status": RecordStatus.ACTIVE})
         self.assertEqual(active.status_code, 200)
-        self.assertEqual([u["name"] for u in active.data], ["U-Leche-01"])
+        self.assertEqual([u["serial"] for u in active.data], ["U-Leche-01"])
 
         inactive = self.client.get(units_url, {"status": RecordStatus.INACTIVE})
         self.assertEqual(inactive.status_code, 200)
-        self.assertEqual([u["name"] for u in inactive.data], ["U-Leche-02"])
+        self.assertEqual([u["serial"] for u in inactive.data], ["U-Leche-02"])
 
         # Un producto inexistente responde 404, no una lista vacía.
         self.assertEqual(
@@ -186,4 +244,3 @@ class ProductApiTests(APITestCase):
         self.assertEqual(
             Product.objects.get(pk=pk).status, RecordStatus.INACTIVE
         )
-

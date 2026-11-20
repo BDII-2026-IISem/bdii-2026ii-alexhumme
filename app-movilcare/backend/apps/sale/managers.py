@@ -5,49 +5,27 @@ from django.db import models, transaction
 
 from apps.common.status import RecordStatus
 from apps.customer.models import Customer
-from apps.product.models import Product
+from apps.product.models import SerializedUnit
 
 
 class SaleQuerySet(models.QuerySet):
 
-    def register(self, *, customer, sale_date, items, discounts):
+    def register(self, *, customer, sale_date, unit_ids):
         # Import diferido: models.py importa este módulo, así que no se puede
         # importar SaleDetail a nivel de módulo sin crear un import circular.
         from apps.sale.models import SaleDetail
 
-        if not items:
+        if not unit_ids:
             raise ValidationError({
-                "items": ["La venta requiere al menos un producto."]
+                "items": ["La venta requiere al menos una unidad serializada."]
             })
 
-        discounts = Decimal(str(discounts)).quantize(Decimal("0.01"))
+        unit_ids = [int(unit_id) for unit_id in unit_ids]
 
-        if discounts < 0:
+        if len(set(unit_ids)) != len(unit_ids):
             raise ValidationError({
-                "discounts": ["El descuento no puede ser negativo."]
+                "items": ["Una unidad serializada no puede repetirse en la venta."]
             })
-
-        quantities = {}
-
-        for item in items:
-            try:
-                product_id = int(item["product_id"])
-                quantity = int(item["quantity"])
-            except (KeyError, TypeError, ValueError):
-                raise ValidationError({
-                    "items": [
-                        "Cada producto debe tener product_id y quantity válidos."
-                    ]
-                })
-
-            if quantity < 1:
-                raise ValidationError({
-                    "items": ["La cantidad debe ser al menos 1."]
-                })
-
-            quantities[product_id] = (
-                quantities.get(product_id, 0) + quantity
-            )
 
         with transaction.atomic():
             locked_customer = (
@@ -67,26 +45,36 @@ class SaleQuerySet(models.QuerySet):
                     "customer_id": ["El cliente debe estar activo."]
                 })
 
-            locked_products = {
-                product.id: product
-                for product in (
-                    Product.objects
+            # select_for_update + select_related: bloquea las unidades y sus
+            # productos para que dos ventas simultáneas no compren el mismo
+            # serial en el mismo instante.
+            locked_units = {
+                unit.id: unit
+                for unit in (
+                    SerializedUnit.objects
                     .select_for_update()
-                    .filter(pk__in=quantities)
+                    .select_related("product")
+                    .filter(pk__in=unit_ids)
                     .order_by("id")
                 )
             }
 
-            if len(locked_products) != len(quantities):
+            if len(locked_units) != len(set(unit_ids)):
                 raise ValidationError({
-                    "items": ["Hay productos que no existen."]
+                    "items": ["Hay unidades serializadas que no existen."]
                 })
 
-            for product in locked_products.values():
-                if product.status != RecordStatus.ACTIVE:
+            for unit in locked_units.values():
+                if unit.status != RecordStatus.ACTIVE:
                     raise ValidationError({
                         "items": [
-                            f"El producto {product.name} no está activo."
+                            f"La unidad {unit.serial} no está activa."
+                        ]
+                    })
+                if unit.product.status != RecordStatus.ACTIVE:
+                    raise ValidationError({
+                        "items": [
+                            f"El producto {unit.product.name} no está activo."
                         ]
                     })
 
@@ -95,7 +83,6 @@ class SaleQuerySet(models.QuerySet):
                 sale_date=sale_date,
                 subtotal=Decimal("0.00"),
                 tax=Decimal("0.00"),
-                discounts=discounts,
                 total=Decimal("0.00"),
                 status=RecordStatus.INACTIVE,
             )
@@ -103,19 +90,18 @@ class SaleQuerySet(models.QuerySet):
 
             subtotal = Decimal("0.00")
 
-            for item in items:
-                product = locked_products[int(item["product_id"])]
-                quantity = int(item["quantity"])
+            for unit_id in unit_ids:
+                unit = locked_units[unit_id]
 
-                unit_price = Decimal(str(product.price))
-                line_total = (
-                    unit_price * quantity
-                ).quantize(Decimal("0.01"))
+                # Cada línea lleva una unidad (cantidad 1) al precio vivo del
+                # catálogo al momento de vender: el detalle congela el precio.
+                unit_price = Decimal(str(unit.product.price))
+                line_total = unit_price.quantize(Decimal("0.01"))
 
                 SaleDetail.objects.create(
                     sale=sale,
-                    product=product,
-                    quantity=quantity,
+                    serialized_unit=unit,
+                    quantity=1,
                     unit_price=unit_price,
                     line_total=line_total,
                     status=RecordStatus.ACTIVE,
@@ -125,23 +111,15 @@ class SaleQuerySet(models.QuerySet):
 
             subtotal = subtotal.quantize(Decimal("0.01"))
 
-            if discounts > subtotal:
-                raise ValidationError({
-                    "discounts": [
-                        "El descuento no puede superar el subtotal."
-                    ]
-                })
-
             # Conservamos el campo tax de Sale.
             # Se inicializa en cero porque no se ha definido
             # una regla de cálculo de impuestos en este método.
             tax = Decimal("0.00")
 
-            total = (subtotal + tax - discounts).quantize(Decimal("0.01"))
+            total = (subtotal + tax).quantize(Decimal("0.01"))
 
             sale.subtotal = subtotal
             sale.tax = tax
-            sale.discounts = discounts
             sale.total = total
             sale.status = RecordStatus.ACTIVE
 
@@ -149,7 +127,6 @@ class SaleQuerySet(models.QuerySet):
                 update_fields=[
                     "subtotal",
                     "tax",
-                    "discounts",
                     "total",
                     "status",
                     "updated_at",

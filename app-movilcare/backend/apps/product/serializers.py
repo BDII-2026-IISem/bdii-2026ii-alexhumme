@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.product.models import Product, SerializedUnit
+from apps.product.models import Part, Product, SerializedUnit
 
 
 class SerializedUnitSerializer(serializers.ModelSerializer):
@@ -25,16 +25,14 @@ class SerializedUnitSerializer(serializers.ModelSerializer):
             "product",
             "product_id",
             "product_name",
-            "name",
-            "description",
+            "serial",
             "status",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "product_name", "created_at", "updated_at"]
         extra_kwargs = {
-            "name": {"min_length": 2, "max_length": 150},
-            "description": {"required": False, "allow_null": True, "allow_blank": True},
+            "serial": {"min_length": 2, "max_length": 150},
         }
 
     def validate(self, attrs):
@@ -45,11 +43,6 @@ class SerializedUnitSerializer(serializers.ModelSerializer):
                 {"product_id": "Este campo es requerido."}
             )
         return attrs
-
-    def validate_description(self, value):
-        if value is None or str(value).strip() == "":
-            return None
-        return value
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -70,6 +63,34 @@ class ProductSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "name": {"min_length": 2, "max_length": 120},
             "description": {"required": False, "allow_null": True, "allow_blank": True},
+        }
+
+    def validate_description(self, value):
+        if value is None or str(value).strip() == "":
+            return None
+        return value
+
+
+class PartSerializer(serializers.ModelSerializer):
+    """Repuesto de bodega (modelo.md: Repuesto)."""
+
+    class Meta:
+        model = Part
+        fields = [
+            "id",
+            "name",
+            "description",
+            "price",
+            "stock",
+            "status",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "name": {"min_length": 2, "max_length": 150},
+            "description": {"required": False, "allow_null": True, "allow_blank": True},
+            "stock": {"min_value": 0},
         }
 
     def validate_description(self, value):

@@ -4,8 +4,13 @@ from rest_framework.generics import get_object_or_404
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from apps.common.status import RecordStatus
-from apps.product.models import Product, SerializedUnit
-from apps.product.serializers import ProductSerializer, SerializedUnitSerializer
+from apps.common.views import SoftDeleteViewSet
+from apps.product.models import Part, Product, SerializedUnit
+from apps.product.serializers import (
+    PartSerializer,
+    ProductSerializer,
+    SerializedUnitSerializer,
+)
 from apps.security.permissions import HasResourceAccess
 
 
@@ -33,6 +38,13 @@ class ProductViewSet(CatalogViewSet):
 class SerializedUnitViewSet(CatalogViewSet):
     queryset = SerializedUnit.objects.all()
     serializer_class = SerializedUnitSerializer
+
+class PartViewSet(SoftDeleteViewSet):
+    """CRUD de repuestos de bodega (modelo.md: Repuesto)."""
+
+    queryset = Part.objects.all()
+    serializer_class = PartSerializer
+    permission_classes = [IsAuthenticated, HasResourceAccess]
 
 class AvailableProductListAPIView(ListAPIView):
     permission_classes = [AllowAny]

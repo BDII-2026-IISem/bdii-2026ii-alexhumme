@@ -17,7 +17,12 @@ class CustomerApiTests(APITestCase):
     def test_create_defaults_and_persists(self):
         response = self.client.post(
             "/api/customers/",
-            {"name": "María García", "email": "Maria@Example.com", "phone": "3001234567"},
+            {
+                "name": "María García",
+                "document_number": "1023456789",
+                "email": "Maria@Example.com",
+                "phone": "3001234567",
+            },
             format="json",
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -28,24 +33,66 @@ class CustomerApiTests(APITestCase):
         self.assertNotIn("created_at", wire)
         stored = Customer.objects.get(pk=response.data["id"])
         self.assertEqual(stored.name, "María García")
+        self.assertEqual(stored.document_number, "1023456789")
 
-    def test_invalid_name_and_duplicate_email(self):
-        invalid = self.client.post("/api/customers/", {"name": "A"}, format="json")
-        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+    def test_document_number_is_required(self):
+        response = self.client.post(
+            "/api/customers/",
+            {"name": "Sin documento"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("document_number", response.data)
+        self.assertEqual(Customer.objects.count(), 0)
+
+    def test_duplicate_document_number_is_rejected(self):
         self.client.post(
             "/api/customers/",
-            {"name": "Ana Ruiz", "email": "ana@example.com"},
+            {"name": "Ana Ruiz", "document_number": "1011122233"},
             format="json",
         )
         duplicate = self.client.post(
             "/api/customers/",
-            {"name": "Otra Ana", "email": "ana@example.com"},
+            {"name": "Otra Ana", "document_number": "1011122233"},
+            format="json",
+        )
+
+        self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_invalid_name_and_duplicate_email(self):
+        invalid = self.client.post(
+            "/api/customers/",
+            {"name": "A", "document_number": "1099988877"},
+            format="json",
+        )
+        self.assertEqual(invalid.status_code, status.HTTP_400_BAD_REQUEST)
+        self.client.post(
+            "/api/customers/",
+            {
+                "name": "Ana Ruiz",
+                "document_number": "1099988800",
+                "email": "ana@example.com",
+            },
+            format="json",
+        )
+        duplicate = self.client.post(
+            "/api/customers/",
+            {
+                "name": "Otra Ana",
+                "document_number": "1099988811",
+                "email": "ana@example.com",
+            },
             format="json",
         )
         self.assertEqual(duplicate.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_soft_delete_keeps_the_row(self):
-        created = self.client.post("/api/customers/", {"name": "Pedro León"}, format="json")
+        created = self.client.post(
+            "/api/customers/",
+            {"name": "Pedro León", "document_number": "1055566677"},
+            format="json",
+        )
         deleted = self.client.delete(f"/api/customers/{created.data['id']}/")
         self.assertEqual(deleted.status_code, status.HTTP_204_NO_CONTENT)
         stored = Customer.objects.get(pk=created.data["id"])
@@ -55,7 +102,7 @@ class CustomerApiTests(APITestCase):
     def test_list_retrieve_and_update(self):
         created = self.client.post(
             "/api/customers/",
-            {"name": "Luisa Mora", "phone": "111"},
+            {"name": "Luisa Mora", "document_number": "1044455566", "phone": "111"},
             format="json",
         )
         pk = created.data["id"]

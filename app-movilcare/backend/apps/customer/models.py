@@ -6,7 +6,8 @@ from apps.common.models import StoreLabModel
 
 class Customer(StoreLabModel):
     document_type = models.CharField(max_length=30, null=False, blank=True)
-    document_number = models.CharField(max_length=11, null=False, blank=True)
+    # `numero_documento` (UQ) es clave de negocio en modelo.md.
+    document_number = models.CharField(max_length=11, null=False, unique=True)
     name = models.CharField(max_length=150, validators=[MinLengthValidator(2)])
     email = models.EmailField(max_length=150, null=True, blank=True, unique=True)
     phone = models.CharField(max_length=30, null=True, blank=True)

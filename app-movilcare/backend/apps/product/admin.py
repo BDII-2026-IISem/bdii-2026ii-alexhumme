@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from apps.product.models import Product, SerializedUnit
+from apps.product.models import Part, Product, SerializedUnit
 
 
 @admin.register(Product)
@@ -24,15 +24,15 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(SerializedUnit)
 class SerializedUnitAdmin(admin.ModelAdmin):
-    list_display = ("name", "product", "status", "created_at")
+    list_display = ("serial", "product", "status", "created_at")
     list_filter = ("status", "product")
-    search_fields = ("name", "description", "product__name", "product__sku")
+    search_fields = ("serial", "product__name", "product__sku")
     list_editable = ("status",)
-    ordering = ("name",)
+    ordering = ("serial",)
     autocomplete_fields = ("product",)
     readonly_fields = ("created_at", "updated_at")
     fieldsets = (
-        ("Información", {"fields": ("product", "name", "description")}),
+        ("Información", {"fields": ("product", "serial")}),
         ("Estado", {"fields": ("status",)}),
         (
             "Auditoría",
@@ -42,3 +42,22 @@ class SerializedUnitAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         return super().get_queryset(request).select_related("product")
+
+
+@admin.register(Part)
+class PartAdmin(admin.ModelAdmin):
+    list_display = ("name", "price", "stock", "status", "created_at")
+    list_filter = ("status",)
+    search_fields = ("name", "description")
+    list_editable = ("price", "stock", "status")
+    ordering = ("name",)
+    readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        ("Información", {"fields": ("name", "description")}),
+        ("Inventario", {"fields": ("price", "stock")}),
+        ("Estado", {"fields": ("status",)}),
+        (
+            "Auditoría",
+            {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
+        ),
+    )

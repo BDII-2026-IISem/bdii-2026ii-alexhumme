@@ -1,7 +1,13 @@
 from django.urls import path
 from rest_framework.routers import SimpleRouter
 
-from apps.product.views import ProductViewSet, SerializedUnitViewSet, ProductUnitsListAPIView, AvailableProductListAPIView
+from apps.product.views import (
+    PartViewSet,
+    ProductViewSet,
+    ProductUnitsListAPIView,
+    AvailableProductListAPIView,
+    SerializedUnitViewSet,
+)
 
 router = SimpleRouter(use_regex_path=False)
 router.register(
@@ -14,6 +20,12 @@ router.register(
     r"serialized-units",
     SerializedUnitViewSet,
     basename="serialized-unit",
+)
+
+router.register(
+    r"parts",
+    PartViewSet,
+    basename="part",
 )
 
 urlpatterns = [

@@ -7,7 +7,7 @@ from django.utils import timezone
 from apps.customer.models import Customer
 from apps.common.models import StoreLabModel
 from apps.common.status import RecordStatus
-from apps.product.models import Product
+from apps.product.models import SerializedUnit
 from apps.sale.managers import SaleManager
 
 class Sale(StoreLabModel):
@@ -20,7 +20,6 @@ class Sale(StoreLabModel):
     sale_date = models.DateTimeField()
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     tax = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    discounts = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
 
     objects = SaleManager()
@@ -35,7 +34,6 @@ class Sale(StoreLabModel):
             models.CheckConstraint(
                 condition=models.Q(subtotal__gte=0)
                 & models.Q(tax__gte=0)
-                & models.Q(discounts__gte=0)
                 & models.Q(total__gte=0),
                 name="sales_amounts_non_neg",
             ),
@@ -71,11 +69,13 @@ class SaleDetail(StoreLabModel):
         related_name="lines",
         db_column="sale_id",
     )
-    product = models.ForeignKey(
-        Product,
+    # Cada línea vende una unidad serializada concreta (modelo.md): el serial
+    # es la trazabilidad del artículo vendido, no el producto del catálogo.
+    serialized_unit = models.ForeignKey(
+        SerializedUnit,
         on_delete=models.RESTRICT,
         related_name="sale_lines",
-        db_column="product_id",
+        db_column="serialized_unit_id",
     )
     quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
@@ -98,8 +98,55 @@ class SaleDetail(StoreLabModel):
         ]
 
     def __str__(self):
-        return f"{self.product} x {self.quantity}"
+        return f"{self.serialized_unit} x {self.quantity}"
 
     def save(self, *args, **kwargs):
         self.line_total = (self.unit_price * self.quantity).quantize(Decimal("0.01"))
         super().save(*args, **kwargs)
+
+
+class WarrantyType(models.TextChoices):
+    """Tipo de garantía (modelo.md: `tipo`)."""
+
+    COMMERCIAL = "commercial", "Garantía comercial"
+    EXTENDED = "extended", "Garantía extendida"
+
+
+class Warranty(StoreLabModel):
+    """Garantía por artículo vendido (modelo.md: Garantia).
+
+    Cuelga de la línea de venta: garantiza la unidad serializada que salió
+    en esa línea. `status` traduce el `estado` del modelo (vigente /
+    anulada); la vigencia temporal se deriva de `end_date`.
+    """
+
+    sale_detail = models.ForeignKey(
+        "sale.SaleDetail",
+        on_delete=models.RESTRICT,
+        related_name="warranties",
+        db_column="sale_detail_id",
+    )
+    start_date = models.DateField()
+    end_date = models.DateField()
+    warranty_type = models.CharField(
+        max_length=20,
+        choices=WarrantyType.choices,
+        default=WarrantyType.COMMERCIAL,
+    )
+    description = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        db_table = "warranties"
+        verbose_name = "garantía"
+        verbose_name_plural = "garantías"
+        ordering = ["-start_date", "-id"]
+        constraints = [
+            StoreLabModel.status_constraint("warranties_status_valid"),
+            models.CheckConstraint(
+                condition=models.Q(end_date__gte=models.F("start_date")),
+                name="warranty_dates_valid",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Garantía {self.pk} ({self.get_warranty_type_display()})"
