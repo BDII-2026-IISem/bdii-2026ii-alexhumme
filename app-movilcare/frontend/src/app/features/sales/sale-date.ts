@@ -14,6 +14,16 @@ export function toLocalInputValue(date: Date = new Date()): string {
 }
 
 /**
+ * Fecha local `YYYY-MM-DD` para `<input type="date">` (garantías, pagos,
+ * diagnósticos): no usar `toISOString()`, que da la fecha en UTC.
+ */
+export function todayLocalDate(date: Date = new Date()): string {
+    return (
+        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+    );
+}
+
+/**
  * Convierte el valor del input (`YYYY-MM-DDTHH:mm`, interpretado como hora
  * local) a `YYYY-MM-DDTHH:mm:ss±HH:mm` con el desfase de `getTimezoneOffset()`.
  * No usar `toISOString()`: esa cadena termina en `Z` y no es la zona local.

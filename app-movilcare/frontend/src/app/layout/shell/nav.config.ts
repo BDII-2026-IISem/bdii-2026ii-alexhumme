@@ -54,6 +54,24 @@ export const NAV: NavGroupConfig[] = [
         routerLink: '/detalle-ventas',
         permission: 'GET /api/sales',
       },
+      {
+        label: 'Garantías',
+        icon: 'pi pi-shield',
+        routerLink: '/garantias',
+        permission: 'GET /api/warranties',
+      },
+      {
+        label: 'Órdenes de servicio',
+        icon: 'pi pi-wrench',
+        routerLink: '/ordenes',
+        permission: 'GET /api/service-orders',
+      },
+      {
+        label: 'Repuestos',
+        icon: 'pi pi-cog',
+        routerLink: '/repuestos',
+        permission: 'GET /api/parts',
+      },
     ],
   },
   {

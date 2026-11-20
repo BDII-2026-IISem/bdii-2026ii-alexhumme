@@ -81,6 +81,9 @@ export class Shell {
       '/productos': 'Productos',
       '/unidades-serializadas': 'Unidades serializadas',
       '/ventas': 'Ventas',
+      '/garantias': 'Garantías',
+      '/ordenes': 'Órdenes de servicio',
+      '/repuestos': 'Repuestos',
       '/detalle-ventas': 'Líneas de venta',
       '/admin/usuarios': 'Usuarios',
       '/admin/roles': 'Roles',
@@ -90,10 +93,8 @@ export class Shell {
       '/forbidden': 'Acceso denegado',
     };
 
-    // `/ventas/61` no está en el mapa: se resuelve por prefijo.
-    if (url.startsWith('/ventas/')) {
-      return 'Detalle de venta';
-    }
+    // `/ventas/61` ya no existe: la venta se abre en `/ventas?id=61`
+    // (vista maestro-detalle), así que el mapa resuelve por clave exacta.
 
     return titles[url] ?? 'MovilCare';
   });

@@ -21,15 +21,14 @@
         [rows]="10" [rowHover]="true">
         <ng-template #caption>
             <input pInputText type="search" class="w-full" aria-label="Buscar unidades"
-                placeholder="Buscar por nombre, producto o descripción..." [value]="filter()"
+                placeholder="Buscar por serial o producto..." [value]="filter()"
                 (input)="filter.set($any($event.target).value)" />
         </ng-template>
 
         <ng-template #header>
             <tr>
-                <th>Nombre</th>
+                <th>Serial</th>
                 <th>Producto</th>
-                <th>Descripción</th>
                 <th>Estado</th>
                 <th class="text-right">Acciones</th>
             </tr>
@@ -37,9 +36,10 @@
 
         <ng-template #body let-unit>
             <tr>
-                <td>{{ unit.name }}</td>
+                <td>
+                    <code class="text-xs">{{ unit.serial }}</code>
+                </td>
                 <td>{{ unit.productName }}</td>
-                <td>{{ unit.description || '—' }}</td>
 
                 <td>
                     <app-status-tag [status]="unit.status" />
@@ -65,7 +65,7 @@
 
         <ng-template #emptymessage>
             <tr>
-                <td colspan="5">
+                <td colspan="4">
                     @if (filter()) {
                     <app-empty-state icon="pi pi-search" title="Sin coincidencias"
                         message="Ninguna unidad coincide. Borra el filtro para ver todas." />

@@ -27,15 +27,13 @@ describe('SerializedUnitForm', () => {
 
     fixture.componentInstance.form.setValue({
       product: 3,
-      name: ' UNI-0001 ',
-      description: '  ',
+      serial: ' UNI-0001 ',
     });
     fixture.componentInstance.submit();
 
     expect(body).toEqual({
       product: 3,
-      name: 'UNI-0001',
-      description: null,
+      serial: 'UNI-0001',
     });
   });
 });

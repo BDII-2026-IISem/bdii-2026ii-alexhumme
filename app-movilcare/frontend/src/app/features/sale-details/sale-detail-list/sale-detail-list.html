@@ -17,6 +17,7 @@
         <ng-template #header>
             <tr>
                 <th>Venta</th>
+                <th>Serial</th>
                 <th>Producto</th>
                 <th class="text-right">Cantidad</th>
                 <th class="text-right">Precio unitario</th>
@@ -27,12 +28,16 @@
         <ng-template #body let-row>
             <tr>
                 <td>
-                    <a [routerLink]="['/ventas', row.saleId]" class="font-medium text-blue-600 hover:underline">
+                    <a [routerLink]="['/ventas']" [queryParams]="{ id: row.saleId }"
+                        class="font-medium text-blue-600 hover:underline">
                         #{{ row.saleId }}
                     </a>
                 </td>
                 <td>
-                    {{ row.productName || 'Producto #' + row.productId }}
+                    <code class="text-xs">{{ row.serializedUnitSerial }}</code>
+                </td>
+                <td>
+                    {{ row.productName }}
                 </td>
                 <td class="text-right">{{ row.quantity }}</td>
                 <td class="text-right">{{ row.unitPrice | currency }}</td>
@@ -42,7 +47,7 @@
 
         <ng-template #emptymessage>
             <tr>
-                <td colspan="5">
+                <td colspan="6">
                     <app-empty-state icon="pi pi-list" title="Sin líneas de venta"
                         message="Registra una venta en «Ventas» o ajusta la búsqueda." />
                 </td>

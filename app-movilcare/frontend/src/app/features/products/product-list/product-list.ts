@@ -6,14 +6,15 @@ import {
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { ConfirmationService } from 'primeng/api';
 import { ButtonModule } from 'primeng/button';
-import { DialogModule } from 'primeng/dialog';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { TableModule } from 'primeng/table';
+import { TabsModule } from 'primeng/tabs';
 import { TagModule } from 'primeng/tag';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { TooltipModule } from 'primeng/tooltip';
@@ -22,6 +23,7 @@ import {
   Product,
   ProductPayload,
 } from '../../../core/models/product.model';
+import { SerializedUnit } from '../../../core/models/serialized-unit.model';
 
 import { Notification } from '../../../core/services/notification';
 import { filterRows } from '../../../core/utils/filter-rows';
@@ -34,29 +36,36 @@ import { SerializedUnitApi } from '../../serialized-units/serialized-unit-api';
 import { ProductApi } from '../product-api';
 import { ProductForm } from '../product-form/product-form';
 
+/** Cuerpo de escritura de `ProductForm`: el alta agrega `status`. */
+type ProductDraft = Omit<ProductPayload, 'status'>;
+
+/**
+ * Vista maestro-detalle de productos: columna izquierda con el listado
+ * (búsqueda, «solo disponibles» y alta); panel derecho con la ficha
+ * editable del producto seleccionado y sus unidades serializadas.
+ */
 @Component({
+  host: { class: 'block' },
   selector: 'app-product-list',
   imports: [
     ButtonModule,
-    DialogModule,
     EmptyState,
     FormsModule,
     HasPermission,
     InputTextModule,
     MessageModule,
     PageHeader,
+    ProductForm,
+    RouterLink,
     StatusTag,
     TableModule,
+    TabsModule,
     TagModule,
     ToggleSwitchModule,
     TooltipModule,
-    ProductForm,
   ],
   templateUrl: './product-list.html',
   styleUrl: './product-list.css',
-  host: {
-    class: 'block',
-  },
 })
 export class ProductList {
   private readonly api = inject(ProductApi);
@@ -64,11 +73,11 @@ export class ProductList {
   private readonly notify = inject(Notification);
   private readonly confirmation = inject(ConfirmationService);
 
+  /** Listado de la columna izquierda. */
   readonly rows = signal<Product[]>([]);
-  /** Copia sin filtrar para restaurar el toggle «Solo disponibles». */
-  private readonly allRows = signal<Product[]>([]);
-  /** Conteo de unidades `active` por `productId`. */
+  /** Unidades `active` por `productId`. */
   readonly unitCounts = signal<Map<number, number>>(new Map());
+  private readonly units = signal<SerializedUnit[]>([]);
 
   readonly loading = signal(true);
   readonly saving = signal(false);
@@ -76,28 +85,31 @@ export class ProductList {
 
   readonly filter = signal('');
   readonly availableOnly = signal(false);
-  readonly dialogVisible = signal(false);
-  readonly editing = signal<Product | null>(null);
+
+  /** Panel de detalle. */
+  private readonly selectedProduct = signal<Product | null>(null);
+  readonly creating = signal(false);
   readonly resetKey = signal(0);
 
-  readonly visibleRows = computed(() =>
-    filterRows(
-      this.rows(),
-      this.filter(),
-      (product) => [
-        product.sku,
-        product.name,
-        product.description,
-      ],
-    ),
-  );
+  readonly visibleRows = computed(() => {
+    const counts = this.unitCounts();
+    const rows = filterRows(this.rows(), this.filter(), (product) => [
+      product.sku,
+      product.name,
+      product.description,
+    ]);
+
+    return this.availableOnly()
+      ? rows.filter((product) => (counts.get(product.id) ?? 0) > 0)
+      : rows;
+  });
 
   /** Productos `active` sin ninguna unidad `active`. */
   readonly withoutUnits = computed(() => {
     const counts = this.unitCounts();
 
     return new Set(
-      this.allRows()
+      this.rows()
         .filter(
           (product) =>
             product.status === 'active' &&
@@ -105,6 +117,21 @@ export class ProductList {
         )
         .map((product) => product.id),
     );
+  });
+
+  readonly hasDetail = computed(
+    () => this.creating() || this.selectedProduct() !== null,
+  );
+  readonly selected = this.selectedProduct.asReadonly();
+  readonly detailTitle = computed(() =>
+    this.creating() ? 'Nuevo producto' : (this.selectedProduct()?.name ?? ''),
+  );
+
+  /** Unidades activas del producto seleccionado (pestaña «Unidades»). */
+  readonly selectedUnits = computed(() => {
+    const product = this.selectedProduct();
+    if (!product) return [];
+    return this.units().filter((unit) => unit.productId === product.id);
   });
 
   constructor() {
@@ -130,18 +157,22 @@ export class ProductList {
         }
 
         this.unitCounts.set(counts);
-        this.allRows.set(products);
-        this.rows.set(
-          this.availableOnly()
-            ? products.filter(
-                (product) => (counts.get(product.id) ?? 0) > 0,
-              )
-            : products,
-        );
+        this.units.set(units);
+        this.rows.set(products);
         this.loading.set(false);
+
+        // El panel nunca queda vacío: se respeta la selección actual y,
+        // si no hay, el primer producto.
+        if (!this.creating()) {
+          const wanted = this.selectedProduct()?.id || products[0]?.id;
+          const target = products.find((product) => product.id === wanted);
+          if (target) {
+            // Misma fila con datos frescos (tras guardar o eliminar otra).
+            this.selectedProduct.set(target);
+          }
+        }
       },
-      error: (error) => {
-        this.allRows.set([]);
+      error: (error: unknown) => {
         this.rows.set([]);
         this.error.set(toApiMessage(error));
         this.loading.set(false);
@@ -149,69 +180,68 @@ export class ProductList {
     });
   }
 
-  toggleAvailableOnly(checked: boolean): void {
-    this.availableOnly.set(checked);
+  isSelected(product: Product): boolean {
+    return !this.creating() && this.selectedProduct()?.id === product.id;
+  }
 
-    if (!checked) {
-      this.rows.set(this.allRows());
-      return;
-    }
-
-    this.loading.set(true);
-
-    this.api.available().subscribe({
-      next: (products) => {
-        const counts = this.unitCounts();
-        this.rows.set(
-          products.filter(
-            (product) => (counts.get(product.id) ?? 0) > 0,
-          ),
-        );
-        this.loading.set(false);
-      },
-      error: (error) => {
-        this.error.set(toApiMessage(error));
-        this.loading.set(false);
-      },
-    });
+  select(product: Product): void {
+    if (this.isSelected(product)) return;
+    this.creating.set(false);
+    this.selectedProduct.set(product);
+    this.resetKey.update((key) => key + 1);
   }
 
   openCreate(): void {
-    this.editing.set(null);
+    this.creating.set(true);
     this.resetKey.update((key) => key + 1);
-    this.dialogVisible.set(true);
   }
 
-  openEdit(product: Product): void {
-    this.editing.set(product);
+  /** Cancelar vuelve al producto seleccionado (o al estado vacío). */
+  clearDetail(): void {
+    this.creating.set(false);
     this.resetKey.update((key) => key + 1);
-    this.dialogVisible.set(true);
   }
 
-  save(payload: Omit<ProductPayload, 'status'>): void {
-    const current = this.editing();
-
+  save(draft: ProductDraft): void {
     this.saving.set(true);
 
-    const request = current
-      ? this.api.update(current.id, payload)
-      : this.api.create({
-          ...payload,
-          status: 'active',
-        });
+    if (this.creating()) {
+      const payload: ProductPayload = { ...draft, status: 'active' };
+      this.api.create(payload).subscribe({
+        next: (created) => {
+          this.saving.set(false);
+          this.notify.success('Producto creado');
+          this.creating.set(false);
+          this.selectedProduct.set(created);
+          this.load();
+        },
+        error: (error: unknown) => {
+          this.saving.set(false);
+          this.notify.error('No se pudo crear el producto', toApiMessage(error));
+        },
+      });
+      return;
+    }
 
-    request.subscribe({
-      next: () => {
+    const product = this.selectedProduct();
+    if (!product) {
+      this.saving.set(false);
+      return;
+    }
+
+    this.api.update(product.id, draft).subscribe({
+      next: (updated) => {
         this.saving.set(false);
-        this.dialogVisible.set(false);
-        this.notify.success(
-          current ? 'Producto actualizado' : 'Producto creado',
-        );
+        this.notify.success('Producto actualizado');
+        this.selectedProduct.set(updated);
         this.load();
       },
-      error: (error) => {
+      error: (error: unknown) => {
         this.saving.set(false);
-        this.notify.error(toApiMessage(error));
+        this.notify.error(
+          'No se pudo guardar el producto',
+          toApiMessage(error),
+        );
       },
     });
   }
@@ -223,16 +253,18 @@ export class ProductList {
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Dar de baja',
       rejectLabel: 'Cancelar',
-
       accept: () => {
         this.api.remove(product.id).subscribe({
           next: () => {
             this.notify.warn('Producto dado de baja');
+            if (this.selectedProduct()?.id === product.id) {
+              this.selectedProduct.set(null);
+              this.creating.set(false);
+            }
             this.load();
           },
-          error: (error) => {
-            this.notify.error(toApiMessage(error));
-          },
+          error: (error: unknown) =>
+            this.notify.error('No se pudo dar de baja', toApiMessage(error)),
         });
       },
     });

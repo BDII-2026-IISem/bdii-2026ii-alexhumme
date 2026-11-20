@@ -14,8 +14,7 @@ describe('SerializedUnitList', () => {
     product: 3,
     productId: 3,
     productName: 'Tornillo 8mm',
-    name: 'UNI-0001',
-    description: 'Unidad de prueba',
+    serial: 'UNI-0001',
     status: 'active',
   };
 

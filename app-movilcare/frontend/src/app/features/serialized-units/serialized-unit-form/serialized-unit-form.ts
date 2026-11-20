@@ -18,7 +18,6 @@ import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { MessageModule } from 'primeng/message';
 import { SelectModule } from 'primeng/select';
-import { TextareaModule } from 'primeng/textarea';
 
 import { Product } from '../../../core/models/product.model';
 import {
@@ -38,7 +37,6 @@ type SerializedUnitDraft = Omit<SerializedUnitPayload, 'status'>;
     MessageModule,
     ReactiveFormsModule,
     SelectModule,
-    TextareaModule,
   ],
   templateUrl: './serialized-unit-form.html',
   styleUrl: './serialized-unit-form.css',
@@ -66,17 +64,13 @@ export class SerializedUnitForm {
     product: this.fb.control<number | null>(null, {
       validators: [Validators.required],
     }),
-    name: [
+    serial: [
       '',
       [
         Validators.required,
         Validators.minLength(2),
         Validators.maxLength(150),
       ],
-    ],
-    description: [
-      '',
-      [Validators.maxLength(255)],
     ],
   });
 
@@ -122,8 +116,7 @@ export class SerializedUnitForm {
 
       this.form.reset({
         product: current?.product ?? null,
-        name: current?.name ?? '',
-        description: current?.description ?? '',
+        serial: current?.serial ?? '',
       });
     });
   }
@@ -134,7 +127,7 @@ export class SerializedUnitForm {
       return;
     }
 
-    const { product, name, description } = this.form.getRawValue();
+    const { product, serial } = this.form.getRawValue();
 
     if (product === null) {
       return;
@@ -142,8 +135,7 @@ export class SerializedUnitForm {
 
     this.saved.emit({
       product,
-      name: name.trim(),
-      description: description.trim() || null,
+      serial: serial.trim(),
     });
   }
 }

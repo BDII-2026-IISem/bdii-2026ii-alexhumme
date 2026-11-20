@@ -1,5 +1,5 @@
 import { Money, Status, Timestamps } from './api.model';
-import { SaleDetail, SaleDetailInput } from './sale-detail.model';
+import { SaleDetail } from './sale-detail.model';
 
 export interface Sale extends Timestamps {
   id: number;
@@ -8,15 +8,17 @@ export interface Sale extends Timestamps {
   saleDate: string;
   subtotal: Money;
   tax: Money;
-  discounts: Money;
   total: Money;
   status: Status;
   lines: SaleDetail[];
 }
 
+/**
+ * Alta de venta (modelo.md): una línea por unidad serializada elegida.
+ * `quantity` lo fija el backend en 1 y el total es subtotal + impuesto.
+ */
 export interface SaleCreatePayload {
   customerId: number;
   saleDate: string;
-  discounts: Money;
-  items: SaleDetailInput[];
+  items: Array<{ serializedUnitId: number }>;
 }

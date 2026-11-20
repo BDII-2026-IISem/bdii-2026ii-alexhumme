@@ -1,0 +1,64 @@
+<form [formGroup]="form" (ngSubmit)="submit()" class="grid gap-4">
+  @if (error()) {
+    <p-message severity="error" styleClass="w-full">
+      {{ error() }}
+    </p-message>
+  }
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="flex flex-col gap-2">
+      <label for="pay-method">Método <span class="text-red-500">*</span></label>
+      <p-select
+        inputId="pay-method"
+        formControlName="method"
+        [options]="methodOptions"
+        optionLabel="label"
+        optionValue="value"
+        [fluid]="true"
+      />
+    </div>
+
+    <div class="flex flex-col gap-2">
+      <label for="pay-amount">Monto <span class="text-red-500">*</span></label>
+      <p-inputnumber
+        inputId="pay-amount"
+        formControlName="amount"
+        mode="decimal"
+        [maxFractionDigits]="2"
+        placeholder="0.00"
+      />
+      @if (form.controls.amount.touched && form.controls.amount.invalid) {
+        <p-message severity="error" size="small" variant="simple">
+          El monto es obligatorio y debe ser mayor que 0.
+        </p-message>
+      }
+    </div>
+  </div>
+
+  <div class="flex flex-col gap-2">
+    <label for="pay-date">Fecha de pago <span class="text-red-500">*</span></label>
+    <input
+      id="pay-date"
+      pInputText
+      type="date"
+      formControlName="paymentDate"
+      class="w-full sm:max-w-52"
+    />
+    @if (form.controls.paymentDate.touched && form.controls.paymentDate.invalid) {
+      <p-message severity="error" size="small" variant="simple">
+        La fecha de pago es obligatoria.
+      </p-message>
+    }
+  </div>
+
+  <div class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end">
+    <button pButton type="button" severity="secondary" outlined (click)="cancelled.emit()">
+      <span pButtonLabel>Cancelar</span>
+    </button>
+
+    <button pButton type="submit" [loading]="saving()" [disabled]="saving()">
+      <i pButtonIcon class="pi pi-check"></i>
+      <span pButtonLabel>Registrar pago</span>
+    </button>
+  </div>
+</form>

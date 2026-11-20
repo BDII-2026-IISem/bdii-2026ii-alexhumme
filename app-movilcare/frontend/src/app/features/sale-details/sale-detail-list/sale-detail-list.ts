@@ -44,10 +44,11 @@ export class SaleDetailList {
   readonly error = signal<string | null>(null);
   readonly query = signal('');
 
-  /** Búsqueda local por número de venta, nombre de producto o cantidad. */
+  /** Búsqueda local por número de venta, serial, producto o cantidad. */
   readonly filtered = computed(() =>
     filterRows(this.rows(), this.query(), (row) => [
       String(row.saleId),
+      row.serializedUnitSerial,
       row.productName,
       String(row.quantity),
     ]),

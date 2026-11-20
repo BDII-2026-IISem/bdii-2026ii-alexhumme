@@ -1,14 +1,14 @@
-import { Money } from './api.model';
+import { Money, Status } from './api.model';
 
+/** Línea de venta: una unidad serializada concreta (quantity = 1). */
 export interface SaleDetail {
-  productId: number;
+  id: number;
+  serializedUnitId: number;
+  serializedUnitSerial: string;
   productName: string;
   quantity: number;
   unitPrice: Money;
   lineTotal: Money;
-}
-
-export interface SaleDetailInput {
-  productId: number;
-  quantity: number;
+  observations: string | null;
+  status: Status;
 }

@@ -1,9 +1,9 @@
 import { visibleNav } from './nav.config';
 
 describe('menú filtrado', () => {
-  it('con todos los permisos muestra las once entradas', () => {
+  it('con todos los permisos muestra las catorce entradas', () => {
     expect(visibleNav(() => true).flatMap((group) => group.items)).toHaveLength(
-      11,
+      14,
     );
   });
 
@@ -18,6 +18,6 @@ describe('menú filtrado', () => {
 
     expect(labels).not.toContain('Concesiones');
     expect(labels).toContain('Usuarios');
-    expect(labels).toHaveLength(10);
+    expect(labels).toHaveLength(13);
   });
 });

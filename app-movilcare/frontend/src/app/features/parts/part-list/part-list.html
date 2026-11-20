@@ -1,0 +1,494 @@
+<div class="space-y-6">
+  <app-page-header
+    title="Repuestos"
+    subtitle="Selecciona un repuesto para ver su ficha y en qué órdenes se consume."
+  >
+    <p-tag
+      [value]="parts().length + ' registros'"
+      severity="info"
+      [rounded]="true"
+    />
+  </app-page-header>
+
+  @if (error()) {
+    <p-message severity="error" styleClass="mb-4 w-full">
+      {{ error() }}
+    </p-message>
+  }
+
+  <div class="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
+    <!-- Columna izquierda: listado de repuestos -->
+    <section
+      aria-label="Listado de repuestos"
+      class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+    >
+      <div class="relative">
+        <i
+          class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          aria-hidden="true"
+        ></i>
+        <input
+          pInputText
+          type="search"
+          class="w-full pl-9"
+          aria-label="Buscar repuestos"
+          placeholder="Buscar por nombre o descripción..."
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+        />
+      </div>
+
+      <p-select
+        [options]="statusFilterOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="statusFilter.set($any($event))"
+        [ngModelOptions]="{ standalone: true }"
+        [fluid]="true"
+        styleClass="w-full"
+        aria-label="Filtrar por estado"
+      />
+
+      @if (canCreate()) {
+        <button
+          pButton
+          type="button"
+          class="w-full"
+          aria-label="Crear nuevo repuesto"
+          (click)="openCreate()"
+        >
+          <i pButtonIcon class="pi pi-plus"></i>
+          <span pButtonLabel>Nuevo repuesto</span>
+        </button>
+      }
+
+      @if (loading()) {
+        <p class="text-sm text-slate-500">Cargando repuestos...</p>
+      } @else {
+        <ul class="flex max-h-[34rem] flex-col gap-2 overflow-y-auto pr-1">
+          @for (row of visibleParts(); track row.id) {
+            <li>
+              <button
+                type="button"
+                class="w-full rounded-lg border p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
+                [class.border-emerald-500]="isSelected(row)"
+                [class.bg-emerald-50]="isSelected(row)"
+                [class.ring-2]="isSelected(row)"
+                [class.ring-emerald-200]="isSelected(row)"
+                [attr.aria-current]="isSelected(row) ? 'true' : null"
+                (click)="select(row)"
+              >
+                <span class="flex items-center justify-between gap-2">
+                  <span class="truncate font-medium text-slate-800">
+                    {{ row.name }}
+                  </span>
+                  <app-status-tag [status]="row.status" />
+                </span>
+                <span class="mt-1 block truncate text-xs text-slate-400">
+                  {{ row.price }} · {{ row.stock }} en bodega
+                </span>
+              </button>
+            </li>
+          } @empty {
+            <li>
+              <app-empty-state
+                icon="pi pi-cog"
+                [title]="filter() ? 'Sin coincidencias' : 'Sin repuestos'"
+                [message]="
+                  filter()
+                    ? 'Ningún repuesto coincide. Borra el filtro.'
+                    : 'Registra el primer repuesto con «Nuevo repuesto».'
+                "
+              />
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- Columna derecha: detalle del repuesto seleccionado -->
+    <section
+      aria-label="Detalle del repuesto"
+      class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      @if (hasDetail()) {
+        <div class="flex flex-col gap-6">
+          <header
+            class="flex flex-col gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-center md:justify-between"
+          >
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <h2 class="text-lg font-semibold text-slate-900">
+                  {{ detailTitle() }}
+                </h2>
+                @if (!creating() && part(); as current) {
+                  <app-status-tag [status]="current.status" />
+                }
+              </div>
+              <p class="text-sm text-slate-500">
+                @if (creating()) {
+                  Completa la ficha y guarda para crear el repuesto.
+                } @else if (part(); as current) {
+                  {{ current.stock }} unidad(es) en bodega ·
+                  {{ current.price }} c/u
+                }
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              @if (!creating() && part(); as current) {
+                @if (canDelete() && current.status === 'active') {
+                  <button
+                    pButton
+                    type="button"
+                    severity="danger"
+                    outlined
+                    aria-label="Dar de baja al repuesto"
+                    (click)="remove(current)"
+                  >
+                    <i pButtonIcon class="pi pi-trash"></i>
+                    <span pButtonLabel>Dar de baja</span>
+                  </button>
+                }
+              }
+            </div>
+          </header>
+
+          @if (!creating()) {
+            <!-- Ficha y consumos del repuesto en pestañas -->
+            <p-tabs value="ficha">
+              <p-tablist aria-label="Secciones del repuesto">
+                <p-tab value="ficha">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-pencil" aria-hidden="true"></i>
+                    Ficha
+                  </span>
+                </p-tab>
+                @if (canSeeConsumptions()) {
+                  <p-tab value="consumos">
+                    <span class="flex items-center gap-2">
+                      <i class="pi pi-list" aria-hidden="true"></i>
+                      Consumos
+                      <p-tag
+                        [value]="consumptions().length + ''"
+                        severity="info"
+                        [rounded]="true"
+                      />
+                    </span>
+                  </p-tab>
+                }
+              </p-tablist>
+
+              <p-tabpanels>
+                <p-tabpanel value="ficha">
+                  <form
+                    [formGroup]="detailForm"
+                    (ngSubmit)="save()"
+                    class="grid gap-4"
+                  >
+                    @if (!canSave()) {
+                      <p-message severity="info" styleClass="w-full">
+                        Tu sesión puede consultar este repuesto, pero no
+                        editarlo.
+                      </p-message>
+                    }
+
+                    <div class="grid gap-4 sm:grid-cols-2">
+                      <div class="flex flex-col gap-2">
+                        <label for="pt-name">
+                          Nombre <span class="text-red-500">*</span>
+                        </label>
+                        <input
+                          id="pt-name"
+                          pInputText
+                          formControlName="name"
+                          class="w-full"
+                          autocomplete="off"
+                        />
+                        @if (
+                          detailForm.controls.name.touched &&
+                          detailForm.controls.name.invalid
+                        ) {
+                          <p-message severity="error" size="small" variant="simple">
+                            El nombre es obligatorio (entre 2 y 150 caracteres).
+                          </p-message>
+                        }
+                      </div>
+
+                      <div class="flex flex-col gap-2">
+                        <label for="pt-status">Estado</label>
+                        <p-select
+                          inputId="pt-status"
+                          formControlName="status"
+                          [options]="statusOptions"
+                          optionLabel="label"
+                          optionValue="value"
+                          [fluid]="true"
+                          styleClass="w-full"
+                        />
+                      </div>
+
+                      <div class="flex flex-col gap-2">
+                        <label for="pt-price">
+                          Precio <span class="text-red-500">*</span>
+                        </label>
+                        <p-inputnumber
+                          inputId="pt-price"
+                          formControlName="price"
+                          mode="decimal"
+                          [maxFractionDigits]="2"
+                          placeholder="0.00"
+                        />
+                        @if (
+                          detailForm.controls.price.touched &&
+                          detailForm.controls.price.invalid
+                        ) {
+                          <p-message severity="error" size="small" variant="simple">
+                            El precio es obligatorio y debe ser mayor que 0.
+                          </p-message>
+                        }
+                      </div>
+
+                      <div class="flex flex-col gap-2">
+                        <label for="pt-stock">
+                          Stock <span class="text-red-500">*</span>
+                        </label>
+                        <p-inputnumber
+                          inputId="pt-stock"
+                          formControlName="stock"
+                          [min]="0"
+                          [useGrouping]="false"
+                          [showButtons]="true"
+                        />
+                        @if (
+                          detailForm.controls.stock.touched &&
+                          detailForm.controls.stock.invalid
+                        ) {
+                          <p-message severity="error" size="small" variant="simple">
+                            El stock no puede ser negativo.
+                          </p-message>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                      <label for="pt-description">Descripción</label>
+                      <textarea
+                        id="pt-description"
+                        pTextarea
+                        formControlName="description"
+                        rows="3"
+                        class="w-full"
+                        placeholder="Descripción del repuesto (opcional)"
+                      ></textarea>
+                    </div>
+
+                    @if (canSave()) {
+                      <div
+                        class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"
+                      >
+                        @if (creating()) {
+                          <button
+                            pButton
+                            type="button"
+                            severity="secondary"
+                            outlined
+                            (click)="clearDetail()"
+                          >
+                            <span pButtonLabel>Cancelar</span>
+                          </button>
+                        }
+                        <button
+                          pButton
+                          type="submit"
+                          [loading]="saving()"
+                          [disabled]="saving()"
+                        >
+                          <i pButtonIcon class="pi pi-save"></i>
+                          <span pButtonLabel>
+                            {{ creating() ? 'Crear repuesto' : 'Guardar cambios' }}
+                          </span>
+                        </button>
+                      </div>
+                    }
+                  </form>
+                </p-tabpanel>
+
+                @if (canSeeConsumptions()) {
+                  <p-tabpanel value="consumos">
+                    <section
+                      aria-label="Consumos del repuesto"
+                      class="flex flex-col gap-3"
+                    >
+                      <div class="flex justify-end">
+                        <a
+                          pButton
+                          type="button"
+                          severity="secondary"
+                          outlined
+                          routerLink="/ordenes"
+                        >
+                          <i pButtonIcon class="pi pi-wrench"></i>
+                          <span pButtonLabel>Ver órdenes de servicio</span>
+                        </a>
+                      </div>
+
+                      <p-table
+                        [value]="consumptions()"
+                        [loading]="loadingConsumptions()"
+                        dataKey="id"
+                        [rowHover]="true"
+                      >
+                        <ng-template #header>
+                          <tr>
+                            <th>Orden</th>
+                            <th class="text-right">Cantidad</th>
+                            <th class="text-right">Precio unitario</th>
+                            <th class="text-right">Subtotal</th>
+                            <th>Estado</th>
+                          </tr>
+                        </ng-template>
+
+                        <ng-template #body let-consumption>
+                          <tr>
+                            <td>
+                              <a
+                                [routerLink]="['/ordenes']"
+                                [queryParams]="{ id: consumption.serviceOrderId }"
+                                class="font-medium text-blue-600 hover:underline"
+                              >
+                                {{ consumption.serviceOrderNumber }}
+                              </a>
+                            </td>
+                            <td class="text-right">
+                              {{ consumption.quantity }}
+                            </td>
+                            <td class="text-right">
+                              {{ consumption.unitPrice | currency }}
+                            </td>
+                            <td class="text-right">
+                              {{ consumption.subtotal | currency }}
+                            </td>
+                            <td>
+                              <app-status-tag [status]="consumption.status" />
+                            </td>
+                          </tr>
+                        </ng-template>
+
+                        <ng-template #emptymessage>
+                          <tr>
+                            <td colspan="5">
+                              <app-empty-state
+                                icon="pi pi-list"
+                                title="Sin consumos"
+                                message="Este repuesto todavía no se ha consumido en ninguna orden."
+                              />
+                            </td>
+                          </tr>
+                        </ng-template>
+                      </p-table>
+                    </section>
+                  </p-tabpanel>
+                }
+              </p-tabpanels>
+            </p-tabs>
+          } @else {
+            <form [formGroup]="detailForm" (ngSubmit)="save()" class="grid gap-4">
+              @if (!canSave()) {
+                <p-message severity="info" styleClass="w-full">
+                  Tu sesión no puede crear repuestos.
+                </p-message>
+              }
+
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div class="flex flex-col gap-2">
+                  <label for="new-pt-name">
+                    Nombre <span class="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="new-pt-name"
+                    pInputText
+                    formControlName="name"
+                    class="w-full"
+                    autocomplete="off"
+                  />
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label for="new-pt-price">
+                    Precio <span class="text-red-500">*</span>
+                  </label>
+                  <p-inputnumber
+                    inputId="new-pt-price"
+                    formControlName="price"
+                    mode="decimal"
+                    [maxFractionDigits]="2"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                <div class="flex flex-col gap-2">
+                  <label for="new-pt-stock">
+                    Stock <span class="text-red-500">*</span>
+                  </label>
+                  <p-inputnumber
+                    inputId="new-pt-stock"
+                    formControlName="stock"
+                    [min]="0"
+                    [useGrouping]="false"
+                    [showButtons]="true"
+                  />
+                </div>
+              </div>
+
+              <div class="flex flex-col gap-2">
+                <label for="new-pt-description">Descripción</label>
+                <textarea
+                  id="new-pt-description"
+                  pTextarea
+                  formControlName="description"
+                  rows="3"
+                  class="w-full"
+                  placeholder="Descripción del repuesto (opcional)"
+                ></textarea>
+              </div>
+
+              @if (canSave()) {
+                <div
+                  class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"
+                >
+                  <button
+                    pButton
+                    type="button"
+                    severity="secondary"
+                    outlined
+                    (click)="clearDetail()"
+                  >
+                    <span pButtonLabel>Cancelar</span>
+                  </button>
+
+                  <button
+                    pButton
+                    type="submit"
+                    [loading]="saving()"
+                    [disabled]="saving()"
+                  >
+                    <i pButtonIcon class="pi pi-save"></i>
+                    <span pButtonLabel>Crear repuesto</span>
+                  </button>
+                </div>
+              }
+            </form>
+          }
+        </div>
+      } @else {
+        <app-empty-state
+          icon="pi pi-cog"
+          title="Selecciona un repuesto"
+          message="Elige un repuesto del listado para ver su ficha y sus consumos."
+        />
+      }
+    </section>
+  </div>
+</div>

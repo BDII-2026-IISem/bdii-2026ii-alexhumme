@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { ConfirmationService } from 'primeng/api';
 import { of } from 'rxjs';
 
@@ -22,6 +23,8 @@ describe('ProductList', () => {
     await TestBed.configureTestingModule({
       imports: [ProductList],
       providers: [
+        // RouterLink en la pestaña «Unidades» necesita el router de prueba.
+        provideRouter([]),
         ConfirmationService,
         {
           provide: ProductApi,
@@ -42,14 +45,15 @@ describe('ProductList', () => {
     }).compileComponents();
   });
 
-  it('should render one row and mark the product without units', async () => {
+  it('should render the product in the master list and select it', async () => {
     const fixture = TestBed.createComponent(ProductList);
     await fixture.whenStable();
 
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(element.querySelectorAll('tbody tr').length).toBe(1);
     expect(element.textContent).toContain('SKU-001');
-    expect(element.textContent).toContain('Sin unidades activas');
+    expect(element.textContent).toContain('Sin unidades');
+    expect(fixture.componentInstance.selected()?.id).toBe(1);
+    expect(fixture.componentInstance.withoutUnits().has(1)).toBe(true);
   });
 });

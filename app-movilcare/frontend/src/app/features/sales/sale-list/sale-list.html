@@ -1,66 +1,633 @@
 <div class="space-y-6">
-    <app-page-header title="Ventas" subtitle="Consulta las ventas y registra una nueva.">
-        <p-tag [value]="sales().length + ' registros'" severity="info" [rounded]="true" />
+  <app-page-header
+    title="Ventas"
+    subtitle="Selecciona una venta para ver sus líneas, garantías y pagos."
+  >
+    <p-tag
+      [value]="sales().length + ' registros'"
+      severity="info"
+      [rounded]="true"
+    />
+  </app-page-header>
 
-        <p-tag [value]="availableUnits() + ' unidades disponibles'" severity="success" [rounded]="true" />
-
-        <ng-container *appHasPermission="'POST /api/sales'">
-            <button pButton type="button" (click)="openCreate()">
-                <i pButtonIcon class="pi pi-plus"></i>
-                <span pButtonLabel>Nueva venta</span>
-            </button>
-        </ng-container>
-    </app-page-header>
-
-    @if (error()) {
+  @if (error()) {
     <p-message severity="error" styleClass="mb-4 w-full">
-        {{ error() }}
+      {{ error() }}
     </p-message>
-    }
+  }
 
-    <p-table [value]="sales()" [loading]="loading()" dataKey="id" [paginator]="sales().length > 10" [rows]="10"
-        [rowHover]="true">
-        <ng-template #header>
-            <tr>
-                <th>Número</th>
-                <th>Cliente</th>
-                <th>Fecha</th>
-                <th>Total</th>
-                <th>Estado</th>
-            </tr>
-        </ng-template>
+  <div class="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
+    <!-- Columna izquierda: listado de ventas -->
+    <section
+      aria-label="Listado de ventas"
+      class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+    >
+      <div class="relative">
+        <i
+          class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          aria-hidden="true"
+        ></i>
+        <input
+          pInputText
+          type="search"
+          class="w-full pl-9"
+          aria-label="Buscar ventas"
+          placeholder="Buscar por #, cliente o serial..."
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+        />
+      </div>
 
-        <ng-template #body let-sale>
-            <tr>
-                <td>
-                    <a [routerLink]="['/ventas', sale.id]" class="font-medium text-blue-600 hover:underline">
-                        #{{ sale.id }}
-                    </a>
-                </td>
-                <td>{{ customerName(sale) }}</td>
-                <td>{{ sale.saleDate | date: 'dd/MM/yyyy HH:mm' }}</td>
-                <td>{{ sale.total }}</td>
+      <p-select
+        [options]="statusFilterOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="statusFilter.set($any($event))"
+        [ngModelOptions]="{ standalone: true }"
+        [fluid]="true"
+        styleClass="w-full"
+        aria-label="Filtrar por estado"
+      />
 
-                <td>
-                    <app-status-tag [status]="sale.status" />
-                </td>
-            </tr>
-        </ng-template>
+      <ng-container *appHasPermission="'POST /api/sales'">
+        <button
+          pButton
+          type="button"
+          class="w-full"
+          aria-label="Registrar nueva venta"
+          (click)="openCreate()"
+        >
+          <i pButtonIcon class="pi pi-plus"></i>
+          <span pButtonLabel>Nueva venta</span>
+        </button>
+      </ng-container>
 
-        <ng-template #emptymessage>
-            <tr>
-                <td colspan="5">
-                    <app-empty-state icon="pi pi-shopping-cart" title="Sin ventas registradas"
-                        message="Registra la primera venta con el botón «Nueva venta»." />
-                </td>
-            </tr>
-        </ng-template>
-    </p-table>
+      @if (loading()) {
+        <p class="text-sm text-slate-500">Cargando ventas...</p>
+      } @else {
+        <ul class="flex max-h-[34rem] flex-col gap-2 overflow-y-auto pr-1">
+          @for (row of visibleSales(); track row.id) {
+            <li>
+              <button
+                type="button"
+                class="w-full rounded-lg border p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
+                [class.border-emerald-500]="isSelected(row)"
+                [class.bg-emerald-50]="isSelected(row)"
+                [class.ring-2]="isSelected(row)"
+                [class.ring-emerald-200]="isSelected(row)"
+                [attr.aria-current]="isSelected(row) ? 'true' : null"
+                (click)="select(row)"
+              >
+                <span class="flex items-center justify-between gap-2">
+                  <span class="truncate font-medium text-slate-800">
+                    #{{ row.id }} · {{ customerName(row) }}
+                  </span>
+                  <app-status-tag [status]="row.status" />
+                </span>
+                <span class="mt-1 block truncate text-xs text-slate-400">
+                  {{ row.saleDate | date: 'dd/MM/yyyy HH:mm' }} ·
+                  {{ row.total }}
+                </span>
+              </button>
+            </li>
+          } @empty {
+            <li>
+              <app-empty-state
+                icon="pi pi-shopping-cart"
+                title="Sin ventas"
+                message="Registra la primera venta con «Nueva venta»."
+              />
+            </li>
+          }
+        </ul>
+      }
+    </section>
 
-    <p-dialog [visible]="dialogVisible()" (visibleChange)="dialogVisible.set($event)" header="Nueva venta"
-        [modal]="true" [draggable]="false" [resizable]="false" styleClass="w-full max-w-3xl mx-4">
-        <app-sale-form [customers]="customers()" [products]="products()" [stock]="stock()" [saving]="saving()"
-            [error]="saleError()" [resetKey]="resetKey()" (saved)="save($event)"
-            (cancelled)="dialogVisible.set(false)" />
-    </p-dialog>
+    <!-- Columna derecha: detalle de la venta seleccionada -->
+    <section
+      aria-label="Detalle de la venta"
+      class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      @if (sale(); as current) {
+        @if (loadingDetail()) {
+          <p class="mb-3 text-sm text-slate-400">
+            Cargando detalle de la venta...
+          </p>
+        }
+
+        <div class="flex flex-col gap-6">
+          <header
+            class="flex flex-col gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-center md:justify-between"
+          >
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <h2 class="text-lg font-semibold text-slate-900">
+                  Venta #{{ current.id }}
+                </h2>
+                <app-status-tag [status]="current.status" />
+              </div>
+              <p class="text-sm text-slate-500">
+                {{ customerName(current) }} ·
+                {{ current.saleDate | date: 'dd/MM/yyyy HH:mm' }} ·
+                {{ unitsCount() }} unidades en
+                {{ current.lines.length }} línea(s)
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              @if (current.status === 'active') {
+                <ng-container *appHasPermission="'DELETE /api/sales/:id'">
+                  <button
+                    pButton
+                    type="button"
+                    severity="danger"
+                    outlined
+                    aria-label="Anular venta"
+                    [loading]="voiding()"
+                    (click)="voidSale()"
+                  >
+                    <i pButtonIcon class="pi pi-ban"></i>
+                    <span pButtonLabel>Anular venta</span>
+                  </button>
+                </ng-container>
+              }
+            </div>
+          </header>
+
+          <div class="grid gap-4 sm:grid-cols-3">
+            <div class="rounded-lg border border-slate-100 p-4">
+              <p class="text-sm text-slate-500">Subtotal</p>
+              <p class="text-lg font-semibold">
+                {{ current.subtotal | currency }}
+              </p>
+            </div>
+
+            <div class="rounded-lg border border-slate-100 p-4">
+              <p class="text-sm text-slate-500">Impuesto</p>
+              <p class="text-lg font-semibold">
+                {{ current.tax | currency }}
+              </p>
+            </div>
+
+            <div class="rounded-lg border border-slate-100 p-4">
+              <p class="text-sm text-slate-500">Total</p>
+              <p class="text-lg font-semibold">
+                {{ current.total | currency }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Líneas, garantías y pagos de la venta en pestañas -->
+          <p-tabs
+            [value]="detailTab()"
+            (valueChange)="detailTab.set($any($event))"
+          >
+            <p-tablist aria-label="Secciones de la venta">
+              <p-tab value="lineas">
+                <span class="flex items-center gap-2">
+                  <i class="pi pi-list" aria-hidden="true"></i>
+                  Líneas
+                  <p-tag
+                    [value]="current.lines.length + ''"
+                    severity="info"
+                    [rounded]="true"
+                  />
+                </span>
+              </p-tab>
+              @if (canSeeWarranties()) {
+                <p-tab value="garantias">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-shield" aria-hidden="true"></i>
+                    Garantías
+                    <p-tag
+                      [value]="warranties().length + ''"
+                      severity="success"
+                      [rounded]="true"
+                    />
+                  </span>
+                </p-tab>
+              }
+              @if (canSeePayments()) {
+                <p-tab value="pagos">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-credit-card" aria-hidden="true"></i>
+                    Pagos
+                    <p-tag
+                      [value]="payments().length + ''"
+                      severity="warn"
+                      [rounded]="true"
+                    />
+                  </span>
+                </p-tab>
+              }
+            </p-tablist>
+
+            <p-tabpanels>
+              <p-tabpanel value="lineas">
+                <section aria-label="Líneas de la venta">
+                  <p-table [value]="current.lines" dataKey="id" [rowHover]="true">
+                    <ng-template #header>
+                      <tr>
+                        <th>Serial</th>
+                        <th>Producto</th>
+                        <th class="text-right">Cantidad</th>
+                        <th class="text-right">Precio unitario</th>
+                        <th class="text-right">Total</th>
+                      </tr>
+                    </ng-template>
+
+                    <ng-template #body let-line>
+                      <tr>
+                        <td>
+                          <code class="text-xs">
+                            {{ line.serializedUnitSerial }}
+                          </code>
+                        </td>
+                        <td class="font-medium text-slate-800">
+                          {{ line.productName }}
+                        </td>
+                        <td class="text-right">{{ line.quantity }}</td>
+                        <td class="text-right">
+                          {{ line.unitPrice | currency }}
+                        </td>
+                        <td class="text-right">
+                          {{ line.lineTotal | currency }}
+                        </td>
+                      </tr>
+                    </ng-template>
+
+                    <ng-template #emptymessage>
+                      <tr>
+                        <td colspan="5">
+                          <app-empty-state
+                            icon="pi pi-list"
+                            title="Sin líneas en esta venta"
+                          />
+                        </td>
+                      </tr>
+                    </ng-template>
+                  </p-table>
+                </section>
+              </p-tabpanel>
+
+              <p-tabpanel value="garantias">
+                <section
+                  aria-label="Garantías de la venta"
+                  class="flex flex-col gap-3"
+                >
+                  <div class="flex justify-end">
+                    <ng-container *appHasPermission="'POST /api/warranties'">
+                      <button
+                        pButton
+                        type="button"
+                        [disabled]="current.lines.length === 0"
+                        (click)="openWarrantyCreate()"
+                      >
+                        <i pButtonIcon class="pi pi-plus"></i>
+                        <span pButtonLabel>Nueva garantía</span>
+                      </button>
+                    </ng-container>
+                  </div>
+
+                  <p-table [value]="warranties()" dataKey="id" [rowHover]="true">
+                    <ng-template #header>
+                      <tr>
+                        <th>Serial</th>
+                        <th>Tipo</th>
+                        <th>Inicio</th>
+                        <th>Fin</th>
+                        <th>Estado</th>
+                        <th class="text-right">Acciones</th>
+                      </tr>
+                    </ng-template>
+
+                    <ng-template #body let-warranty>
+                      <tr>
+                        <td>
+                          <code class="text-xs">
+                            {{ warranty.serializedUnitSerial }}
+                          </code>
+                        </td>
+                        <td>
+                          {{
+                            warranty.warrantyType === 'commercial'
+                              ? 'Comercial'
+                              : 'Extendida'
+                          }}
+                        </td>
+                        <td>{{ warranty.startDate }}</td>
+                        <td>{{ warranty.endDate }}</td>
+                        <td>
+                          <app-status-tag [status]="warranty.status" />
+                        </td>
+                        <td class="text-right">
+                          <ng-container
+                            *appHasPermission="'DELETE /api/warranties/:id'"
+                          >
+                            <button
+                              pButton
+                              type="button"
+                              text
+                              rounded
+                              severity="danger"
+                              aria-label="Eliminar garantía"
+                              pTooltip="Eliminar garantía"
+                              (click)="removeWarranty(warranty)"
+                            >
+                              <i pButtonIcon class="pi pi-trash"></i>
+                            </button>
+                          </ng-container>
+                        </td>
+                      </tr>
+                    </ng-template>
+
+                    <ng-template #emptymessage>
+                      <tr>
+                        <td colspan="6">
+                          <app-empty-state
+                            icon="pi pi-shield"
+                            title="Sin garantías"
+                            message="Crea una garantía con el botón superior."
+                          />
+                        </td>
+                      </tr>
+                    </ng-template>
+                  </p-table>
+                </section>
+              </p-tabpanel>
+
+              <p-tabpanel value="pagos">
+                <section
+                  aria-label="Pagos de la venta"
+                  class="flex flex-col gap-3"
+                >
+                  <div class="flex justify-end">
+                    <ng-container *appHasPermission="'POST /api/payments'">
+                      <button
+                        pButton
+                        type="button"
+                        (click)="openPaymentCreate()"
+                      >
+                        <i pButtonIcon class="pi pi-plus"></i>
+                        <span pButtonLabel>Nuevo pago</span>
+                      </button>
+                    </ng-container>
+                  </div>
+
+                  <p-table [value]="payments()" dataKey="id" [rowHover]="true">
+                    <ng-template #header>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Método</th>
+                        <th class="text-right">Monto</th>
+                        <th>Estado</th>
+                        <th class="text-right">Acciones</th>
+                      </tr>
+                    </ng-template>
+
+                    <ng-template #body let-payment>
+                      <tr>
+                        <td>{{ payment.paymentDate }}</td>
+                        <td>
+                          {{
+                            payment.method === 'cash'
+                              ? 'Efectivo'
+                              : payment.method === 'card'
+                                ? 'Tarjeta'
+                                : payment.method === 'transfer'
+                                  ? 'Transferencia'
+                                  : 'Pago móvil'
+                          }}
+                        </td>
+                        <td class="text-right">
+                          {{ payment.amount | currency }}
+                        </td>
+                        <td>
+                          <app-status-tag [status]="payment.status" />
+                        </td>
+                        <td class="text-right">
+                          <ng-container
+                            *appHasPermission="'DELETE /api/payments/:id'"
+                          >
+                            <button
+                              pButton
+                              type="button"
+                              text
+                              rounded
+                              severity="danger"
+                              aria-label="Eliminar pago"
+                              pTooltip="Eliminar pago"
+                              (click)="removePayment(payment)"
+                            >
+                              <i pButtonIcon class="pi pi-trash"></i>
+                            </button>
+                          </ng-container>
+                        </td>
+                      </tr>
+                    </ng-template>
+
+                    <ng-template #emptymessage>
+                      <tr>
+                        <td colspan="5">
+                          <app-empty-state
+                            icon="pi pi-credit-card"
+                            title="Sin pagos"
+                            message="Registra un pago con el botón superior."
+                          />
+                        </td>
+                      </tr>
+                    </ng-template>
+                  </p-table>
+                </section>
+              </p-tabpanel>
+            </p-tabpanels>
+          </p-tabs>
+        </div>
+      } @else {
+        <app-empty-state
+          icon="pi pi-shopping-cart"
+          title="Selecciona una venta"
+          message="Elige una venta del listado para ver sus líneas, garantías y pagos."
+        />
+      }
+    </section>
+  </div>
+
+  <!-- Diálogo: nueva venta -->
+  <p-dialog
+    [visible]="createVisible()"
+    (visibleChange)="createVisible.set($event)"
+    header="Nueva venta"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-3xl mx-4"
+  >
+    <app-sale-form
+      [customers]="customers()"
+      [units]="units()"
+      [saving]="createSaving()"
+      [error]="createError()"
+      [resetKey]="createResetKey()"
+      (saved)="save($event)"
+      (cancelled)="createVisible.set(false)"
+    />
+  </p-dialog>
+
+  <!-- Diálogo: nueva garantía sobre una línea de esta venta -->
+  <p-dialog
+    [visible]="warrantyVisible()"
+    (visibleChange)="warrantyVisible.set($event)"
+    header="Nueva garantía"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <form
+      [formGroup]="warrantyForm"
+      (ngSubmit)="saveWarranty()"
+      class="grid gap-4"
+    >
+      @if (warrantyError()) {
+        <p-message severity="error" styleClass="w-full">
+          {{ warrantyError() }}
+        </p-message>
+      }
+
+      <div class="flex flex-col gap-2">
+        <label for="wr-line">
+          Línea de venta <span class="text-red-500">*</span>
+        </label>
+        <p-select
+          inputId="wr-line"
+          formControlName="saleDetailId"
+          [options]="lineOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          placeholder="Selecciona la línea que garantiza"
+          [fluid]="true"
+          styleClass="w-full"
+        />
+        @if (
+          warrantyForm.controls.saleDetailId.touched &&
+          warrantyForm.controls.saleDetailId.invalid
+        ) {
+          <p-message severity="error" size="small" variant="simple">
+            Selecciona la línea de venta que garantiza.
+          </p-message>
+        }
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="flex flex-col gap-2">
+          <label for="wr-start">
+            Inicio <span class="text-red-500">*</span>
+          </label>
+          <input
+            id="wr-start"
+            pInputText
+            type="date"
+            formControlName="startDate"
+            class="w-full"
+          />
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="wr-end">
+            Fin <span class="text-red-500">*</span>
+          </label>
+          <input
+            id="wr-end"
+            pInputText
+            type="date"
+            formControlName="endDate"
+            class="w-full"
+          />
+          @if (
+            warrantyForm.controls.endDate.touched &&
+            warrantyForm.controls.endDate.invalid
+          ) {
+            <p-message severity="error" size="small" variant="simple">
+              La fecha de fin es obligatoria.
+            </p-message>
+          }
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="wr-type">
+          Tipo <span class="text-red-500">*</span>
+        </label>
+        <p-select
+          inputId="wr-type"
+          formControlName="warrantyType"
+          [options]="warrantyTypeOptions"
+          optionLabel="label"
+          optionValue="value"
+          [fluid]="true"
+          styleClass="w-full sm:max-w-72"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="wr-description">Descripción</label>
+        <textarea
+          id="wr-description"
+          pTextarea
+          formControlName="description"
+          rows="3"
+          class="w-full"
+          placeholder="Detalle de la garantía (opcional)"
+        ></textarea>
+      </div>
+
+      <div
+        class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"
+      >
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          outlined
+          (click)="warrantyVisible.set(false)"
+        >
+          <span pButtonLabel>Cancelar</span>
+        </button>
+
+        <button
+          pButton
+          type="submit"
+          [loading]="warrantySaving()"
+          [disabled]="warrantySaving()"
+        >
+          <i pButtonIcon class="pi pi-check"></i>
+          <span pButtonLabel>Crear garantía</span>
+        </button>
+      </div>
+    </form>
+  </p-dialog>
+
+  <!-- Diálogo: nuevo pago de esta venta -->
+  <p-dialog
+    [visible]="paymentVisible()"
+    (visibleChange)="paymentVisible.set($event)"
+    header="Nuevo pago"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <app-payment-form
+      referenceType="sale"
+      [referenceId]="saleId()"
+      [saving]="paymentSaving()"
+      [error]="paymentError()"
+      [resetKey]="paymentResetKey()"
+      (saved)="savePayment($event)"
+      (cancelled)="paymentVisible.set(false)"
+    />
+  </p-dialog>
 </div>

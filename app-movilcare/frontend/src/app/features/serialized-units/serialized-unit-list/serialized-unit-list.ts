@@ -71,9 +71,8 @@ export class SerializedUnitList {
       this.rows(),
       this.filter(),
       (unit) => [
-        unit.name,
+        unit.serial,
         unit.productName,
-        unit.description,
       ],
     ),
   );
@@ -142,7 +141,7 @@ export class SerializedUnitList {
   remove(unit: SerializedUnit): void {
     this.confirmation.confirm({
       header: 'Dar de baja',
-      message: `¿Deseas dar de baja a ${unit.name}?`,
+      message: `¿Deseas dar de baja a ${unit.serial}?`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Dar de baja',
       rejectLabel: 'Cancelar',

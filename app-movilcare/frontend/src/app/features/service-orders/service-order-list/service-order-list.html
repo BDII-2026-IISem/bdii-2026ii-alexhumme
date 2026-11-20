@@ -1,0 +1,947 @@
+<div class="space-y-6">
+  <app-page-header
+    title="Órdenes de servicio"
+    subtitle="Selecciona una orden para ver su ficha, diagnósticos, repuestos y pagos."
+  >
+    <p-tag
+      [value]="orders().length + ' registros'"
+      severity="info"
+      [rounded]="true"
+    />
+  </app-page-header>
+
+  @if (error()) {
+    <p-message severity="error" styleClass="mb-4 w-full">
+      {{ error() }}
+    </p-message>
+  }
+
+  <div class="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
+    <!-- Columna izquierda: listado de órdenes -->
+    <section
+      aria-label="Listado de órdenes de servicio"
+      class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+    >
+      <div class="relative">
+        <i
+          class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          aria-hidden="true"
+        ></i>
+        <input
+          pInputText
+          type="search"
+          class="w-full pl-9"
+          aria-label="Buscar órdenes"
+          placeholder="Buscar por número, cliente o serial..."
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+        />
+      </div>
+
+      <p-select
+        [options]="statusFilterOptions"
+        optionLabel="label"
+        optionValue="value"
+        [ngModel]="statusFilter()"
+        (ngModelChange)="statusFilter.set($any($event))"
+        [ngModelOptions]="{ standalone: true }"
+        [fluid]="true"
+        styleClass="w-full"
+        aria-label="Filtrar por estado"
+      />
+
+      @if (canCreateOrder()) {
+        <button
+          pButton
+          type="button"
+          class="w-full"
+          aria-label="Crear nueva orden"
+          (click)="openCreate()"
+        >
+          <i pButtonIcon class="pi pi-plus"></i>
+          <span pButtonLabel>Nueva orden</span>
+        </button>
+      }
+
+      @if (loading()) {
+        <p class="text-sm text-slate-500">Cargando órdenes...</p>
+      } @else {
+        <ul class="flex max-h-[34rem] flex-col gap-2 overflow-y-auto pr-1">
+          @for (row of visibleOrders(); track row.id) {
+            <li>
+              <button
+                type="button"
+                class="w-full rounded-lg border p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
+                [class.border-emerald-500]="isSelected(row)"
+                [class.bg-emerald-50]="isSelected(row)"
+                [class.ring-2]="isSelected(row)"
+                [class.ring-emerald-200]="isSelected(row)"
+                [attr.aria-current]="isSelected(row) ? 'true' : null"
+                (click)="select(row)"
+              >
+                <span class="flex items-center justify-between gap-2">
+                  <span class="truncate font-medium text-slate-800">
+                    {{ row.number }}
+                  </span>
+                  <app-status-tag [status]="row.status" />
+                </span>
+                <span class="mt-1 block truncate text-xs text-slate-400">
+                  {{ row.customerName }} · {{ row.unitSerial }} ·
+                  {{ row.openDate }}
+                </span>
+              </button>
+            </li>
+          } @empty {
+            <li>
+              <app-empty-state
+                icon="pi pi-wrench"
+                title="Sin órdenes"
+                message="Registra la primera orden con «Nueva orden»."
+              />
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- Columna derecha: detalle de la orden seleccionada -->
+    <section
+      aria-label="Detalle de la orden"
+      class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      @if (order(); as current) {
+        @if (loadingDetail()) {
+          <p class="mb-3 text-sm text-slate-400">
+            Cargando detalle de la orden...
+          </p>
+        }
+
+        <div class="flex flex-col gap-6">
+          <header
+            class="flex flex-col gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-center md:justify-between"
+          >
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <h2 class="text-lg font-semibold text-slate-900">
+                  {{ current.number }}
+                </h2>
+                <app-status-tag [status]="current.status" />
+                @if (current.closeDate) {
+                  <p-tag
+                    value="Cerrada"
+                    severity="success"
+                    [rounded]="true"
+                  />
+                }
+              </div>
+              <p class="text-sm text-slate-500">
+                {{ current.customerName }} · {{ current.productName }} ·
+                <code class="text-xs">{{ current.unitSerial }}</code>
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              @if (canEditOrder() && !current.closeDate) {
+                <button
+                  pButton
+                  type="button"
+                  severity="secondary"
+                  outlined
+                  aria-label="Cerrar orden"
+                  [loading]="closing()"
+                  (click)="closeOrder()"
+                >
+                  <i pButtonIcon class="pi pi-check-circle"></i>
+                  <span pButtonLabel>Cerrar orden</span>
+                </button>
+              }
+              @if (canDeleteOrder() && current.status === 'active') {
+                <button
+                  pButton
+                  type="button"
+                  severity="danger"
+                  outlined
+                  aria-label="Dar de baja la orden"
+                  (click)="removeOrder()"
+                >
+                  <i pButtonIcon class="pi pi-trash"></i>
+                  <span pButtonLabel>Dar de baja</span>
+                </button>
+              }
+            </div>
+          </header>
+
+          <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded-lg border border-slate-100 p-4">
+              <p class="text-sm text-slate-500">Apertura</p>
+              <p class="text-lg font-semibold">{{ current.openDate }}</p>
+            </div>
+
+            <div class="rounded-lg border border-slate-100 p-4">
+              <p class="text-sm text-slate-500">Cierre</p>
+              <p class="text-lg font-semibold">
+                {{ current.closeDate || '—' }}
+              </p>
+            </div>
+
+            <div class="rounded-lg border border-slate-100 p-4">
+              <p class="text-sm text-slate-500">Total en repuestos</p>
+              <p class="text-lg font-semibold">
+                {{ current.total | currency }}
+              </p>
+            </div>
+
+            <div class="rounded-lg border border-slate-100 p-4">
+              <p class="text-sm text-slate-500">Consumos activos</p>
+              <p class="text-lg font-semibold">
+                {{
+                  consumptions().filter((row) => row.status === 'active').length
+                }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Ficha, diagnósticos, repuestos y pagos en pestañas -->
+          <p-tabs
+            [value]="detailTab()"
+            (valueChange)="detailTab.set($any($event))"
+          >
+            <p-tablist aria-label="Secciones de la orden">
+              <p-tab value="ficha">
+                <span class="flex items-center gap-2">
+                  <i class="pi pi-pencil" aria-hidden="true"></i>
+                  Ficha
+                </span>
+              </p-tab>
+              @if (canSeeDiagnoses()) {
+                <p-tab value="diagnosticos">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-heartbeat" aria-hidden="true"></i>
+                    Diagnósticos
+                    <p-tag
+                      [value]="diagnoses().length + ''"
+                      severity="info"
+                      [rounded]="true"
+                    />
+                  </span>
+                </p-tab>
+              }
+              @if (canSeeConsumptions()) {
+                <p-tab value="repuestos">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-cog" aria-hidden="true"></i>
+                    Repuestos
+                    <p-tag
+                      [value]="consumptions().length + ''"
+                      severity="warn"
+                      [rounded]="true"
+                    />
+                  </span>
+                </p-tab>
+              }
+              @if (canSeePayments()) {
+                <p-tab value="pagos">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-credit-card" aria-hidden="true"></i>
+                    Pagos
+                    <p-tag
+                      [value]="payments().length + ''"
+                      severity="success"
+                      [rounded]="true"
+                    />
+                  </span>
+                </p-tab>
+              }
+            </p-tablist>
+
+            <p-tabpanels>
+              <p-tabpanel value="ficha">
+                <form
+                  [formGroup]="detailForm"
+                  (ngSubmit)="saveDetail()"
+                  class="grid gap-4"
+                >
+                  <div class="grid gap-4 md:grid-cols-2">
+                    <div class="flex flex-col gap-2">
+                      <label for="so-customer">Cliente</label>
+                      <p-select
+                        inputId="so-customer"
+                        formControlName="customerId"
+                        [options]="customerOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        [filter]="true"
+                        [fluid]="true"
+                        styleClass="w-full"
+                      />
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                      <label for="so-unit">Unidad serializada</label>
+                      <p-select
+                        inputId="so-unit"
+                        formControlName="serializedUnitId"
+                        [options]="unitOptions()"
+                        optionLabel="label"
+                        optionValue="value"
+                        [filter]="true"
+                        [fluid]="true"
+                        styleClass="w-full"
+                      />
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                      <label for="so-open">Apertura</label>
+                      <input
+                        id="so-open"
+                        pInputText
+                        type="date"
+                        formControlName="openDate"
+                        class="w-full"
+                      />
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                      <label for="so-close">Cierre</label>
+                      <input
+                        id="so-close"
+                        pInputText
+                        type="date"
+                        formControlName="closeDate"
+                        class="w-full"
+                      />
+                      <p class="text-xs text-slate-500">
+                        Vacía mientras la orden siga abierta.
+                      </p>
+                    </div>
+
+                    <div class="flex flex-col gap-2">
+                      <label for="so-status">Estado</label>
+                      <p-select
+                        inputId="so-status"
+                        formControlName="status"
+                        [options]="statusOptions"
+                        optionLabel="label"
+                        optionValue="value"
+                        [fluid]="true"
+                        styleClass="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  @if (canEditOrder()) {
+                    <div
+                      class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"
+                    >
+                      <button
+                        pButton
+                        type="submit"
+                        [loading]="savingDetail()"
+                        [disabled]="savingDetail()"
+                      >
+                        <i pButtonIcon class="pi pi-save"></i>
+                        <span pButtonLabel>Guardar cambios</span>
+                      </button>
+                    </div>
+                  }
+                </form>
+              </p-tabpanel>
+
+              @if (canSeeDiagnoses()) {
+                <p-tabpanel value="diagnosticos">
+                  <section
+                    aria-label="Diagnósticos de la orden"
+                    class="flex flex-col gap-3"
+                  >
+                    <div class="flex justify-end">
+                      @if (canCreateDiagnosis()) {
+                        <button
+                          pButton
+                          type="button"
+                          (click)="openDiagnosisCreate()"
+                        >
+                          <i pButtonIcon class="pi pi-plus"></i>
+                          <span pButtonLabel>Nuevo diagnóstico</span>
+                        </button>
+                      }
+                    </div>
+
+                    <p-table
+                      [value]="diagnoses()"
+                      dataKey="id"
+                      [rowHover]="true"
+                    >
+                      <ng-template #header>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Descripción</th>
+                          <th>Observaciones</th>
+                          <th>Estado</th>
+                          <th class="text-right">Acciones</th>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #body let-diagnosis>
+                        <tr>
+                          <td>{{ diagnosis.diagnosisDate }}</td>
+                          <td class="font-medium text-slate-800">
+                            {{ diagnosis.description }}
+                          </td>
+                          <td>{{ diagnosis.observations || '—' }}</td>
+                          <td>
+                            <app-status-tag [status]="diagnosis.status" />
+                          </td>
+                          <td class="text-right">
+                            @if (canDeleteDiagnosis()) {
+                              <button
+                                pButton
+                                type="button"
+                                text
+                                rounded
+                                severity="danger"
+                                aria-label="Eliminar diagnóstico"
+                                pTooltip="Eliminar"
+                                (click)="removeDiagnosis(diagnosis)"
+                              >
+                                <i pButtonIcon class="pi pi-trash"></i>
+                              </button>
+                            }
+                          </td>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #emptymessage>
+                        <tr>
+                          <td colspan="5">
+                            <app-empty-state
+                              icon="pi pi-heartbeat"
+                              title="Sin diagnósticos"
+                              message="Registra el diagnóstico con el botón superior."
+                            />
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </section>
+                </p-tabpanel>
+              }
+
+              @if (canSeeConsumptions()) {
+                <p-tabpanel value="repuestos">
+                  <section
+                    aria-label="Repuestos consumidos"
+                    class="flex flex-col gap-3"
+                  >
+                    <div class="flex justify-end">
+                      @if (canCreateConsumption()) {
+                        <button
+                          pButton
+                          type="button"
+                          (click)="openConsumptionCreate()"
+                        >
+                          <i pButtonIcon class="pi pi-plus"></i>
+                          <span pButtonLabel>Consumir repuesto</span>
+                        </button>
+                      }
+                    </div>
+
+                    <p-table
+                      [value]="consumptions()"
+                      dataKey="id"
+                      [rowHover]="true"
+                    >
+                      <ng-template #header>
+                        <tr>
+                          <th>Repuesto</th>
+                          <th class="text-right">Cantidad</th>
+                          <th class="text-right">Precio unitario</th>
+                          <th class="text-right">Subtotal</th>
+                          <th>Estado</th>
+                          <th class="text-right">Acciones</th>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #body let-consumption>
+                        <tr>
+                          <td class="font-medium text-slate-800">
+                            {{ consumption.partName }}
+                          </td>
+                          <td class="text-right">
+                            {{ consumption.quantity }}
+                          </td>
+                          <td class="text-right">
+                            {{ consumption.unitPrice | currency }}
+                          </td>
+                          <td class="text-right">
+                            {{ consumption.subtotal | currency }}
+                          </td>
+                          <td>
+                            <app-status-tag [status]="consumption.status" />
+                          </td>
+                          <td class="text-right">
+                            @if (canDeleteConsumption()) {
+                              <button
+                                pButton
+                                type="button"
+                                text
+                                rounded
+                                severity="danger"
+                                aria-label="Eliminar consumo"
+                                pTooltip="Eliminar"
+                                (click)="removeConsumption(consumption)"
+                              >
+                                <i pButtonIcon class="pi pi-trash"></i>
+                              </button>
+                            }
+                          </td>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #emptymessage>
+                        <tr>
+                          <td colspan="6">
+                            <app-empty-state
+                              icon="pi pi-cog"
+                              title="Sin repuestos consumidos"
+                              message="Registra un consumo con el botón superior."
+                            />
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </section>
+                </p-tabpanel>
+              }
+
+              @if (canSeePayments()) {
+                <p-tabpanel value="pagos">
+                  <section
+                    aria-label="Pagos de la orden"
+                    class="flex flex-col gap-3"
+                  >
+                    <div class="flex justify-end">
+                      @if (canCreatePayment()) {
+                        <button
+                          pButton
+                          type="button"
+                          (click)="openPaymentCreate()"
+                        >
+                          <i pButtonIcon class="pi pi-plus"></i>
+                          <span pButtonLabel>Nuevo pago</span>
+                        </button>
+                      }
+                    </div>
+
+                    <p-table [value]="payments()" dataKey="id" [rowHover]="true">
+                      <ng-template #header>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Método</th>
+                          <th class="text-right">Monto</th>
+                          <th>Estado</th>
+                          <th class="text-right">Acciones</th>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #body let-payment>
+                        <tr>
+                          <td>{{ payment.paymentDate }}</td>
+                          <td>
+                            {{
+                              payment.method === 'cash'
+                                ? 'Efectivo'
+                                : payment.method === 'card'
+                                  ? 'Tarjeta'
+                                  : payment.method === 'transfer'
+                                    ? 'Transferencia'
+                                    : 'Pago móvil'
+                            }}
+                          </td>
+                          <td class="text-right">
+                            {{ payment.amount | currency }}
+                          </td>
+                          <td>
+                            <app-status-tag [status]="payment.status" />
+                          </td>
+                          <td class="text-right">
+                            @if (canDeletePayment()) {
+                              <button
+                                pButton
+                                type="button"
+                                text
+                                rounded
+                                severity="danger"
+                                aria-label="Eliminar pago"
+                                pTooltip="Eliminar"
+                                (click)="removePayment(payment)"
+                              >
+                                <i pButtonIcon class="pi pi-trash"></i>
+                              </button>
+                            }
+                          </td>
+                        </tr>
+                      </ng-template>
+
+                      <ng-template #emptymessage>
+                        <tr>
+                          <td colspan="5">
+                            <app-empty-state
+                              icon="pi pi-credit-card"
+                              title="Sin pagos"
+                              message="Registra un pago con el botón superior."
+                            />
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </section>
+                </p-tabpanel>
+              }
+            </p-tabpanels>
+          </p-tabs>
+        </div>
+      } @else {
+        <app-empty-state
+          icon="pi pi-wrench"
+          title="Selecciona una orden"
+          message="Elige una orden del listado para ver su ficha y su trabajo técnico."
+        />
+      }
+    </section>
+  </div>
+
+  <!-- Diálogo: nueva orden -->
+  <p-dialog
+    [visible]="createVisible()"
+    (visibleChange)="createVisible.set($event)"
+    header="Nueva orden de servicio"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <form [formGroup]="createForm" (ngSubmit)="createOrder()" class="grid gap-4">
+      @if (createError()) {
+        <p-message severity="error" styleClass="w-full">
+          {{ createError() }}
+        </p-message>
+      }
+
+      <div class="flex flex-col gap-2">
+        <label for="new-so-customer">
+          Cliente <span class="text-red-500">*</span>
+        </label>
+        <p-select
+          inputId="new-so-customer"
+          formControlName="customerId"
+          [options]="customerOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          placeholder="Selecciona un cliente"
+          [fluid]="true"
+          styleClass="w-full"
+        />
+        @if (
+          createForm.controls.customerId.touched &&
+          createForm.controls.customerId.invalid
+        ) {
+          <p-message severity="error" size="small" variant="simple">
+            Selecciona un cliente activo.
+          </p-message>
+        }
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="new-so-unit">
+          Unidad serializada <span class="text-red-500">*</span>
+        </label>
+        <p-select
+          inputId="new-so-unit"
+          formControlName="serializedUnitId"
+          [options]="unitOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          placeholder="Selecciona el equipo a atender"
+          [fluid]="true"
+          styleClass="w-full"
+        />
+        @if (
+          createForm.controls.serializedUnitId.touched &&
+          createForm.controls.serializedUnitId.invalid
+        ) {
+          <p-message severity="error" size="small" variant="simple">
+            Selecciona la unidad serializada del equipo.
+          </p-message>
+        }
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="flex flex-col gap-2">
+          <label for="new-so-open">
+            Fecha de apertura <span class="text-red-500">*</span>
+          </label>
+          <input
+            id="new-so-open"
+            pInputText
+            type="date"
+            formControlName="openDate"
+            class="w-full"
+          />
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="new-so-close">Fecha de cierre</label>
+          <input
+            id="new-so-close"
+            pInputText
+            type="date"
+            formControlName="closeDate"
+            class="w-full"
+          />
+        </div>
+      </div>
+
+      <div
+        class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"
+      >
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          outlined
+          (click)="createVisible.set(false)"
+        >
+          <span pButtonLabel>Cancelar</span>
+        </button>
+
+        <button
+          pButton
+          type="submit"
+          [loading]="createSaving()"
+          [disabled]="createSaving()"
+        >
+          <i pButtonIcon class="pi pi-check"></i>
+          <span pButtonLabel>Crear orden</span>
+        </button>
+      </div>
+    </form>
+  </p-dialog>
+
+  <!-- Diálogo: nuevo diagnóstico -->
+  <p-dialog
+    [visible]="diagnosisVisible()"
+    (visibleChange)="diagnosisVisible.set($event)"
+    header="Nuevo diagnóstico"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <form
+      [formGroup]="diagnosisForm"
+      (ngSubmit)="saveDiagnosis()"
+      class="grid gap-4"
+    >
+      @if (diagnosisError()) {
+        <p-message severity="error" styleClass="w-full">
+          {{ diagnosisError() }}
+        </p-message>
+      }
+
+      <div class="flex flex-col gap-2">
+        <label for="dx-description">
+          Descripción <span class="text-red-500">*</span>
+        </label>
+        <textarea
+          id="dx-description"
+          pTextarea
+          formControlName="description"
+          rows="3"
+          class="w-full"
+          placeholder="Falla detectada o trabajo realizado"
+        ></textarea>
+        @if (
+          diagnosisForm.controls.description.touched &&
+          diagnosisForm.controls.description.invalid
+        ) {
+          <p-message severity="error" size="small" variant="simple">
+            La descripción es obligatoria (máximo 255 caracteres).
+          </p-message>
+        }
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="dx-date">
+          Fecha <span class="text-red-500">*</span>
+        </label>
+        <input
+          id="dx-date"
+          pInputText
+          type="date"
+          formControlName="diagnosisDate"
+          class="w-full sm:max-w-52"
+        />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <label for="dx-observations">Observaciones</label>
+        <textarea
+          id="dx-observations"
+          pTextarea
+          formControlName="observations"
+          rows="2"
+          class="w-full"
+          placeholder="Observaciones adicionales (opcional)"
+        ></textarea>
+      </div>
+
+      <div
+        class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"
+      >
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          outlined
+          (click)="diagnosisVisible.set(false)"
+        >
+          <span pButtonLabel>Cancelar</span>
+        </button>
+
+        <button
+          pButton
+          type="submit"
+          [loading]="diagnosisSaving()"
+          [disabled]="diagnosisSaving()"
+        >
+          <i pButtonIcon class="pi pi-check"></i>
+          <span pButtonLabel>Registrar diagnóstico</span>
+        </button>
+      </div>
+    </form>
+  </p-dialog>
+
+  <!-- Diálogo: consumo de repuesto -->
+  <p-dialog
+    [visible]="consumptionVisible()"
+    (visibleChange)="consumptionVisible.set($event)"
+    header="Consumir repuesto"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <form
+      [formGroup]="consumptionForm"
+      (ngSubmit)="saveConsumption()"
+      class="grid gap-4"
+    >
+      @if (consumptionError()) {
+        <p-message severity="error" styleClass="w-full">
+          {{ consumptionError() }}
+        </p-message>
+      }
+
+      <div class="flex flex-col gap-2">
+        <label for="pc-part">
+          Repuesto <span class="text-red-500">*</span>
+        </label>
+        <p-select
+          inputId="pc-part"
+          formControlName="partId"
+          [options]="partOptions()"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          placeholder="Selecciona un repuesto activo"
+          [fluid]="true"
+          styleClass="w-full"
+        />
+        @if (
+          consumptionForm.controls.partId.touched &&
+          consumptionForm.controls.partId.invalid
+        ) {
+          <p-message severity="error" size="small" variant="simple">
+            Selecciona el repuesto a consumir.
+          </p-message>
+        }
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="flex flex-col gap-2">
+          <label for="pc-quantity">
+            Cantidad <span class="text-red-500">*</span>
+          </label>
+          <p-inputnumber
+            inputId="pc-quantity"
+            formControlName="quantity"
+            [min]="1"
+            [useGrouping]="false"
+            [showButtons]="true"
+          />
+        </div>
+
+        <div class="flex flex-col gap-2">
+          <label for="pc-price">Precio unitario</label>
+          <p-inputnumber
+            inputId="pc-price"
+            formControlName="unitPrice"
+            mode="decimal"
+            [maxFractionDigits]="2"
+            placeholder="Precio del repuesto"
+          />
+          <p class="text-xs text-slate-500">
+            Vacío: usa el precio vigente del repuesto.
+          </p>
+        </div>
+      </div>
+
+      <div
+        class="flex flex-col-reverse gap-2 border-t border-slate-100 pt-4 sm:flex-row sm:justify-end"
+      >
+        <button
+          pButton
+          type="button"
+          severity="secondary"
+          outlined
+          (click)="consumptionVisible.set(false)"
+        >
+          <span pButtonLabel>Cancelar</span>
+        </button>
+
+        <button
+          pButton
+          type="submit"
+          [loading]="consumptionSaving()"
+          [disabled]="consumptionSaving()"
+        >
+          <i pButtonIcon class="pi pi-check"></i>
+          <span pButtonLabel>Consumir</span>
+        </button>
+      </div>
+    </form>
+  </p-dialog>
+
+  <!-- Diálogo: nuevo pago de la orden -->
+  <p-dialog
+    [visible]="paymentVisible()"
+    (visibleChange)="paymentVisible.set($event)"
+    header="Nuevo pago"
+    [modal]="true"
+    [draggable]="false"
+    [resizable]="false"
+    styleClass="w-full max-w-2xl mx-4"
+  >
+    <app-payment-form
+      referenceType="service_order"
+      [referenceId]="orderId()"
+      [saving]="paymentSaving()"
+      [error]="paymentError()"
+      [resetKey]="paymentResetKey()"
+      (saved)="savePayment($event)"
+      (cancelled)="paymentVisible.set(false)"
+    />
+  </p-dialog>
+</div>

@@ -24,35 +24,19 @@
     </div>
 
     <div class="flex flex-col gap-2">
-        <label for="unit-name">
-            Nombre <span class="text-red-500">*</span>
+        <label for="unit-serial">
+            Serial <span class="text-red-500">*</span>
         </label>
 
-        <input id="unit-name" pInputText formControlName="name" class="w-full" placeholder="Nombre de la unidad"
+        <input id="unit-serial" pInputText formControlName="serial" class="w-full" placeholder="Serial de la unidad"
             autocomplete="off" />
 
         @if (
-        form.controls.name.touched &&
-        form.controls.name.invalid
+        form.controls.serial.touched &&
+        form.controls.serial.invalid
         ) {
         <p-message severity="error" size="small" variant="simple">
-            El nombre es obligatorio y debe tener entre 2 y 150 caracteres.
-        </p-message>
-        }
-    </div>
-
-    <div class="flex flex-col gap-2">
-        <label for="unit-description">Descripción</label>
-
-        <textarea id="unit-description" pTextarea formControlName="description" rows="3" class="w-full"
-            placeholder="Descripción de la unidad (opcional)"></textarea>
-
-        @if (
-        form.controls.description.touched &&
-        form.controls.description.invalid
-        ) {
-        <p-message severity="error" size="small" variant="simple">
-            La descripción no puede superar los 255 caracteres.
+            El serial es obligatorio y debe tener entre 2 y 150 caracteres.
         </p-message>
         }
     </div>

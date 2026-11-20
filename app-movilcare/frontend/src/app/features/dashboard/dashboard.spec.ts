@@ -49,7 +49,6 @@ describe('Dashboard', () => {
     saleDate: toIsoWithOffset(toLocalInputValue()),
     subtotal: '150.00',
     tax: '0.00',
-    discounts: '0.00',
     total: '150.00',
     status: 'active',
     lines: [],
@@ -102,8 +101,7 @@ describe('Dashboard', () => {
       product: 11,
       productId: 11,
       productName: 'Producto con unidades',
-      name: 'UNI-100',
-      description: null,
+      serial: 'UNI-100',
       status: 'active' as const,
     },
   ];

@@ -5,8 +5,7 @@ export interface SerializedUnit extends Timestamps {
   product: number;
   productId: number;
   productName: string;
-  name: string;
-  description: string | null;
+  serial: string;
   status: Status;
 }
 

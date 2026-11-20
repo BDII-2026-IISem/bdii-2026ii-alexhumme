@@ -1,105 +1,278 @@
 <div class="space-y-6">
-    <app-page-header title="Productos" subtitle="Consulta y administra los productos del catálogo.">
-        <p-tag [value]="rows().length + ' registros'" severity="info" [rounded]="true" />
+  <app-page-header
+    title="Productos"
+    subtitle="Selecciona un producto para ver su ficha y sus unidades serializadas."
+  >
+    <p-tag
+      [value]="rows().length + ' registros'"
+      severity="info"
+      [rounded]="true"
+    />
+  </app-page-header>
 
-        <ng-container *appHasPermission="'POST /api/products'">
-            <button pButton type="button" (click)="openCreate()">
-                <i pButtonIcon class="pi pi-plus"></i>
-                <span pButtonLabel>Nuevo producto</span>
-            </button>
-        </ng-container>
-    </app-page-header>
-
-    @if (error()) {
+  @if (error()) {
     <p-message severity="error" styleClass="mb-4 w-full">
-        {{ error() }}
+      {{ error() }}
     </p-message>
-    }
+  }
 
-    <p-table [value]="visibleRows()" [loading]="loading()" dataKey="id" [paginator]="visibleRows().length > 10"
-        [rows]="10" [rowHover]="true">
-        <ng-template #caption>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <input pInputText type="search" class="w-full sm:flex-1" aria-label="Buscar productos"
-                    placeholder="Buscar por SKU, nombre o descripción..." [value]="filter()"
-                    (input)="filter.set($any($event.target).value)" />
+  <div class="grid items-start gap-4 lg:grid-cols-[19rem_minmax(0,1fr)]">
+    <!-- Columna izquierda: listado de productos -->
+    <section
+      aria-label="Listado de productos"
+      class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+    >
+      <div class="relative">
+        <i
+          class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          aria-hidden="true"
+        ></i>
+        <input
+          pInputText
+          type="search"
+          class="w-full pl-9"
+          aria-label="Buscar productos"
+          placeholder="Buscar por SKU, nombre o descripción..."
+          [value]="filter()"
+          (input)="filter.set($any($event.target).value)"
+        />
+      </div>
 
-                <div class="flex items-center gap-2">
-                    <p-toggleswitch inputId="available-only" [ngModel]="availableOnly()"
-                        (ngModelChange)="toggleAvailableOnly($event)" [ngModelOptions]="{ standalone: true }" />
-                    <label for="available-only" class="text-sm">
-                        Solo disponibles
-                    </label>
-                </div>
+      <div class="flex items-center gap-2">
+        <p-toggleswitch
+          inputId="available-only"
+          [ngModel]="availableOnly()"
+          (ngModelChange)="availableOnly.set($any($event))"
+          [ngModelOptions]="{ standalone: true }"
+        />
+        <label for="available-only" class="text-sm">Solo disponibles</label>
+      </div>
+
+      <ng-container *appHasPermission="'POST /api/products'">
+        <button
+          pButton
+          type="button"
+          class="w-full"
+          aria-label="Crear nuevo producto"
+          (click)="openCreate()"
+        >
+          <i pButtonIcon class="pi pi-plus"></i>
+          <span pButtonLabel>Nuevo producto</span>
+        </button>
+      </ng-container>
+
+      @if (loading()) {
+        <p class="text-sm text-slate-500">Cargando productos...</p>
+      } @else {
+        <ul class="flex max-h-[34rem] flex-col gap-2 overflow-y-auto pr-1">
+          @for (product of visibleRows(); track product.id) {
+            <li>
+              <button
+                type="button"
+                class="w-full rounded-lg border p-3 text-left transition hover:border-emerald-300 hover:bg-emerald-50/50"
+                [class.border-emerald-500]="isSelected(product)"
+                [class.bg-emerald-50]="isSelected(product)"
+                [class.ring-2]="isSelected(product)"
+                [class.ring-emerald-200]="isSelected(product)"
+                [attr.aria-current]="isSelected(product) ? 'true' : null"
+                (click)="select(product)"
+              >
+                <span class="flex items-center justify-between gap-2">
+                  <span class="truncate font-medium text-slate-800">
+                    {{ product.name }}
+                  </span>
+                  <app-status-tag [status]="product.status" />
+                </span>
+                <span class="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                  <span class="truncate">{{ product.sku }} · {{ product.price }}</span>
+                  @if (withoutUnits().has(product.id)) {
+                    <p-tag value="Sin unidades" severity="danger" [rounded]="true" />
+                  } @else {
+                    <p-tag
+                      [value]="(unitCounts().get(product.id) ?? 0) + ' uds.'"
+                      severity="success"
+                      [rounded]="true"
+                    />
+                  }
+                </span>
+              </button>
+            </li>
+          } @empty {
+            <li>
+              <app-empty-state
+                icon="pi pi-box"
+                [title]="filter() || availableOnly() ? 'Sin coincidencias' : 'Sin productos'"
+                [message]="
+                  filter() || availableOnly()
+                    ? 'Ningún producto coincide. Borra el filtro.'
+                    : 'Registra el primer producto con «Nuevo producto».'
+                "
+              />
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <!-- Columna derecha: detalle del producto seleccionado -->
+    <section
+      aria-label="Detalle del producto"
+      class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+    >
+      @if (hasDetail()) {
+        <div class="flex flex-col gap-6">
+          <header
+            class="flex flex-col gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-center md:justify-between"
+          >
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-2">
+                <h2 class="text-lg font-semibold text-slate-900">
+                  {{ detailTitle() }}
+                </h2>
+                @if (!creating() && selected(); as product) {
+                  <app-status-tag [status]="product.status" />
+                }
+              </div>
+              <p class="text-sm text-slate-500">
+                @if (creating()) {
+                  Completa la ficha y guarda para crear el producto.
+                } @else if (selected(); as product) {
+                  {{ product.sku }} ·
+                  {{ (unitCounts().get(product.id) ?? 0) }} unidad(es) activa(s)
+                }
+              </p>
             </div>
-        </ng-template>
 
-        <ng-template #header>
-            <tr>
-                <th>SKU</th>
-                <th>Nombre</th>
-                <th>Precio</th>
-                <th>Unidades activas</th>
-                <th>Estado</th>
-                <th class="text-right">Acciones</th>
-            </tr>
-        </ng-template>
+            <div class="flex flex-wrap gap-2">
+              @if (!creating() && selected(); as product) {
+                <ng-container *appHasPermission="'DELETE /api/products/:id'">
+                  <button
+                    pButton
+                    type="button"
+                    severity="danger"
+                    outlined
+                    aria-label="Dar de baja al producto"
+                    [disabled]="product.status === 'inactive'"
+                    (click)="remove(product)"
+                  >
+                    <i pButtonIcon class="pi pi-trash"></i>
+                    <span pButtonLabel>Dar de baja</span>
+                  </button>
+                </ng-container>
+              }
+            </div>
+          </header>
 
-        <ng-template #body let-product>
-            <tr>
-                <td>{{ product.sku }}</td>
-                <td>{{ product.name }}</td>
-                <td>{{ product.price }}</td>
+          @if (!creating()) {
+            <!-- Ficha y unidades del producto en pestañas -->
+            <p-tabs value="ficha">
+              <p-tablist aria-label="Secciones del producto">
+                <p-tab value="ficha">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-pencil" aria-hidden="true"></i>
+                    Ficha
+                  </span>
+                </p-tab>
+                <p-tab value="unidades">
+                  <span class="flex items-center gap-2">
+                    <i class="pi pi-tags" aria-hidden="true"></i>
+                    Unidades serializadas
+                    <p-tag
+                      [value]="selectedUnits().length + ''"
+                      severity="info"
+                      [rounded]="true"
+                    />
+                  </span>
+                </p-tab>
+              </p-tablist>
 
-                <td>
-                    @if (withoutUnits().has(product.id)) {
-                    <p-tag value="Sin unidades activas" severity="danger" />
-                    } @else {
-                    {{ unitCounts().get(product.id) ?? 0 }}
-                    }
-                </td>
+              <p-tabpanels>
+                <p-tabpanel value="ficha">
+                  <app-product-form
+                    [product]="selected()"
+                    [resetKey]="resetKey()"
+                    [saving]="saving()"
+                    (saved)="save($event)"
+                    (cancelled)="clearDetail()"
+                  />
+                </p-tabpanel>
 
-                <td>
-                    <app-status-tag [status]="product.status" />
-                </td>
+                <p-tabpanel value="unidades">
+                  <section
+                    aria-label="Unidades del producto"
+                    class="flex flex-col gap-3"
+                  >
+                    <div class="flex justify-end">
+                      <a
+                        pButton
+                        type="button"
+                        severity="secondary"
+                        outlined
+                        routerLink="/unidades-serializadas"
+                      >
+                        <i pButtonIcon class="pi pi-plus"></i>
+                        <span pButtonLabel>Administrar unidades</span>
+                      </a>
+                    </div>
 
-                <td class="text-right">
-                    <ng-container *appHasPermission="'PATCH /api/products/:id'">
-                        <button pButton type="button" text rounded severity="secondary" aria-label="Editar producto"
-                            pTooltip="Editar" (click)="openEdit(product)">
-                            <i pButtonIcon class="pi pi-pencil"></i>
-                        </button>
-                    </ng-container>
+                    <p-table
+                      [value]="selectedUnits()"
+                      dataKey="id"
+                      [rowHover]="true"
+                      [paginator]="selectedUnits().length > 5"
+                      [rows]="5"
+                    >
+                      <ng-template #header>
+                        <tr>
+                          <th>Serial</th>
+                          <th>Estado</th>
+                        </tr>
+                      </ng-template>
 
-                    <ng-container *appHasPermission="'DELETE /api/products/:id'">
-                        <button pButton type="button" text rounded severity="danger" aria-label="Dar de baja al producto"
-                            pTooltip="Dar de baja" [disabled]="product.status === 'inactive'" (click)="remove(product)">
-                            <i pButtonIcon class="pi pi-trash"></i>
-                        </button>
-                    </ng-container>
-                </td>
-            </tr>
-        </ng-template>
+                      <ng-template #body let-unit>
+                        <tr>
+                          <td>
+                            <code class="text-xs">{{ unit.serial }}</code>
+                          </td>
+                          <td>
+                            <app-status-tag [status]="unit.status" />
+                          </td>
+                        </tr>
+                      </ng-template>
 
-        <ng-template #emptymessage>
-            <tr>
-                <td colspan="6">
-                    @if (filter() || availableOnly()) {
-                    <app-empty-state icon="pi pi-search" title="Sin coincidencias"
-                        message="Ningún producto coincide. Borra el filtro o desactiva «Solo disponibles»." />
-                    } @else {
-                    <app-empty-state icon="pi pi-box" title="Sin productos registrados"
-                        message="Registra el primer producto con el botón «Nuevo producto»." />
-                    }
-                </td>
-            </tr>
-        </ng-template>
-    </p-table>
-
-    <p-dialog [visible]="dialogVisible()" (visibleChange)="dialogVisible.set($event)"
-        [header]="editing() ? 'Editar producto' : 'Nuevo producto'" [modal]="true" [draggable]="false"
-        [resizable]="false" styleClass="w-full max-w-2xl mx-4">
-        <app-product-form [product]="editing()" [saving]="saving()" [resetKey]="resetKey()" (saved)="save($event)"
-            (cancelled)="dialogVisible.set(false)" />
-    </p-dialog>
+                      <ng-template #emptymessage>
+                        <tr>
+                          <td colspan="2">
+                            <app-empty-state
+                              icon="pi pi-tags"
+                              title="Sin unidades activas"
+                              message="Registra unidades serializadas para este producto."
+                            />
+                          </td>
+                        </tr>
+                      </ng-template>
+                    </p-table>
+                  </section>
+                </p-tabpanel>
+              </p-tabpanels>
+            </p-tabs>
+          } @else {
+            <app-product-form
+              [product]="null"
+              [resetKey]="resetKey()"
+              [saving]="saving()"
+              (saved)="save($event)"
+              (cancelled)="clearDetail()"
+            />
+          }
+        </div>
+      } @else {
+        <app-empty-state
+          icon="pi pi-box"
+          title="Selecciona un producto"
+          message="Elige un producto del listado para ver su ficha y sus unidades."
+        />
+      }
+    </section>
+  </div>
 </div>

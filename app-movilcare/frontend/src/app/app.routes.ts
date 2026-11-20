@@ -79,13 +79,31 @@ export const routes: Routes = [
             .then((m) => m.SaleList),
       },
       {
-        path: 'ventas/:id',
-        title: 'Detalle de venta · MovilCare',
+        path: 'garantias',
+        title: 'Garantías · MovilCare',
         canActivate: [permissionGuard],
-        data: { permission: 'GET /api/sales/:id' },
+        data: { permission: 'GET /api/warranties' },
         loadComponent: () =>
-          import('./features/sales/sale-detail/sale-detail')
-            .then((m) => m.SaleDetail),
+          import('./features/warranties/warranty-list/warranty-list')
+            .then((m) => m.WarrantyList),
+      },
+      {
+        path: 'ordenes',
+        title: 'Órdenes de servicio · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/service-orders' },
+        loadComponent: () =>
+          import('./features/service-orders/service-order-list/service-order-list')
+            .then((m) => m.ServiceOrderList),
+      },
+      {
+        path: 'repuestos',
+        title: 'Repuestos · MovilCare',
+        canActivate: [permissionGuard],
+        data: { permission: 'GET /api/parts' },
+        loadComponent: () =>
+          import('./features/parts/part-list/part-list')
+            .then((m) => m.PartList),
       },
       {
         path: 'detalle-ventas',
