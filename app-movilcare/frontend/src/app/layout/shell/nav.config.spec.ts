@@ -1,4 +1,4 @@
-import { visibleNav } from './nav.config';
+import { NAV, visibleNav } from './nav.config';
 
 describe('menú filtrado', () => {
   it('con todos los permisos muestra las catorce entradas', () => {
@@ -19,5 +19,22 @@ describe('menú filtrado', () => {
     expect(labels).not.toContain('Concesiones');
     expect(labels).toContain('Usuarios');
     expect(labels).toHaveLength(13);
+  });
+
+  it('separa las catorce entradas en cinco grupos por flujo', () => {
+    expect(visibleNav(() => true).map((group) => group.label)).toEqual([
+      'General',
+      'Catálogo',
+      'Ventas',
+      'Servicio',
+      'Seguridad',
+    ]);
+
+    // Un grupo sin permisos desaparece entero, no deja cabecera vacía.
+    const sinServicio = visibleNav(
+      (permission) => permission !== 'GET /api/service-orders',
+    );
+    expect(sinServicio.map((group) => group.label)).not.toContain('Servicio');
+    expect(NAV).toHaveLength(5);
   });
 });

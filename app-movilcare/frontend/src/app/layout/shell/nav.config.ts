@@ -13,10 +13,13 @@ export interface NavGroupConfig {
   items: NavEntryConfig[];
 }
 
-/** Catálogo de MovilCare: Operación (negocio) y Seguridad (matriz RBAC). */
+/**
+ * Catálogo de MovilCare: cinco grupos por flujo de trabajo — General,
+ * Catálogo, Ventas, Servicio (taller) y Seguridad (matriz RBAC).
+ */
 export const NAV: NavGroupConfig[] = [
   {
-    label: 'Operación',
+    label: 'General',
     items: [
       {
         label: 'Panel',
@@ -30,6 +33,11 @@ export const NAV: NavGroupConfig[] = [
         routerLink: '/clientes',
         permission: 'GET /api/customers',
       },
+    ],
+  },
+  {
+    label: 'Catálogo',
+    items: [
       {
         label: 'Unidades serializadas',
         icon: 'pi pi-tags',
@@ -42,6 +50,17 @@ export const NAV: NavGroupConfig[] = [
         routerLink: '/productos',
         permission: 'GET /api/products',
       },
+      {
+        label: 'Repuestos',
+        icon: 'pi pi-cog',
+        routerLink: '/repuestos',
+        permission: 'GET /api/parts',
+      },
+    ],
+  },
+  {
+    label: 'Ventas',
+    items: [
       {
         label: 'Ventas',
         icon: 'pi pi-shopping-cart',
@@ -60,17 +79,16 @@ export const NAV: NavGroupConfig[] = [
         routerLink: '/garantias',
         permission: 'GET /api/warranties',
       },
+    ],
+  },
+  {
+    label: 'Servicio',
+    items: [
       {
         label: 'Órdenes de servicio',
         icon: 'pi pi-wrench',
         routerLink: '/ordenes',
         permission: 'GET /api/service-orders',
-      },
-      {
-        label: 'Repuestos',
-        icon: 'pi pi-cog',
-        routerLink: '/repuestos',
-        permission: 'GET /api/parts',
       },
     ],
   },
